@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TLP Inspect">
+<meta name="theme-color" content="#063461">
+<title>TLP Inspections</title>
+<style>
+  :root {
+    --navy: #063461;
+    --blue: #2E75B6;
+    --light-blue: #D6E4F0;
+    --green: #1A7A3F;
+    --green-light: #E8F5EE;
+    --red: #CC0000;
+    --red-light: #FDECEA;
+    --orange: #CC6600;
+    --orange-light: #FFF3E0;
+    --gray: #F5F5F5;
+    --mid-gray: #E0E0E0;
+    --dark-gray: #555;
+    --text: #1A1A2E;
+    --white: #FFFFFF;
+    --radius: 14px;
+    --shadow: 0 2px 12px rgba(6,52,97,0.10);
+    --shadow-md: 0 4px 24px rgba(6,52,97,0.15);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: #F0F4F8; color: var(--text); overscroll-behavior: none; }
+  body { display: flex; flex-direction: column; max-width: 480px; margin: 0 auto; min-height: 100vh; }
+
+  /* ── HEADER ── */
+  .header {
+    background: var(--navy);
+    color: white;
+    padding: env(safe-area-inset-top, 12px) 16px 12px;
+    padding-top: max(env(safe-area-inset-top), 12px);
+    display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .header-back { background: none; border: none; color: white; font-size: 22px; cursor: pointer; padding: 4px 8px 4px 0; line-height: 1; }
+  .header-title { flex: 1; font-size: 17px; font-weight: 700; letter-spacing: 0.2px; }
+  .header-sub { font-size: 11px; opacity: 0.75; font-weight: 400; }
+  .header-action { background: none; border: 2px solid rgba(255,255,255,0.5); color: white; border-radius: 20px; padding: 5px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .header-action:active { background: rgba(255,255,255,0.15); }
+
+  /* ── PROGRESS ── */
+  .progress-bar-wrap { background: rgba(255,255,255,0.15); height: 3px; }
+  .progress-bar-fill { height: 3px; background: #4FC3F7; transition: width 0.3s ease; }
+
+  /* ── SCREENS ── */
+  .screen { display: none; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 80px; }
+  .screen.active { display: block; }
+
+  /* ── HOME SCREEN ── */
+  .home-hero {
+    background: linear-gradient(160deg, var(--navy) 0%, var(--blue) 100%);
+    color: white; padding: 32px 20px 28px;
+    text-align: center;
+  }
+  .home-logo { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.8; margin-bottom: 6px; }
+  .home-title { font-size: 26px; font-weight: 800; margin-bottom: 4px; }
+  .home-sub { font-size: 14px; opacity: 0.75; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 20px 16px; }
+  .form-card {
+    background: white; border-radius: var(--radius); padding: 20px 14px;
+    box-shadow: var(--shadow); cursor: pointer; text-align: center;
+    transition: transform 0.15s, box-shadow 0.15s; border: 2px solid transparent;
+  }
+  .form-card:active { transform: scale(0.97); box-shadow: none; }
+  .form-card .icon { font-size: 32px; margin-bottom: 10px; display: block; }
+  .form-card .label { font-size: 13px; font-weight: 700; color: var(--navy); line-height: 1.3; }
+  .form-card .count { font-size: 11px; color: var(--dark-gray); margin-top: 4px; }
+  .form-card.arrival { border-color: var(--green); }
+  .form-card.departure { border-color: var(--red); }
+  .form-card.routine { border-color: var(--blue); }
+  .form-card.maintenance { border-color: var(--orange); }
+  .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--dark-gray); padding: 0 16px 8px; margin-top: 4px; }
+  .drafts-list { padding: 0 16px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .draft-card {
+    background: white; border-radius: 10px; padding: 14px 16px;
+    box-shadow: var(--shadow); display: flex; align-items: center; gap: 12px;
+    cursor: pointer;
+  }
+  .draft-card:active { background: var(--gray); }
+  .draft-icon { font-size: 22px; }
+  .draft-info { flex: 1; }
+  .draft-name { font-size: 14px; font-weight: 600; color: var(--navy); }
+  .draft-meta { font-size: 12px; color: var(--dark-gray); margin-top: 2px; }
+  .draft-pct { font-size: 13px; font-weight: 700; color: var(--green); }
+  .draft-delete { background: none; border: none; font-size: 18px; color: var(--mid-gray); cursor: pointer; padding: 4px; }
+
+  /* ── SETUP SCREEN ── */
+  .setup-form { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--dark-gray); }
+  .field input, .field select {
+    border: 2px solid var(--mid-gray); border-radius: 10px; padding: 13px 14px;
+    font-size: 16px; background: white; color: var(--text);
+    -webkit-appearance: none; appearance: none; width: 100%;
+    transition: border-color 0.2s;
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--blue); }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .btn-primary {
+    background: var(--navy); color: white; border: none; border-radius: 12px;
+    padding: 16px; font-size: 16px; font-weight: 700; cursor: pointer;
+    box-shadow: var(--shadow); width: 100%; margin-top: 4px;
+    transition: background 0.15s;
+  }
+  .btn-primary:active { background: var(--blue); }
+  .setup-banner {
+    background: var(--light-blue); border-radius: 10px; padding: 12px 14px;
+    font-size: 13px; color: var(--navy); display: flex; align-items: center; gap: 10px;
+  }
+  .setup-banner span { font-size: 20px; }
+
+  /* ── CHECKLIST SCREEN ── */
+  .checklist-wrap { padding: 12px 0 0; }
+  .section-block { margin: 0 0 8px; }
+  .section-head {
+    background: var(--navy); color: white;
+    padding: 10px 16px; font-size: 12px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 1px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .section-badge { background: rgba(255,255,255,0.2); border-radius: 12px; padding: 2px 9px; font-size: 11px; font-weight: 700; }
+  .item-row {
+    background: white; border-bottom: 1px solid var(--mid-gray);
+    padding: 0; display: flex; flex-direction: column;
+  }
+  .item-main {
+    display: flex; align-items: center; gap: 0; min-height: 54px; padding: 10px 12px;
+    cursor: pointer;
+  }
+  .item-text { flex: 1; font-size: 14px; line-height: 1.4; padding-right: 8px; }
+  .item-btns { display: flex; gap: 6px; flex-shrink: 0; }
+  .status-btn {
+    width: 40px; height: 36px; border-radius: 8px; border: 2px solid var(--mid-gray);
+    background: white; font-size: 11px; font-weight: 800; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; color: var(--dark-gray);
+  }
+  .status-btn:active { transform: scale(0.93); }
+  .status-btn.ok { background: var(--green); border-color: var(--green); color: white; }
+  .status-btn.issue { background: var(--red); border-color: var(--red); color: white; }
+  .status-btn.na { background: var(--dark-gray); border-color: var(--dark-gray); color: white; }
+  .item-expand { border: none; background: none; padding: 4px 0 0 0; cursor: pointer; font-size: 18px; color: var(--mid-gray); flex-shrink: 0; transition: color 0.2s; }
+  .item-expand.has-notes { color: var(--blue); }
+  .item-extras {
+    display: none; padding: 0 12px 12px; background: var(--gray);
+    border-top: 1px solid var(--mid-gray);
+  }
+  .item-extras.open { display: block; }
+  .note-input {
+    width: 100%; border: 1.5px solid var(--mid-gray); border-radius: 8px;
+    padding: 10px 12px; font-size: 14px; resize: none; font-family: inherit;
+    background: white; margin-top: 10px; min-height: 60px;
+  }
+  .note-input:focus { outline: none; border-color: var(--blue); }
+  .photo-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .photo-thumb { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; cursor: pointer; border: 2px solid var(--mid-gray); }
+  .photo-add {
+    width: 64px; height: 64px; border-radius: 8px; border: 2px dashed var(--mid-gray);
+    background: white; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 24px; color: var(--dark-gray); flex-shrink: 0;
+  }
+  .photo-add:active { background: var(--gray); }
+  .photo-file { display: none; }
+  .charge-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .charge-row label { font-size: 12px; font-weight: 700; color: var(--dark-gray); white-space: nowrap; }
+  .charge-input { border: 1.5px solid var(--mid-gray); border-radius: 8px; padding: 8px 10px; font-size: 14px; width: 110px; }
+  .charge-input:focus { outline: none; border-color: var(--red); }
+
+  /* item status tints */
+  .item-row.ok-row .item-main { background: var(--green-light); }
+  .item-row.issue-row .item-main { background: var(--red-light); }
+  .item-row.na-row .item-main { background: var(--gray); }
+
+  /* ── STICKY PROGRESS ── */
+  .sticky-prog {
+    position: sticky; top: 0; z-index: 50; background: white;
+    border-bottom: 1px solid var(--mid-gray); padding: 10px 16px 8px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .prog-bar { flex: 1; height: 8px; background: var(--mid-gray); border-radius: 4px; overflow: hidden; }
+  .prog-fill { height: 100%; background: var(--green); border-radius: 4px; transition: width 0.3s; }
+  .prog-text { font-size: 12px; font-weight: 700; color: var(--navy); white-space: nowrap; }
+  .prog-issues { font-size: 11px; color: var(--red); font-weight: 600; }
+
+  /* ── SUMMARY SCREEN ── */
+  .summary-wrap { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .summary-hero {
+    background: linear-gradient(135deg, var(--navy), var(--blue));
+    border-radius: var(--radius); padding: 24px 20px; color: white; text-align: center;
+  }
+  .summary-icon { font-size: 48px; margin-bottom: 8px; }
+  .summary-title { font-size: 20px; font-weight: 800; }
+  .summary-sub { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+  .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat-card { background: white; border-radius: 10px; padding: 14px 8px; text-align: center; box-shadow: var(--shadow); }
+  .stat-num { font-size: 28px; font-weight: 800; }
+  .stat-num.green { color: var(--green); }
+  .stat-num.red { color: var(--red); }
+  .stat-num.gray { color: var(--dark-gray); }
+  .stat-label { font-size: 11px; color: var(--dark-gray); margin-top: 2px; }
+  .issues-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .issues-head { background: var(--red-light); padding: 12px 16px; font-size: 13px; font-weight: 700; color: var(--red); display: flex; justify-content: space-between; }
+  .issue-item { padding: 12px 16px; border-top: 1px solid var(--mid-gray); }
+  .issue-item-name { font-size: 14px; font-weight: 600; color: var(--text); }
+  .issue-item-section { font-size: 11px; color: var(--dark-gray); margin-bottom: 3px; }
+  .issue-item-note { font-size: 13px; color: var(--dark-gray); margin-top: 4px; font-style: italic; }
+  .issue-item-charge { font-size: 13px; font-weight: 700; color: var(--red); margin-top: 4px; }
+  .no-issues { padding: 20px; text-align: center; color: var(--green); font-weight: 600; font-size: 14px; }
+  .status-select-row { display: flex; gap: 8px; }
+  .status-option { flex: 1; padding: 12px 8px; border: 2px solid var(--mid-gray); border-radius: 10px; text-align: center; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s; color: var(--dark-gray); background: white; }
+  .status-option:active { transform: scale(0.97); }
+  .status-option.ready.selected { background: var(--green); border-color: var(--green); color: white; }
+  .status-option.conditional.selected { background: var(--orange); border-color: var(--orange); color: white; }
+  .status-option.not-ready.selected { background: var(--red); border-color: var(--red); color: white; }
+  .sig-area { border: 2px dashed var(--mid-gray); border-radius: 10px; height: 80px; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--dark-gray); cursor: pointer; background: white; }
+  .action-btns { display: flex; flex-direction: column; gap: 10px; }
+  .btn-green { background: var(--green); color: white; border: none; border-radius: 12px; padding: 16px; font-size: 16px; font-weight: 700; cursor: pointer; width: 100%; }
+  .btn-green:active { opacity: 0.85; }
+  .btn-outline { background: white; color: var(--navy); border: 2px solid var(--navy); border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; width: 100%; }
+  .btn-outline:active { background: var(--gray); }
+  .btn-danger { background: var(--red); color: white; border: none; border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; }
+  .small-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--dark-gray); margin-bottom: 6px; }
+
+  /* ── BOTTOM NAV ── */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 480px;
+    background: white; border-top: 1px solid var(--mid-gray);
+    display: flex; padding: 8px 0 max(env(safe-area-inset-bottom), 8px);
+    z-index: 100; box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+  }
+  .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; cursor: pointer; padding: 4px; color: var(--dark-gray); font-size: 10px; font-weight: 600; }
+  .nav-btn .nav-icon { font-size: 22px; }
+  .nav-btn.active { color: var(--navy); }
+  .nav-btn.active .nav-icon { transform: scale(1.1); }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--text); color: white; padding: 10px 20px; border-radius: 20px;
+    font-size: 13px; font-weight: 600; opacity: 0; transition: all 0.3s;
+    pointer-events: none; z-index: 999; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── MODAL ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; display: none; align-items: flex-end; }
+  .modal-overlay.open { display: flex; }
+  .modal-sheet { background: white; border-radius: 20px 20px 0 0; padding: 20px 20px max(env(safe-area-inset-bottom), 20px); width: 100%; max-height: 80vh; overflow-y: auto; }
+  .modal-handle { width: 40px; height: 4px; background: var(--mid-gray); border-radius: 2px; margin: 0 auto 16px; }
+  .modal-title { font-size: 18px; font-weight: 800; color: var(--navy); margin-bottom: 12px; }
+  .modal-img { width: 100%; border-radius: 10px; margin-bottom: 12px; }
+  .modal-close { width: 100%; padding: 14px; background: var(--gray); border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; }
+
+  /* Misc */
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--dark-gray); }
+  .empty-state .es-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; line-height: 1.5; }
+  .charge-total { background: var(--red-light); border-radius: 10px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
+  .charge-total-label { font-size: 14px; font-weight: 700; color: var(--red); }
+  .charge-total-amt { font-size: 22px; font-weight: 800; color: var(--red); }
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<div class="header" id="appHeader">
+  <button class="header-back" id="backBtn" onclick="goBack()" style="display:none">‹</button>
+  <div style="flex:1">
+    <div class="header-title" id="headerTitle">TLP Inspections</div>
+    <div class="header-sub" id="headerSub">Tahoe Luxury Properties</div>
+  </div>
+  <button class="header-action" id="headerAction" style="display:none" onclick="headerActionFn()">Done</button>
+</div>
+<div class="progress-bar-wrap" id="globalProg" style="display:none">
+  <div class="progress-bar-fill" id="globalProgFill" style="width:0%"></div>
+</div>
+
+<!-- ═══ SCREENS ═══ -->
+
+<!-- HOME -->
+<div class="screen active" id="screenHome">
+  <div class="home-hero">
+    <div class="home-logo">Tahoe Luxury Properties</div>
+    <div class="home-title">Property Inspections</div>
+    <div class="home-sub">Tap a form to begin</div>
+  </div>
+  <div class="form-grid">
+    <div class="form-card arrival" onclick="startForm('arrival')">
+      <span class="icon">✅</span>
+      <div class="label">Guest Arrival</div>
+      <div class="count">Pre check-in</div>
+    </div>
+    <div class="form-card departure" onclick="startForm('departure')">
+      <span class="icon">🔍</span>
+      <div class="label">Guest Departure</div>
+      <div class="count">Post checkout</div>
+    </div>
+    <div class="form-card routine" onclick="startForm('routine')">
+      <span class="icon">📋</span>
+      <div class="label">Routine Inspection</div>
+      <div class="count">Quarterly / semi-annual</div>
+    </div>
+    <div class="form-card maintenance" onclick="startForm('maintenance')">
+      <span class="icon">🔧</span>
+      <div class="label">Maintenance Check</div>
+      <div class="count">Preventive tasks</div>
+    </div>
+  </div>
+  <div id="draftsSection" style="display:none">
+    <div class="section-label">Saved Drafts</div>
+    <div class="drafts-list" id="draftsList"></div>
+  </div>
+</div>
+
+<!-- SETUP -->
+<div class="screen" id="screenSetup">
+  <div class="setup-form">
+    <div class="setup-banner">
+      <span id="setupIcon">✅</span>
+      <div><strong id="setupFormName">Guest Arrival Inspection</strong><br><span style="font-size:12px;color:var(--dark-gray)">Fill in property details to begin</span></div>
+    </div>
+    <div class="field">
+      <label>Property Name</label>
+      <input type="text" id="fieldProperty" placeholder="e.g. Lakefront Estate - North Shore" autocomplete="off">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="fieldDate">
+      </div>
+      <div class="field">
+        <label>Time</label>
+        <input type="time" id="fieldTime">
+      </div>
+    </div>
+    <div class="field">
+      <label>Inspector Name</label>
+      <input type="text" id="fieldInspector" placeholder="Your name" autocomplete="off">
+    </div>
+    <div class="field" id="guestNameField">
+      <label id="guestNameLabel">Guest Name</label>
+      <input type="text" id="fieldGuest" placeholder="Reservation guest" autocomplete="off">
+    </div>
+    <div class="field" id="checkInField" style="display:none">
+      <label id="checkInLabel">Check-in Date / Time</label>
+      <input type="text" id="fieldCheckIn" placeholder="e.g. July 4, 3:00 PM" autocomplete="off">
+    </div>
+    <button class="btn-primary" onclick="startChecklist()">Start Inspection →</button>
+  </div>
+</div>
+
+<!-- CHECKLIST -->
+<div class="screen" id="screenChecklist">
+  <div class="sticky-prog">
+    <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+    <div>
+      <div class="prog-text" id="progText">0 / 0</div>
+      <div class="prog-issues" id="progIssues"></div>
+    </div>
+  </div>
+  <div class="checklist-wrap" id="checklistWrap"></div>
+  <div style="padding: 16px;">
+    <button class="btn-primary" onclick="showSummary()">View Summary & Complete →</button>
+  </div>
+</div>
+
+<!-- SUMMARY -->
+<div class="screen" id="screenSummary">
+  <div class="summary-wrap" id="summaryWrap"></div>
+</div>
+
+<!-- ═══ BOTTOM NAV ═══ -->
+<div class="bottom-nav" id="bottomNav" style="display:none">
+  <button class="nav-btn" onclick="showScreen('screenChecklist')">
+    <span class="nav-icon">☑️</span>Checklist
+  </button>
+  <button class="nav-btn" onclick="saveAndHome()">
+    <span class="nav-icon">💾</span>Save Draft
+  </button>
+  <button class="nav-btn" onclick="showSummary()">
+    <span class="nav-icon">📊</span>Summary
+  </button>
+</div>
+
+<!-- MODAL (photo viewer) -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal()">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modalTitle"></div>
+    <img id="modalImg" class="modal-img" src="" alt="">
+    <button class="modal-close" onclick="closeModal()">Close</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════
+// DATA — ALL FORM CHECKLISTS
+// ═══════════════════════════════════════
+const FORMS = {
+  arrival: {
+    name: 'Guest Arrival Inspection',
+    icon: '✅',
+    type: 'arrival',
+    showCharge: false,
+    showRating: false,
+    sections: [
+      { title: 'Exterior & Entry', items: [
+        'Driveway clear and free of debris / snow',
+        'Exterior lighting functional (entry, pathway, landscape)',
+        'Front door lock / smart lock coded correctly',
+        'Welcome mat and entry area clean',
+        'Garbage and recycling bins emptied and stored',
+        'Exterior windows clean and free of damage',
+        'Deck / patio furniture clean and properly arranged',
+        'BBQ grill clean and propane tank full',
+        'Hot tub cover removed / spa ready (correct temp, clean water)',
+        'Firewood stocked (if wood-burning fireplace)',
+        'Dock / pier safe and accessible (seasonal)',
+        'Kayaks / paddleboards ready (seasonal)',
+        'Ski locker / boot warmer accessible and functional (seasonal)',
+      ]},
+      { title: 'Living Room & Common Areas', items: [
+        'Entry foyer clean and free of clutter',
+        'Living room cleaned and staged (pillows, throws arranged)',
+        'Fireplace clean, functional, and ready',
+        'TV and entertainment system functional (remotes present)',
+        'Wi-Fi router operational (password displayed)',
+        'Smart home system operational (thermostat, lighting, locks)',
+        'Windows and sliding doors clean and operational',
+        'Flooring clean (vacuumed / mopped)',
+        'Air quality acceptable (no odors)',
+        'Guest welcome book / binder present and current',
+        'Emergency contact info posted',
+      ]},
+      { title: 'Kitchen & Dining', items: [
+        'Countertops clean and sanitized',
+        'Refrigerator clean, empty of prior guest items, and at temp',
+        'Stovetop / oven clean and functional',
+        'Dishwasher clean (cycle complete)',
+        'Trash can empty and lined',
+        'Dishes, glasses, and cookware clean and properly stored',
+        'Coffee maker clean and stocked',
+        'Pantry stocked per welcome package (coffee, tea, oil, salt/pepper)',
+        'Paper towels, dish soap, sponge stocked',
+        'Dining table clean and properly set',
+      ]},
+      { title: 'Bedrooms', items: [
+        'Bedroom 1 — fresh linens, bed made, closet with hangers',
+        'Bedroom 1 — nightstands clean, lamps functional',
+        'Bedroom 1 — flooring clean, windows clean',
+        'Bedroom 2 — fresh linens, bed made, closet with hangers',
+        'Bedroom 2 — nightstands clean, lamps functional',
+        'Bedroom 2 — flooring clean, windows clean',
+        'Bedroom 3 — fresh linens, bed made, closet with hangers',
+        'Bedroom 3 — nightstands clean, lamps functional',
+        'Bedroom 4 — fresh linens, bed made, closet with hangers',
+        'All alarm clocks / phone chargers in place',
+        'Extra blankets and pillows in closets',
+      ]},
+      { title: 'Bathrooms', items: [
+        'Primary bath — toilet clean and functioning',
+        'Primary bath — shower/tub clean, no soap scum or hair',
+        'Primary bath — mirrors streak-free',
+        'Primary bath — towels fresh (per standard count)',
+        'Primary bath — toiletries fully stocked',
+        'Primary bath — toilet paper (min. 2 rolls visible)',
+        'Guest bath 1 — toilet, shower/tub clean and functional',
+        'Guest bath 1 — towels, toiletries, and TP stocked',
+        'Guest bath 2 — toilet, shower/tub clean and functional',
+        'Guest bath 2 — towels, toiletries, and TP stocked',
+        'Guest bath 3 — toilet, shower/tub clean and functional',
+        'Hair dryers present and functional in all bathrooms',
+        'No leaks under sinks or around toilets',
+      ]},
+      { title: 'Systems & Utilities', items: [
+        'HVAC / heating operational, thermostat set to welcome temp',
+        'All light switches and outlets functional',
+        'Generator tested and fueled (if applicable)',
+        'Smoke detectors tested and batteries good',
+        'Carbon monoxide detectors tested and batteries good',
+        'Fire extinguisher present, charged, and accessible',
+        'First aid kit stocked',
+        'Water pressure acceptable throughout',
+        'No signs of leaks, water damage, or mold',
+        'Internet / Wi-Fi confirmed operational',
+        'Smart door locks coded and functional',
+        'Garage door opener functional',
+      ]},
+      { title: 'Final Amenities', items: [
+        'Washer and dryer clean and operational',
+        'Laundry detergent and dryer sheets stocked',
+        'Game room / entertainment area set up',
+        'Ski storage / drying room organized (seasonal)',
+        'Boot warmers operational (seasonal)',
+        'Outdoor furniture covers removed and stored',
+        'Parking passes / garage remotes in designated place',
+        'Welcome gift / amenity package placed per reservation',
+      ]},
+    ]
+  },
+
+  departure: {
+    name: 'Guest Departure Inspection',
+    icon: '🔍',
+    type: 'departure',
+    showCharge: true,
+    showRating: false,
+    sections: [
+      { title: 'Exterior & Entry', items: [
+        'Driveway / parking area condition',
+        'Entry and pathway clean',
+        'Exterior furniture returned to proper position',
+        'BBQ grill condition and cleanliness',
+        'Hot tub / spa condition (cover replaced, water clean)',
+        'Dock / watercraft returned and secured (seasonal)',
+        'Fire pit clean (ash cleaned, screen in place)',
+        'Garbage and recycling properly sorted and stored',
+        'Exterior windows — no new damage',
+      ]},
+      { title: 'Living Room & Common Areas', items: [
+        'Furniture — no stains, damage, or rearrangement',
+        'Fireplace clean (no excess ash, glass clean)',
+        'TV and remotes present and functional',
+        'Rugs and flooring — no stains or damage',
+        'Windows and sliding doors — no damage, locked',
+        'Walls and baseboards — no marks, holes, or damage',
+        'Décor items — all present and undamaged',
+        'Guest welcome book present and intact',
+      ]},
+      { title: 'Kitchen & Dining', items: [
+        'Countertops clean and undamaged',
+        'Refrigerator cleaned out and wiped down',
+        'Stovetop / oven clean',
+        'Microwave clean',
+        'Dishwasher run (dishes clean and put away)',
+        'Cookware and bakeware — count complete, undamaged',
+        'Dishes, glasses, mugs — count complete, undamaged',
+        'Small appliances present and undamaged',
+        'Trash cans emptied and cleaned',
+        'Dining table and chairs — clean, no damage',
+      ]},
+      { title: 'Bedrooms', items: [
+        'Bedroom 1 — linens condition and count (stains?)',
+        'Bedroom 1 — mattress / protector (no stains or damage)',
+        'Bedroom 1 — furniture, floors, walls, windows',
+        'Bedroom 2 — linens condition and count',
+        'Bedroom 2 — mattress / protector',
+        'Bedroom 2 — furniture, floors, walls, windows',
+        'Bedroom 3 — linens condition and count',
+        'Bedroom 3 — mattress / protector',
+        'Bedroom 3 — furniture, floors, walls, windows',
+        'Bedroom 4 — linens condition and count',
+        'Bedroom 4 — furniture, floors, walls, windows',
+        'Extra blankets / pillows — count and condition',
+      ]},
+      { title: 'Bathrooms', items: [
+        'Primary bath — toilet (clean, no damage)',
+        'Primary bath — shower/tub (no damage)',
+        'Primary bath — vanity, mirrors, fixtures',
+        'Primary bath — towels count and condition',
+        'Guest bath 1 — toilet, shower/tub, vanity',
+        'Guest bath 1 — towels count and condition',
+        'Guest bath 2 — toilet, shower/tub, vanity',
+        'Guest bath 3 — toilet, shower/tub, vanity',
+        'Hair dryers present and undamaged',
+        'No new plumbing leaks or clogs found',
+      ]},
+      { title: 'Systems Reset & Utilities', items: [
+        'Thermostat reset to standby temperature',
+        'Smart home devices / locks reset for next guest',
+        'All lights turned off',
+        'Windows and doors locked',
+        'Fireplace gas shutoff confirmed',
+        'Hot water heater set to standby (if seasonal)',
+        'No new damage to HVAC, appliances, or utilities',
+        'Smoke / CO detector batteries functional',
+      ]},
+    ]
+  },
+
+  routine: {
+    name: 'Routine Property Inspection',
+    icon: '📋',
+    type: 'routine',
+    showCharge: false,
+    showRating: true,
+    sections: [
+      { title: 'Exterior & Structure', items: [
+        'Roof — no missing shingles, sagging, or visible damage',
+        'Gutters and downspouts clear and properly attached',
+        'Chimney / flue condition and cap intact',
+        'Exterior siding / paint / stucco condition',
+        'Foundation — no cracks or water intrusion',
+        'Windows and doors (seals, frames, hardware)',
+        'Garage door and opener condition',
+        'Driveway and pathways (cracks, settling)',
+        'Deck structural integrity (boards, railings, fasteners)',
+        'Exterior stairs and handrails secure',
+        'Landscaping and irrigation condition',
+        'All exterior lighting functional',
+        'Snow load / drainage (post-winter)',
+      ]},
+      { title: 'Interior — Living Spaces', items: [
+        'Ceilings — no water stains, cracks, or damage',
+        'Walls and paint / wallcovering condition',
+        'Flooring — wear, damage, stains (hardwood, tile, carpet)',
+        'Baseboards and trim condition',
+        'Fireplace and hearth (structural, glass, damper)',
+        'Staircase and railings (secure, no creaking)',
+        'Windows (seals, operation)',
+        'Furniture (upholstery, frames, wear)',
+        'Lighting fixtures and fans (operation, condition)',
+        'Door hardware and locks (all rooms)',
+        'Smart home devices (hubs, thermostats, locks)',
+      ]},
+      { title: 'Kitchen', items: [
+        'Cabinets and drawer hardware',
+        'Countertops — no chips, cracks, or burns',
+        'Refrigerator (seal, interior, ice maker)',
+        'Dishwasher (door seal, spray arms, drain)',
+        'Oven and stovetop (burners, igniter)',
+        'Range hood / ventilation',
+        'Garbage disposal',
+        'Sink and faucet (leaks, drain, pressure)',
+        'Under-sink plumbing — no leaks',
+        'Small appliances inventory and condition',
+      ]},
+      { title: 'Bedrooms', items: [
+        'Bedroom 1 — walls, ceiling, floors, windows',
+        'Bedroom 1 — closet doors, hardware, shelving',
+        'Bedroom 2 — walls, ceiling, floors, windows',
+        'Bedroom 2 — closet doors, hardware, shelving',
+        'Bedroom 3 — walls, ceiling, floors, windows',
+        'Bedroom 4 — walls, ceiling, floors, windows',
+        'Mattresses (condition, support)',
+        'TV mounts and entertainment systems',
+      ]},
+      { title: 'Bathrooms', items: [
+        'Primary bath — grout, caulk, tile condition',
+        'Primary bath — shower/tub enclosure (seals, glass)',
+        'Primary bath — toilet (flush, seal, fill valve)',
+        'Guest bath 1 — overall condition',
+        'Guest bath 2 — overall condition',
+        'Guest bath 3 — overall condition',
+        'All exhaust fans functional',
+        'No signs of mold or mildew',
+        'Under-sink plumbing — no leaks',
+      ]},
+      { title: 'Systems & Mechanical', items: [
+        'HVAC system (filter condition, airflow)',
+        'Furnace / boiler (service record current)',
+        'Water heater (age, temperature, pressure relief valve)',
+        'Water pressure throughout (consistent)',
+        'Hot tub (jets, heater, chemistry, cover)',
+        'Generator (fuel, start test)',
+        'Electrical panel (no tripped breakers)',
+        'Smoke detectors (test all)',
+        'Carbon monoxide detectors (test all)',
+        'Fire extinguisher (charged, within service date)',
+        'Internet / Wi-Fi router and network equipment',
+        'Security system / cameras (operational)',
+        'Propane / natural gas lines and shutoff valves',
+      ]},
+      { title: 'Amenities & Specialty', items: [
+        'Hot tub / jacuzzi (jets, heater, water quality, cover)',
+        'Dock and lake access (structural, lighting, safety)',
+        'Kayaks / paddleboards (condition and storage)',
+        'Ski / snowboard storage and drying room',
+        'Boot warmers functional',
+        'Game room equipment',
+        'Home theater / AV system',
+        'Laundry room (washer, dryer, vent duct)',
+        'Outdoor BBQ (burners, igniter, cover)',
+        'Fire pit condition',
+      ]},
+      { title: 'Safety & Compliance', items: [
+        'STR permit posted and current',
+        'Noise / HOA rules posted for guests',
+        'Emergency evacuation route posted',
+        'First aid kit fully stocked',
+        'Fire escape route clear (all floors)',
+        'Life rings / safety at waterfront (seasonal)',
+        'No trip hazards on walkways or stairs',
+        'Exterior pathways lit adequately',
+      ]},
+    ]
+  },
+
+  maintenance: {
+    name: 'Maintenance Check',
+    icon: '🔧',
+    type: 'maintenance',
+    showCharge: false,
+    showRating: false,
+    sections: [
+      { title: 'HVAC & Heating (Monthly / Seasonal)', items: [
+        'Replace HVAC air filters',
+        'Test and calibrate thermostat',
+        'Check furnace / boiler igniter and burners',
+        'HVAC annual service completed (log date)',
+        'Clean air ducts (every 3 years)',
+      ]},
+      { title: 'Hot Tub / Spa', items: [
+        'Water chemistry test and balance',
+        'Inspect jets, pump, and heater',
+        'Check and clean filter',
+        'Inspect cover (condition, hinges, straps)',
+        'Full drain, clean, and refill (quarterly)',
+      ]},
+      { title: 'Plumbing', items: [
+        'Inspect all plumbing for leaks',
+        'Test water pressure (all fixtures)',
+        'Flush water heater and check anode rod',
+        'Inspect gutters and downspouts',
+        'Winterize irrigation system (October)',
+        'Activate and test irrigation (May)',
+      ]},
+      { title: 'Electrical & Safety', items: [
+        'Test all smoke detectors',
+        'Test all CO detectors',
+        'Replace smoke / CO detector batteries (annual)',
+        'Test GFCI outlets (kitchen, baths, exterior)',
+        'Inspect electrical panel (breakers, labeling)',
+        'Check and test generator (run under load)',
+        'Refuel and check generator oil',
+        'Fire extinguisher inspection (tagged)',
+      ]},
+      { title: 'Exterior & Structure', items: [
+        'Roof inspection (annual — post ski season)',
+        'Chimney sweep and inspection (September)',
+        'Check exterior caulking and weatherstripping',
+        'Power wash exterior, decks, and paths',
+        'Inspect and repair driveway',
+        'Pest inspection and treatment',
+        'Deck inspection and staining / sealing',
+        'Touch-up or repaint exterior (as needed)',
+      ]},
+      { title: 'Seasonal — Winter Prep (October)', items: [
+        'Activate snow removal contract',
+        'Winterize outdoor plumbing / irrigation',
+        'Install pipe insulation on at-risk pipes',
+        'Stock firewood (full cord)',
+        'Check and stock salt / ice melt',
+        'Inspect ski storage and boot warmers',
+        'Check and service generator pre-season',
+      ]},
+      { title: 'Seasonal — Spring/Summer Opening (May)', items: [
+        'Open and inspect dock',
+        'Service and launch watercraft',
+        'Service BBQ grill (deep clean, replace parts)',
+        'Set up and inspect outdoor furniture',
+        'Activate irrigation system',
+        'Carpet and upholstery professional cleaning',
+        'Mattress inspection and rotation',
+      ]},
+      { title: 'Interior & Compliance', items: [
+        'Deep clean all appliances',
+        'Inspect and replace caulking (baths / kitchen)',
+        'Touch-up interior paint',
+        'Inventory and restock linen supply',
+        'Restock welcome / consumable supplies',
+        'Verify STR permit current and posted',
+        'Update emergency contact list at property',
+        'First aid kit restock',
+      ]},
+    ]
+  }
+};
+
+// ═══════════════════════════════════════
+// APP STATE
+// ═══════════════════════════════════════
+let state = {
+  formType: null,
+  formData: null,       // FORMS[formType]
+  info: {},             // property, date, time, inspector, guest
+  items: {},            // { sectionIdx_itemIdx: { status, notes, photos, charge } }
+  draftId: null,
+};
+
+function newState() {
+  return {
+    formType: null, formData: null, info: {}, items: {}, draftId: Date.now()
+  };
+}
+
+// ═══════════════════════════════════════
+// NAV / SCREENS
+// ═══════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function goBack() {
+  if (document.getElementById('screenSummary').classList.contains('active')) {
+    showScreen('screenChecklist');
+    document.getElementById('bottomNav').style.display = 'flex';
+    setHeader('Inspection', state.info.property || '', true, false, null);
+  } else if (document.getElementById('screenChecklist').classList.contains('active')) {
+    if (confirm('Go back? Your progress is saved.')) {
+      saveDraft();
+      resetToHome();
+    }
+  } else if (document.getElementById('screenSetup').classList.contains('active')) {
+    resetToHome();
+  }
+}
+
+function resetToHome() {
+  state = newState();
+  document.getElementById('bottomNav').style.display = 'none';
+  document.getElementById('globalProg').style.display = 'none';
+  setHeader('TLP Inspections', 'Tahoe Luxury Properties', false, false, null);
+  document.getElementById('backBtn').style.display = 'none';
+  renderDrafts();
+  showScreen('screenHome');
+}
+
+function setHeader(title, sub, showBack, showAction, actionLabel) {
+  document.getElementById('headerTitle').textContent = title;
+  document.getElementById('headerSub').textContent = sub;
+  document.getElementById('backBtn').style.display = showBack ? 'block' : 'none';
+  const btn = document.getElementById('headerAction');
+  if (showAction) {
+    btn.style.display = 'block';
+    btn.textContent = actionLabel;
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+let headerActionFn = () => {};
+
+// ═══════════════════════════════════════
+// FORM START
+// ═══════════════════════════════════════
+function startForm(type, draftId) {
+  state = newState();
+  state.formType = type;
+  state.formData = FORMS[type];
+  if (draftId) state.draftId = draftId;
+
+  const form = FORMS[type];
+  document.getElementById('setupIcon').textContent = form.icon;
+  document.getElementById('setupFormName').textContent = form.name;
+
+  // Set date/time defaults
+  const now = new Date();
+  document.getElementById('fieldDate').value = now.toISOString().split('T')[0];
+  document.getElementById('fieldTime').value = now.toTimeString().slice(0,5);
+
+  // Restore saved inspector name
+  const savedInspector = localStorage.getItem('tlp_inspector');
+  if (savedInspector) document.getElementById('fieldInspector').value = savedInspector;
+
+  // Adjust guest field label
+  const guestLabel = document.getElementById('guestNameLabel');
+  const checkInField = document.getElementById('checkInField');
+  if (type === 'arrival') {
+    guestLabel.textContent = 'Guest Name';
+    document.getElementById('guestNameField').style.display = 'block';
+    checkInField.style.display = 'block';
+    document.getElementById('checkInLabel').textContent = 'Reservation / Check-in Time';
+  } else if (type === 'departure') {
+    guestLabel.textContent = 'Guest Name (departing)';
+    document.getElementById('guestNameField').style.display = 'block';
+    checkInField.style.display = 'none';
+  } else {
+    document.getElementById('guestNameField').style.display = 'none';
+    checkInField.style.display = 'none';
+  }
+
+  // Load draft if exists
+  if (draftId) loadDraft(draftId);
+
+  setHeader(form.name, '', true, false, null);
+  showScreen('screenSetup');
+}
+
+function startChecklist() {
+  const prop = document.getElementById('fieldProperty').value.trim();
+  if (!prop) { showToast('Enter a property name'); document.getElementById('fieldProperty').focus(); return; }
+  const inspector = document.getElementById('fieldInspector').value.trim();
+  if (!inspector) { showToast('Enter inspector name'); document.getElementById('fieldInspector').focus(); return; }
+
+  state.info = {
+    property: prop,
+    date: document.getElementById('fieldDate').value,
+    time: document.getElementById('fieldTime').value,
+    inspector,
+    guest: document.getElementById('fieldGuest').value.trim(),
+    checkIn: document.getElementById('fieldCheckIn').value.trim(),
+  };
+
+  // Save inspector name for next time
+  localStorage.setItem('tlp_inspector', inspector);
+
+  buildChecklist();
+  setHeader(state.formData.icon + ' ' + state.formData.name, state.info.property, true, false, null);
+  document.getElementById('bottomNav').style.display = 'flex';
+  document.getElementById('globalProg').style.display = 'block';
+  showScreen('screenChecklist');
+  updateProgress();
+}
+
+// ═══════════════════════════════════════
+// CHECKLIST BUILDER
+// ═══════════════════════════════════════
+function buildChecklist() {
+  const wrap = document.getElementById('checklistWrap');
+  wrap.innerHTML = '';
+  const form = state.formData;
+
+  form.sections.forEach((section, si) => {
+    const block = document.createElement('div');
+    block.className = 'section-block';
+
+    const head = document.createElement('div');
+    head.className = 'section-head';
+    head.innerHTML = `<span>${section.title}</span><span class="section-badge" id="sec-badge-${si}">${section.items.length}</span>`;
+    block.appendChild(head);
+
+    section.items.forEach((itemText, ii) => {
+      const key = `${si}_${ii}`;
+      const saved = state.items[key] || {};
+
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      row.id = `row-${key}`;
+      if (saved.status) row.classList.add(saved.status + '-row');
+
+      const main = document.createElement('div');
+      main.className = 'item-main';
+
+      const text = document.createElement('div');
+      text.className = 'item-text';
+      text.textContent = itemText;
+
+      const btns = document.createElement('div');
+      btns.className = 'item-btns';
+
+      ['ok','issue','na'].forEach(s => {
+        const btn = document.createElement('button');
+        btn.className = 'status-btn' + (saved.status === s ? ' ' + s : '');
+        btn.textContent = s === 'ok' ? '✓' : s === 'issue' ? '!' : 'N/A';
+        btn.dataset.status = s;
+        btn.onclick = (e) => { e.stopPropagation(); setStatus(key, s, si); };
+        btns.appendChild(btn);
+      });
+
+      const expandBtn = document.createElement('button');
+      expandBtn.className = 'item-expand' + (saved.notes || (saved.photos && saved.photos.length) ? ' has-notes' : '');
+      expandBtn.textContent = '…';
+      expandBtn.id = `expand-${key}`;
+      expandBtn.onclick = () => toggleExtras(key);
+
+      main.appendChild(text);
+      main.appendChild(btns);
+      main.appendChild(expandBtn);
+      row.appendChild(main);
+
+      // Extras panel
+      const extras = document.createElement('div');
+      extras.className = 'item-extras';
+      extras.id = `extras-${key}`;
+
+      const noteInput = document.createElement('textarea');
+      noteInput.className = 'note-input';
+      noteInput.placeholder = 'Add notes here…';
+      noteInput.value = saved.notes || '';
+      noteInput.onchange = () => { updateItem(key, 'notes', noteInput.value); };
+      extras.appendChild(noteInput);
+
+      // Photo area
+      const photoRow = document.createElement('div');
+      photoRow.className = 'photo-row';
+      photoRow.id = `photos-${key}`;
+
+      const addBtn = document.createElement('div');
+      addBtn.className = 'photo-add';
+      addBtn.textContent = '📷';
+      addBtn.onclick = () => document.getElementById(`photo-file-${key}`).click();
+
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/*';
+      fileInput.capture = 'environment';
+      fileInput.className = 'photo-file';
+      fileInput.id = `photo-file-${key}`;
+      fileInput.onchange = (e) => handlePhoto(e, key);
+
+      photoRow.appendChild(addBtn);
+      photoRow.appendChild(fileInput);
+
+      // Restore saved photos
+      if (saved.photos) {
+        saved.photos.forEach((src, pi) => addPhotoThumb(photoRow, src, key, pi));
+      }
+      extras.appendChild(photoRow);
+
+      // Charge field (departure only)
+      if (state.formData.showCharge) {
+        const chargeRow = document.createElement('div');
+        chargeRow.className = 'charge-row';
+        chargeRow.innerHTML = '<label>Damage Charge ($):</label>';
+        const chargeInput = document.createElement('input');
+        chargeInput.type = 'number';
+        chargeInput.className = 'charge-input';
+        chargeInput.placeholder = '0.00';
+        chargeInput.value = saved.charge || '';
+        chargeInput.onchange = () => updateItem(key, 'charge', parseFloat(chargeInput.value) || 0);
+        chargeRow.appendChild(chargeInput);
+        extras.appendChild(chargeRow);
+      }
+
+      row.appendChild(extras);
+      block.appendChild(row);
+    });
+
+    wrap.appendChild(block);
+  });
+}
+
+function toggleExtras(key) {
+  const el = document.getElementById(`extras-${key}`);
+  el.classList.toggle('open');
+  if (el.classList.contains('open')) {
+    el.querySelector('.note-input').focus();
+  }
+}
+
+function setStatus(key, status, si) {
+  const row = document.getElementById(`row-${key}`);
+  const old = (state.items[key] || {}).status;
+
+  // Toggle off if same
+  if (old === status) {
+    row.classList.remove(status + '-row');
+    if (!state.items[key]) state.items[key] = {};
+    state.items[key].status = null;
+    row.querySelectorAll('.status-btn').forEach(b => b.classList.remove(b.dataset.status));
+    // Auto-open extras if issue
+  } else {
+    row.classList.remove('ok-row','issue-row','na-row');
+    row.classList.add(status + '-row');
+    if (!state.items[key]) state.items[key] = {};
+    state.items[key].status = status;
+    row.querySelectorAll('.status-btn').forEach(b => {
+      b.classList.remove('ok','issue','na');
+      if (b.dataset.status === status) b.classList.add(status);
+    });
+    // Auto-open notes on issue
+    if (status === 'issue') {
+      const extras = document.getElementById(`extras-${key}`);
+      if (!extras.classList.contains('open')) extras.classList.add('open');
+    }
+  }
+
+  saveDraftSilent();
+  updateProgress();
+  updateSectionBadge(si);
+}
+
+function updateItem(key, field, value) {
+  if (!state.items[key]) state.items[key] = {};
+  state.items[key][field] = value;
+  // Update expand button color
+  const expand = document.getElementById(`expand-${key}`);
+  if (expand) {
+    const item = state.items[key];
+    const hasExtras = item.notes || (item.photos && item.photos.length);
+    expand.classList.toggle('has-notes', !!hasExtras);
+  }
+  saveDraftSilent();
+}
+
+function handlePhoto(e, key) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    if (!state.items[key]) state.items[key] = {};
+    if (!state.items[key].photos) state.items[key].photos = [];
+    const src = ev.target.result;
+    const idx = state.items[key].photos.length;
+    state.items[key].photos.push(src);
+    const photoRow = document.getElementById(`photos-${key}`);
+    addPhotoThumb(photoRow, src, key, idx);
+    const expand = document.getElementById(`expand-${key}`);
+    if (expand) expand.classList.add('has-notes');
+    saveDraftSilent();
+    showToast('📷 Photo added');
+  };
+  reader.readAsDataURL(file);
+}
+
+function addPhotoThumb(container, src, key, idx) {
+  const img = document.createElement('img');
+  img.src = src;
+  img.className = 'photo-thumb';
+  img.onclick = () => openModal('Photo', src);
+  // Insert before the add button
+  const addBtn = container.querySelector('.photo-add');
+  container.insertBefore(img, addBtn);
+}
+
+function updateProgress() {
+  const form = state.formData;
+  if (!form) return;
+  let total = 0, answered = 0, issues = 0;
+  form.sections.forEach((sec, si) => {
+    sec.items.forEach((_, ii) => {
+      total++;
+      const item = state.items[`${si}_${ii}`];
+      if (item && item.status) {
+        answered++;
+        if (item.status === 'issue') issues++;
+      }
+    });
+  });
+  const pct = total > 0 ? Math.round((answered/total)*100) : 0;
+  document.getElementById('progFill').style.width = pct + '%';
+  document.getElementById('progText').textContent = `${answered} / ${total}`;
+  document.getElementById('progIssues').textContent = issues > 0 ? `${issues} issue${issues>1?'s':''} flagged` : '';
+  document.getElementById('globalProgFill').style.width = pct + '%';
+}
+
+function updateSectionBadge(si) {
+  const badge = document.getElementById(`sec-badge-${si}`);
+  if (!badge) return;
+  const sec = state.formData.sections[si];
+  let done = 0, issues = 0;
+  sec.items.forEach((_, ii) => {
+    const item = state.items[`${si}_${ii}`];
+    if (item && item.status) done++;
+    if (item && item.status === 'issue') issues++;
+  });
+  badge.textContent = issues > 0 ? `${issues} ⚠️` : `${done}/${sec.items.length}`;
+  badge.style.background = issues > 0 ? 'rgba(204,0,0,0.7)' : done === sec.items.length ? 'rgba(26,122,63,0.7)' : 'rgba(255,255,255,0.2)';
+}
+
+// ═══════════════════════════════════════
+// SUMMARY
+// ═══════════════════════════════════════
+function showSummary() {
+  saveDraft();
+  const form = state.formData;
+  let total = 0, ok = 0, issues = 0, na = 0, totalCharge = 0;
+  const issueList = [];
+
+  form.sections.forEach((sec, si) => {
+    sec.items.forEach((itemText, ii) => {
+      total++;
+      const item = state.items[`${si}_${ii}`] || {};
+      if (item.status === 'ok') ok++;
+      else if (item.status === 'issue') {
+        issues++;
+        issueList.push({ section: sec.title, text: itemText, notes: item.notes || '', charge: item.charge || 0, photos: item.photos || [] });
+        totalCharge += item.charge || 0;
+      }
+      else if (item.status === 'na') na++;
+    });
+  });
+
+  const pct = total > 0 ? Math.round(((ok+issues+na)/total)*100) : 0;
+  const icon = issues === 0 ? '🏆' : issues < 5 ? '⚠️' : '🚨';
+  const summaryTitle = issues === 0 ? 'All Clear!' : `${issues} Issue${issues>1?'s':''} Found`;
+
+  let html = `
+  <div class="summary-hero">
+    <div class="summary-icon">${icon}</div>
+    <div class="summary-title">${summaryTitle}</div>
+    <div class="summary-sub">${state.info.property} &nbsp;·&nbsp; ${formatDate(state.info.date)}</div>
+  </div>
+  <div class="stat-row">
+    <div class="stat-card"><div class="stat-num green">${ok}</div><div class="stat-label">OK</div></div>
+    <div class="stat-card"><div class="stat-num red">${issues}</div><div class="stat-label">Issues</div></div>
+    <div class="stat-card"><div class="stat-num gray">${na}</div><div class="stat-label">N/A</div></div>
+  </div>`;
+
+  // Issue list
+  html += `<div class="issues-card">
+    <div class="issues-head"><span>⚠️ Issues Flagged</span><span>${issues}</span></div>`;
+  if (issueList.length === 0) {
+    html += `<div class="no-issues">✅ No issues found — property is in great shape!</div>`;
+  } else {
+    issueList.forEach(it => {
+      html += `<div class="issue-item">
+        <div class="issue-item-section">${it.section}</div>
+        <div class="issue-item-name">${it.text}</div>
+        ${it.notes ? `<div class="issue-item-note">"${it.notes}"</div>` : ''}
+        ${it.charge > 0 ? `<div class="issue-item-charge">Charge: $${it.charge.toFixed(2)}</div>` : ''}
+      </div>`;
+    });
+  }
+  html += '</div>';
+
+  // Total charges (departure only)
+  if (state.formData.showCharge && totalCharge > 0) {
+    html += `<div class="charge-total">
+      <span class="charge-total-label">Total Damage Charges</span>
+      <span class="charge-total-amt">$${totalCharge.toFixed(2)}</span>
+    </div>`;
+  }
+
+  // Overall status selector (arrival / departure)
+  if (state.formType === 'arrival') {
+    html += `<div>
+      <div class="small-label">Overall Status</div>
+      <div class="status-select-row">
+        <div class="status-option ready" id="s-ready" onclick="selectStatus('ready')">✅ Ready</div>
+        <div class="status-option conditional" id="s-conditional" onclick="selectStatus('conditional')">⚠️ Conditional</div>
+        <div class="status-option not-ready" id="s-not-ready" onclick="selectStatus('not-ready')">🚫 Not Ready</div>
+      </div>
+    </div>`;
+  }
+
+  // Inspector info
+  html += `<div style="background:white;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);font-size:13px;line-height:2;color:var(--dark-gray)">
+    <strong style="color:var(--navy);font-size:14px">Inspection Details</strong><br>
+    <strong>Form:</strong> ${form.name}<br>
+    <strong>Property:</strong> ${state.info.property}<br>
+    <strong>Inspector:</strong> ${state.info.inspector}<br>
+    <strong>Date / Time:</strong> ${formatDate(state.info.date)} at ${state.info.time}<br>
+    ${state.info.guest ? `<strong>Guest:</strong> ${state.info.guest}<br>` : ''}
+    <strong>Completion:</strong> ${pct}% (${ok+issues+na}/${total} items)
+  </div>`;
+
+  // Action buttons
+  html += `<div class="action-btns">
+    <button class="btn-green" onclick="emailReport()">📧 Email Report</button>
+    <button class="btn-outline" onclick="showScreen('screenChecklist'); document.getElementById('bottomNav').style.display='flex'">← Back to Checklist</button>
+    <button class="btn-danger" onclick="confirmFinish()">✅ Mark Complete & Finish</button>
+  </div>`;
+
+  html += `<div style="height:20px"></div>`;
+
+  document.getElementById('summaryWrap').innerHTML = html;
+
+  // Restore status selection
+  if (state.overallStatus) selectStatus(state.overallStatus);
+
+  setHeader('Summary', state.info.property, true, false, null);
+  document.getElementById('bottomNav').style.display = 'none';
+  showScreen('screenSummary');
+}
+
+let selectedStatus = null;
+function selectStatus(s) {
+  selectedStatus = s;
+  state.overallStatus = s;
+  document.querySelectorAll('.status-option').forEach(el => el.classList.remove('selected'));
+  const el = document.getElementById('s-' + s);
+  if (el) el.classList.add('selected');
+  saveDraftSilent();
+}
+
+// ═══════════════════════════════════════
+// EMAIL REPORT
+// ═══════════════════════════════════════
+function emailReport() {
+  const form = state.formData;
+  const info = state.info;
+  let body = `TAHOE LUXURY PROPERTIES — ${form.name.toUpperCase()}\n`;
+  body += '='.repeat(50) + '\n';
+  body += `Property: ${info.property}\n`;
+  body += `Date/Time: ${formatDate(info.date)} at ${info.time}\n`;
+  body += `Inspector: ${info.inspector}\n`;
+  if (info.guest) body += `Guest: ${info.guest}\n`;
+  body += '\n';
+
+  let totalCharge = 0;
+  form.sections.forEach((sec, si) => {
+    let secLines = [];
+    sec.items.forEach((itemText, ii) => {
+      const item = state.items[`${si}_${ii}`] || {};
+      const tag = item.status === 'ok' ? '✓ OK' : item.status === 'issue' ? '⚠ ISSUE' : item.status === 'na' ? '- N/A' : '  ';
+      let line = `  ${tag}  ${itemText}`;
+      if (item.notes) line += `\n       Note: ${item.notes}`;
+      if (item.charge > 0) { line += `\n       Charge: $${item.charge.toFixed(2)}`; totalCharge += item.charge; }
+      secLines.push(line);
+    });
+    body += `\n${sec.title.toUpperCase()}\n${'─'.repeat(40)}\n`;
+    body += secLines.join('\n') + '\n';
+  });
+
+  if (state.formData.showCharge && totalCharge > 0) {
+    body += `\n${'='.repeat(50)}\nTOTAL DAMAGE CHARGES: $${totalCharge.toFixed(2)}\n`;
+  }
+
+  if (state.overallStatus) {
+    const statusMap = { 'ready': '✅ READY FOR CHECK-IN', 'conditional': '⚠️ CONDITIONAL', 'not-ready': '🚫 NOT READY' };
+    body += `\nOVERALL STATUS: ${statusMap[state.overallStatus]}\n`;
+  }
+
+  body += `\n—\nSent from TLP Inspection App`;
+
+  const subject = `${form.name} — ${info.property} — ${formatDate(info.date)}`;
+  const mailto = `mailto:info@tluxp.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.location.href = mailto;
+  showToast('Opening email app…');
+}
+
+// ═══════════════════════════════════════
+// DRAFT SAVE / LOAD
+// ═══════════════════════════════════════
+function saveDraftSilent() {
+  if (!state.formType) return;
+  const drafts = getDrafts();
+  drafts[state.draftId] = {
+    id: state.draftId,
+    formType: state.formType,
+    info: state.info,
+    items: state.items,
+    overallStatus: state.overallStatus,
+    savedAt: Date.now(),
+  };
+  localStorage.setItem('tlp_drafts', JSON.stringify(drafts));
+}
+
+function saveDraft() {
+  saveDraftSilent();
+  showToast('💾 Draft saved');
+}
+
+function loadDraft(id) {
+  const drafts = getDrafts();
+  const d = drafts[id];
+  if (!d) return;
+  state.items = d.items || {};
+  state.info = d.info || {};
+  state.overallStatus = d.overallStatus;
+  // Pre-fill setup fields
+  if (d.info.property) document.getElementById('fieldProperty').value = d.info.property;
+  if (d.info.date) document.getElementById('fieldDate').value = d.info.date;
+  if (d.info.time) document.getElementById('fieldTime').value = d.info.time;
+  if (d.info.inspector) document.getElementById('fieldInspector').value = d.info.inspector;
+  if (d.info.guest) document.getElementById('fieldGuest').value = d.info.guest;
+}
+
+function getDrafts() {
+  try { return JSON.parse(localStorage.getItem('tlp_drafts') || '{}'); } catch { return {}; }
+}
+
+function renderDrafts() {
+  const drafts = getDrafts();
+  const keys = Object.keys(drafts).sort((a,b) => drafts[b].savedAt - drafts[a].savedAt);
+  const section = document.getElementById('draftsSection');
+  const list = document.getElementById('draftsList');
+  if (keys.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  list.innerHTML = '';
+  keys.slice(0, 5).forEach(id => {
+    const d = drafts[id];
+    const form = FORMS[d.formType];
+    if (!form) return;
+    // Count progress
+    let total = 0, done = 0;
+    form.sections.forEach((sec, si) => sec.items.forEach((_, ii) => { total++; if ((d.items[`${si}_${ii}`]||{}).status) done++; }));
+    const pct = total > 0 ? Math.round(done/total*100) : 0;
+    const el = document.createElement('div');
+    el.className = 'draft-card';
+    el.innerHTML = `
+      <div class="draft-icon">${form.icon}</div>
+      <div class="draft-info">
+        <div class="draft-name">${d.info.property || 'Unnamed property'}</div>
+        <div class="draft-meta">${form.name} · ${d.info.date || 'No date'}</div>
+      </div>
+      <div class="draft-pct">${pct}%</div>
+      <button class="draft-delete" onclick="deleteDraft(event,'${id}')">×</button>`;
+    el.onclick = () => { startForm(d.formType, id); };
+    list.appendChild(el);
+  });
+}
+
+function deleteDraft(e, id) {
+  e.stopPropagation();
+  if (!confirm('Delete this draft?')) return;
+  const drafts = getDrafts();
+  delete drafts[id];
+  localStorage.setItem('tlp_drafts', JSON.stringify(drafts));
+  renderDrafts();
+  showToast('Draft deleted');
+}
+
+function saveAndHome() {
+  saveDraft();
+  if (confirm('Save draft and return home?')) {
+    resetToHome();
+  }
+}
+
+function confirmFinish() {
+  if (!confirm('Mark this inspection as complete? It will be saved and you\'ll return home.')) return;
+  saveDraftSilent();
+  showToast('✅ Inspection complete!');
+  setTimeout(resetToHome, 1000);
+}
+
+// ═══════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════
+function formatDate(d) {
+  if (!d) return '';
+  const dt = new Date(d + 'T12:00:00');
+  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function openModal(title, src) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalImg').src = src;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  renderDrafts();
+  // Set today's date default
+  document.getElementById('fieldDate').value = new Date().toISOString().split('T')[0];
+});
+</script>
+</body>
+</html>
