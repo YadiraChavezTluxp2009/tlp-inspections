@@ -9,284 +9,159 @@
 <meta name="theme-color" content="#063461">
 <title>TLP Inspections</title>
 <style>
-  :root {
-    --navy: #063461;
-    --blue: #2E75B6;
-    --light-blue: #D6E4F0;
-    --green: #1A7A3F;
-    --green-light: #E8F5EE;
-    --red: #CC0000;
-    --red-light: #FDECEA;
-    --orange: #CC6600;
-    --orange-light: #FFF3E0;
-    --gray: #F5F5F5;
-    --mid-gray: #E0E0E0;
-    --dark-gray: #555;
-    --text: #1A1A2E;
-    --white: #FFFFFF;
-    --radius: 14px;
-    --shadow: 0 2px 12px rgba(6,52,97,0.10);
-    --shadow-md: 0 4px 24px rgba(6,52,97,0.15);
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: #F0F4F8; color: var(--text); overscroll-behavior: none; }
-  body { display: flex; flex-direction: column; max-width: 480px; margin: 0 auto; min-height: 100vh; }
-
-  /* ── HEADER ── */
-  .header {
-    background: var(--navy);
-    color: white;
-    padding: env(safe-area-inset-top, 12px) 16px 12px;
-    padding-top: max(env(safe-area-inset-top), 12px);
-    display: flex; align-items: center; gap: 12px;
-    position: sticky; top: 0; z-index: 100;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  }
-  .header-back { background: none; border: none; color: white; font-size: 22px; cursor: pointer; padding: 4px 8px 4px 0; line-height: 1; }
-  .header-title { flex: 1; font-size: 17px; font-weight: 700; letter-spacing: 0.2px; }
-  .header-sub { font-size: 11px; opacity: 0.75; font-weight: 400; }
-  .header-action { background: none; border: 2px solid rgba(255,255,255,0.5); color: white; border-radius: 20px; padding: 5px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
-  .header-action:active { background: rgba(255,255,255,0.15); }
-
-  /* ── PROGRESS ── */
-  .progress-bar-wrap { background: rgba(255,255,255,0.15); height: 3px; }
-  .progress-bar-fill { height: 3px; background: #4FC3F7; transition: width 0.3s ease; }
-
-  /* ── SCREENS ── */
-  .screen { display: none; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 80px; }
-  .screen.active { display: block; }
-
-  /* ── HOME SCREEN ── */
-  .home-hero {
-    background: linear-gradient(160deg, var(--navy) 0%, var(--blue) 100%);
-    color: white; padding: 32px 20px 28px;
-    text-align: center;
-  }
-  .home-logo { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.8; margin-bottom: 6px; }
-  .home-title { font-size: 26px; font-weight: 800; margin-bottom: 4px; }
-  .home-sub { font-size: 14px; opacity: 0.75; }
-  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 20px 16px; }
-  .form-card {
-    background: white; border-radius: var(--radius); padding: 20px 14px;
-    box-shadow: var(--shadow); cursor: pointer; text-align: center;
-    transition: transform 0.15s, box-shadow 0.15s; border: 2px solid transparent;
-  }
-  .form-card:active { transform: scale(0.97); box-shadow: none; }
-  .form-card .icon { font-size: 32px; margin-bottom: 10px; display: block; }
-  .form-card .label { font-size: 13px; font-weight: 700; color: var(--navy); line-height: 1.3; }
-  .form-card .count { font-size: 11px; color: var(--dark-gray); margin-top: 4px; }
-  .form-card.arrival { border-color: var(--green); }
-  .form-card.departure { border-color: var(--red); }
-  .form-card.routine { border-color: var(--blue); }
-  .form-card.maintenance { border-color: var(--orange); }
-  .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--dark-gray); padding: 0 16px 8px; margin-top: 4px; }
-  .drafts-list { padding: 0 16px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-  .draft-card {
-    background: white; border-radius: 10px; padding: 14px 16px;
-    box-shadow: var(--shadow); display: flex; align-items: center; gap: 12px;
-    cursor: pointer;
-  }
-  .draft-card:active { background: var(--gray); }
-  .draft-icon { font-size: 22px; }
-  .draft-info { flex: 1; }
-  .draft-name { font-size: 14px; font-weight: 600; color: var(--navy); }
-  .draft-meta { font-size: 12px; color: var(--dark-gray); margin-top: 2px; }
-  .draft-pct { font-size: 13px; font-weight: 700; color: var(--green); }
-  .draft-delete { background: none; border: none; font-size: 18px; color: var(--mid-gray); cursor: pointer; padding: 4px; }
-
-  /* ── SETUP SCREEN ── */
-  .setup-form { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-  .field { display: flex; flex-direction: column; gap: 5px; }
-  .field label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--dark-gray); }
-  .field input, .field select {
-    border: 2px solid var(--mid-gray); border-radius: 10px; padding: 13px 14px;
-    font-size: 16px; background: white; color: var(--text);
-    -webkit-appearance: none; appearance: none; width: 100%;
-    transition: border-color 0.2s;
-  }
-  .field input:focus, .field select:focus { outline: none; border-color: var(--blue); }
-  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .btn-primary {
-    background: var(--navy); color: white; border: none; border-radius: 12px;
-    padding: 16px; font-size: 16px; font-weight: 700; cursor: pointer;
-    box-shadow: var(--shadow); width: 100%; margin-top: 4px;
-    transition: background 0.15s;
-  }
-  .btn-primary:active { background: var(--blue); }
-  .setup-banner {
-    background: var(--light-blue); border-radius: 10px; padding: 12px 14px;
-    font-size: 13px; color: var(--navy); display: flex; align-items: center; gap: 10px;
-  }
-  .setup-banner span { font-size: 20px; }
-
-  /* ── CHECKLIST SCREEN ── */
-  .checklist-wrap { padding: 12px 0 0; }
-  .section-block { margin: 0 0 8px; }
-  .section-head {
-    background: var(--navy); color: white;
-    padding: 10px 16px; font-size: 12px; font-weight: 800;
-    text-transform: uppercase; letter-spacing: 1px;
-    display: flex; justify-content: space-between; align-items: center;
-  }
-  .section-badge { background: rgba(255,255,255,0.2); border-radius: 12px; padding: 2px 9px; font-size: 11px; font-weight: 700; }
-  .item-row {
-    background: white; border-bottom: 1px solid var(--mid-gray);
-    padding: 0; display: flex; flex-direction: column;
-  }
-  .item-main {
-    display: flex; align-items: center; gap: 0; min-height: 54px; padding: 10px 12px;
-    cursor: pointer;
-  }
-  .item-text { flex: 1; font-size: 14px; line-height: 1.4; padding-right: 8px; }
-  .item-btns { display: flex; gap: 6px; flex-shrink: 0; }
-  .status-btn {
-    width: 40px; height: 36px; border-radius: 8px; border: 2px solid var(--mid-gray);
-    background: white; font-size: 11px; font-weight: 800; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.15s; color: var(--dark-gray);
-  }
-  .status-btn:active { transform: scale(0.93); }
-  .status-btn.ok { background: var(--green); border-color: var(--green); color: white; }
-  .status-btn.issue { background: var(--red); border-color: var(--red); color: white; }
-  .status-btn.na { background: var(--dark-gray); border-color: var(--dark-gray); color: white; }
-  .item-expand { border: none; background: none; padding: 4px 0 0 0; cursor: pointer; font-size: 18px; color: var(--mid-gray); flex-shrink: 0; transition: color 0.2s; }
-  .item-expand.has-notes { color: var(--blue); }
-  .item-extras {
-    display: none; padding: 0 12px 12px; background: var(--gray);
-    border-top: 1px solid var(--mid-gray);
-  }
-  .item-extras.open { display: block; }
-  .note-input {
-    width: 100%; border: 1.5px solid var(--mid-gray); border-radius: 8px;
-    padding: 10px 12px; font-size: 14px; resize: none; font-family: inherit;
-    background: white; margin-top: 10px; min-height: 60px;
-  }
-  .note-input:focus { outline: none; border-color: var(--blue); }
-  .photo-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-  .photo-thumb { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; cursor: pointer; border: 2px solid var(--mid-gray); }
-  .photo-add {
-    width: 64px; height: 64px; border-radius: 8px; border: 2px dashed var(--mid-gray);
-    background: white; display: flex; align-items: center; justify-content: center;
-    cursor: pointer; font-size: 24px; color: var(--dark-gray); flex-shrink: 0;
-  }
-  .photo-add:active { background: var(--gray); }
-  .photo-file { display: none; }
-  .charge-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
-  .charge-row label { font-size: 12px; font-weight: 700; color: var(--dark-gray); white-space: nowrap; }
-  .charge-input { border: 1.5px solid var(--mid-gray); border-radius: 8px; padding: 8px 10px; font-size: 14px; width: 110px; }
-  .charge-input:focus { outline: none; border-color: var(--red); }
-
-  /* item status tints */
-  .item-row.ok-row .item-main { background: var(--green-light); }
-  .item-row.issue-row .item-main { background: var(--red-light); }
-  .item-row.na-row .item-main { background: var(--gray); }
-
-  /* ── STICKY PROGRESS ── */
-  .sticky-prog {
-    position: sticky; top: 0; z-index: 50; background: white;
-    border-bottom: 1px solid var(--mid-gray); padding: 10px 16px 8px;
-    display: flex; align-items: center; gap: 12px;
-  }
-  .prog-bar { flex: 1; height: 8px; background: var(--mid-gray); border-radius: 4px; overflow: hidden; }
-  .prog-fill { height: 100%; background: var(--green); border-radius: 4px; transition: width 0.3s; }
-  .prog-text { font-size: 12px; font-weight: 700; color: var(--navy); white-space: nowrap; }
-  .prog-issues { font-size: 11px; color: var(--red); font-weight: 600; }
-
-  /* ── SUMMARY SCREEN ── */
-  .summary-wrap { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-  .summary-hero {
-    background: linear-gradient(135deg, var(--navy), var(--blue));
-    border-radius: var(--radius); padding: 24px 20px; color: white; text-align: center;
-  }
-  .summary-icon { font-size: 48px; margin-bottom: 8px; }
-  .summary-title { font-size: 20px; font-weight: 800; }
-  .summary-sub { font-size: 13px; opacity: 0.8; margin-top: 4px; }
-  .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .stat-card { background: white; border-radius: 10px; padding: 14px 8px; text-align: center; box-shadow: var(--shadow); }
-  .stat-num { font-size: 28px; font-weight: 800; }
-  .stat-num.green { color: var(--green); }
-  .stat-num.red { color: var(--red); }
-  .stat-num.gray { color: var(--dark-gray); }
-  .stat-label { font-size: 11px; color: var(--dark-gray); margin-top: 2px; }
-  .issues-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
-  .issues-head { background: var(--red-light); padding: 12px 16px; font-size: 13px; font-weight: 700; color: var(--red); display: flex; justify-content: space-between; }
-  .issue-item { padding: 12px 16px; border-top: 1px solid var(--mid-gray); }
-  .issue-item-name { font-size: 14px; font-weight: 600; color: var(--text); }
-  .issue-item-section { font-size: 11px; color: var(--dark-gray); margin-bottom: 3px; }
-  .issue-item-note { font-size: 13px; color: var(--dark-gray); margin-top: 4px; font-style: italic; }
-  .issue-item-charge { font-size: 13px; font-weight: 700; color: var(--red); margin-top: 4px; }
-  .no-issues { padding: 20px; text-align: center; color: var(--green); font-weight: 600; font-size: 14px; }
-  .status-select-row { display: flex; gap: 8px; }
-  .status-option { flex: 1; padding: 12px 8px; border: 2px solid var(--mid-gray); border-radius: 10px; text-align: center; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s; color: var(--dark-gray); background: white; }
-  .status-option:active { transform: scale(0.97); }
-  .status-option.ready.selected { background: var(--green); border-color: var(--green); color: white; }
-  .status-option.conditional.selected { background: var(--orange); border-color: var(--orange); color: white; }
-  .status-option.not-ready.selected { background: var(--red); border-color: var(--red); color: white; }
-  .sig-area { border: 2px dashed var(--mid-gray); border-radius: 10px; height: 80px; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--dark-gray); cursor: pointer; background: white; }
-  .action-btns { display: flex; flex-direction: column; gap: 10px; }
-  .btn-green { background: var(--green); color: white; border: none; border-radius: 12px; padding: 16px; font-size: 16px; font-weight: 700; cursor: pointer; width: 100%; }
-  .btn-green:active { opacity: 0.85; }
-  .btn-outline { background: white; color: var(--navy); border: 2px solid var(--navy); border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; width: 100%; }
-  .btn-outline:active { background: var(--gray); }
-  .btn-danger { background: var(--red); color: white; border: none; border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; }
-  .small-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--dark-gray); margin-bottom: 6px; }
-
-  /* ── BOTTOM NAV ── */
-  .bottom-nav {
-    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-    width: 100%; max-width: 480px;
-    background: white; border-top: 1px solid var(--mid-gray);
-    display: flex; padding: 8px 0 max(env(safe-area-inset-bottom), 8px);
-    z-index: 100; box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
-  }
-  .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; cursor: pointer; padding: 4px; color: var(--dark-gray); font-size: 10px; font-weight: 600; }
-  .nav-btn .nav-icon { font-size: 22px; }
-  .nav-btn.active { color: var(--navy); }
-  .nav-btn.active .nav-icon { transform: scale(1.1); }
-
-  /* ── TOAST ── */
-  .toast {
-    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
-    background: var(--text); color: white; padding: 10px 20px; border-radius: 20px;
-    font-size: 13px; font-weight: 600; opacity: 0; transition: all 0.3s;
-    pointer-events: none; z-index: 999; white-space: nowrap;
-  }
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-  /* ── MODAL ── */
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; display: none; align-items: flex-end; }
-  .modal-overlay.open { display: flex; }
-  .modal-sheet { background: white; border-radius: 20px 20px 0 0; padding: 20px 20px max(env(safe-area-inset-bottom), 20px); width: 100%; max-height: 80vh; overflow-y: auto; }
-  .modal-handle { width: 40px; height: 4px; background: var(--mid-gray); border-radius: 2px; margin: 0 auto 16px; }
-  .modal-title { font-size: 18px; font-weight: 800; color: var(--navy); margin-bottom: 12px; }
-  .modal-img { width: 100%; border-radius: 10px; margin-bottom: 12px; }
-  .modal-close { width: 100%; padding: 14px; background: var(--gray); border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; }
-
-  /* Misc */
-  .empty-state { text-align: center; padding: 40px 20px; color: var(--dark-gray); }
-  .empty-state .es-icon { font-size: 48px; margin-bottom: 12px; }
-  .empty-state p { font-size: 14px; line-height: 1.5; }
-  .charge-total { background: var(--red-light); border-radius: 10px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
-  .charge-total-label { font-size: 14px; font-weight: 700; color: var(--red); }
-  .charge-total-amt { font-size: 22px; font-weight: 800; color: var(--red); }
+:root{--navy:#063461;--blue:#2E75B6;--light-blue:#D6E4F0;--green:#1A7A3F;--green-light:#E8F5EE;--red:#CC0000;--red-light:#FDECEA;--orange:#CC6600;--orange-light:#FFF3E0;--gray:#F5F5F5;--mid-gray:#E0E0E0;--dark-gray:#555;--text:#1A1A2E;--white:#FFFFFF;--radius:14px;--shadow:0 2px 12px rgba(6,52,97,.10);--shadow-md:0 4px 24px rgba(6,52,97,.15)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#F0F4F8;color:var(--text);overscroll-behavior:none}
+body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height:100vh}
+.header{background:var(--navy);color:white;padding:env(safe-area-inset-top,12px) 16px 12px;padding-top:max(env(safe-area-inset-top),12px);display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.header-back{background:none;border:none;color:white;font-size:22px;cursor:pointer;padding:4px 8px 4px 0;line-height:1}
+.header-title{flex:1;font-size:17px;font-weight:700;letter-spacing:.2px}
+.header-sub{font-size:11px;opacity:.75;font-weight:400}
+.progress-bar-wrap{background:rgba(255,255,255,.15);height:3px}
+.progress-bar-fill{height:3px;background:#4FC3F7;transition:width .3s ease}
+.screen{display:none;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px}
+.screen.active{display:block}
+.home-hero{background:linear-gradient(160deg,var(--navy) 0%,var(--blue) 100%);color:white;padding:32px 20px 28px;text-align:center}
+.home-logo{font-size:13px;letter-spacing:2px;text-transform:uppercase;opacity:.8;margin-bottom:6px}
+.home-title{font-size:26px;font-weight:800;margin-bottom:4px}
+.home-sub{font-size:14px;opacity:.75}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:20px 16px}
+.form-card{background:white;border-radius:var(--radius);padding:20px 14px;box-shadow:var(--shadow);cursor:pointer;text-align:center;transition:transform .15s,box-shadow .15s;border:2px solid transparent}
+.form-card:active{transform:scale(.97);box-shadow:none}
+.form-card .icon{font-size:32px;margin-bottom:10px;display:block}
+.form-card .label{font-size:13px;font-weight:700;color:var(--navy);line-height:1.3}
+.form-card .count{font-size:11px;color:var(--dark-gray);margin-top:4px}
+.form-card.arrival{border-color:var(--green)}.form-card.departure{border-color:var(--red)}.form-card.routine{border-color:var(--blue)}.form-card.maintenance{border-color:var(--orange)}
+.section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--dark-gray);padding:0 16px 8px;margin-top:4px}
+.drafts-list{padding:0 16px;display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.draft-card{background:white;border-radius:10px;padding:14px 16px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;cursor:pointer}
+.draft-card:active{background:var(--gray)}
+.draft-icon{font-size:22px}.draft-info{flex:1}.draft-name{font-size:14px;font-weight:600;color:var(--navy)}.draft-meta{font-size:12px;color:var(--dark-gray);margin-top:2px}.draft-pct{font-size:13px;font-weight:700;color:var(--green)}.draft-delete{background:none;border:none;font-size:18px;color:var(--mid-gray);cursor:pointer;padding:4px}
+.setup-form{padding:16px;display:flex;flex-direction:column;gap:12px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--dark-gray)}
+.field input,.field select{border:2px solid var(--mid-gray);border-radius:10px;padding:13px 14px;font-size:16px;background:white;color:var(--text);-webkit-appearance:none;appearance:none;width:100%;transition:border-color .2s}
+.field input:focus,.field select:focus{outline:none;border-color:var(--blue)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.btn-primary{background:var(--navy);color:white;border:none;border-radius:12px;padding:16px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);width:100%;margin-top:4px;transition:background .15s}
+.btn-primary:active{background:var(--blue)}
+.setup-banner{background:var(--light-blue);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--navy);display:flex;align-items:center;gap:10px}
+.setup-banner span{font-size:20px}
+.prop-search-wrap{position:relative}
+.prop-search-input{border:2px solid var(--mid-gray);border-radius:10px;padding:13px 14px;font-size:16px;background:white;color:var(--text);width:100%;transition:border-color .2s}
+.prop-search-input:focus{outline:none;border-color:var(--blue)}
+.prop-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;background:white;border:2px solid var(--blue);border-radius:10px;z-index:200;max-height:260px;overflow-y:auto;box-shadow:var(--shadow-md);display:none}
+.prop-dropdown.open{display:block}
+.prop-option{padding:12px 14px;cursor:pointer;border-bottom:1px solid var(--mid-gray);font-size:14px}
+.prop-option:last-child{border-bottom:none}
+.prop-option:active,.prop-option:hover{background:var(--light-blue)}
+.prop-option-name{font-weight:600;color:var(--navy)}
+.prop-option-addr{font-size:12px;color:var(--dark-gray);margin-top:2px}
+.prop-card{background:white;border-radius:12px;border:2px solid var(--blue);padding:14px 16px;display:none}
+.prop-card.show{display:block}
+.prop-card-name{font-size:15px;font-weight:800;color:var(--navy);margin-bottom:6px}
+.prop-card-addr{font-size:12px;color:var(--dark-gray);margin-bottom:10px}
+.prop-tags{display:flex;flex-wrap:wrap;gap:6px}
+.prop-tag{background:var(--light-blue);color:var(--navy);border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600}
+.prop-tag.pets{background:#E8F5EE;color:var(--green)}
+.prop-tag.no-pets{background:#FDECEA;color:var(--red)}
+.prop-tag.contact{background:var(--gray);color:var(--dark-gray)}
+.checklist-wrap{padding:12px 0 0}
+.section-block{margin:0 0 8px}
+.section-head{background:var(--navy);color:white;padding:10px 16px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;display:flex;justify-content:space-between;align-items:center}
+.section-badge{background:rgba(255,255,255,.2);border-radius:12px;padding:2px 9px;font-size:11px;font-weight:700}
+.item-row{background:white;border-bottom:1px solid var(--mid-gray);padding:0;display:flex;flex-direction:column}
+.item-main{display:flex;align-items:center;gap:0;min-height:54px;padding:10px 12px}
+.item-text{flex:1;font-size:14px;line-height:1.4;padding-right:8px}
+.item-btns{display:flex;gap:6px;flex-shrink:0}
+.status-btn{width:40px;height:36px;border-radius:8px;border:2px solid var(--mid-gray);background:white;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;color:var(--dark-gray)}
+.status-btn:active{transform:scale(.93)}
+.status-btn.ok{background:var(--green);border-color:var(--green);color:white}
+.status-btn.issue{background:var(--red);border-color:var(--red);color:white}
+.status-btn.na{background:var(--dark-gray);border-color:var(--dark-gray);color:white}
+.item-expand{border:none;background:none;padding:4px 0 0 0;cursor:pointer;font-size:18px;color:var(--mid-gray);flex-shrink:0;transition:color .2s}
+.item-expand.has-notes{color:var(--blue)}
+.item-extras{display:none;padding:0 12px 12px;background:var(--gray);border-top:1px solid var(--mid-gray)}
+.item-extras.open{display:block}
+.note-input{width:100%;border:1.5px solid var(--mid-gray);border-radius:8px;padding:10px 12px;font-size:14px;resize:none;font-family:inherit;background:white;margin-top:10px;min-height:60px}
+.note-input:focus{outline:none;border-color:var(--blue)}
+.photo-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.photo-thumb{width:64px;height:64px;border-radius:8px;object-fit:cover;cursor:pointer;border:2px solid var(--mid-gray)}
+.photo-add{width:64px;height:64px;border-radius:8px;border:2px dashed var(--mid-gray);background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:24px;color:var(--dark-gray);flex-shrink:0}
+.photo-add:active{background:var(--gray)}
+.photo-file{display:none}
+.charge-row{display:flex;align-items:center;gap:8px;margin-top:10px}
+.charge-row label{font-size:12px;font-weight:700;color:var(--dark-gray);white-space:nowrap}
+.charge-input{border:1.5px solid var(--mid-gray);border-radius:8px;padding:8px 10px;font-size:14px;width:110px}
+.charge-input:focus{outline:none;border-color:var(--red)}
+.item-row.ok-row .item-main{background:var(--green-light)}
+.item-row.issue-row .item-main{background:var(--red-light)}
+.item-row.na-row .item-main{background:var(--gray)}
+.sticky-prog{position:sticky;top:0;z-index:50;background:white;border-bottom:1px solid var(--mid-gray);padding:10px 16px 8px;display:flex;align-items:center;gap:12px}
+.prog-bar{flex:1;height:8px;background:var(--mid-gray);border-radius:4px;overflow:hidden}
+.prog-fill{height:100%;background:var(--green);border-radius:4px;transition:width .3s}
+.prog-text{font-size:12px;font-weight:700;color:var(--navy);white-space:nowrap}
+.prog-issues{font-size:11px;color:var(--red);font-weight:600}
+.summary-wrap{padding:16px;display:flex;flex-direction:column;gap:12px}
+.summary-hero{background:linear-gradient(135deg,var(--navy),var(--blue));border-radius:var(--radius);padding:24px 20px;color:white;text-align:center}
+.summary-icon{font-size:48px;margin-bottom:8px}
+.summary-title{font-size:20px;font-weight:800}
+.summary-sub{font-size:13px;opacity:.8;margin-top:4px}
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat-card{background:white;border-radius:10px;padding:14px 8px;text-align:center;box-shadow:var(--shadow)}
+.stat-num{font-size:28px;font-weight:800}
+.stat-num.green{color:var(--green)}.stat-num.red{color:var(--red)}.stat-num.gray{color:var(--dark-gray)}
+.stat-label{font-size:11px;color:var(--dark-gray);margin-top:2px}
+.issues-card{background:white;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.issues-head{background:var(--red-light);padding:12px 16px;font-size:13px;font-weight:700;color:var(--red);display:flex;justify-content:space-between}
+.issue-item{padding:12px 16px;border-top:1px solid var(--mid-gray)}
+.issue-item-name{font-size:14px;font-weight:600;color:var(--text)}
+.issue-item-section{font-size:11px;color:var(--dark-gray);margin-bottom:3px}
+.issue-item-note{font-size:13px;color:var(--dark-gray);margin-top:4px;font-style:italic}
+.issue-item-charge{font-size:13px;font-weight:700;color:var(--red);margin-top:4px}
+.no-issues{padding:20px;text-align:center;color:var(--green);font-weight:600;font-size:14px}
+.status-select-row{display:flex;gap:8px}
+.status-option{flex:1;padding:12px 8px;border:2px solid var(--mid-gray);border-radius:10px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;color:var(--dark-gray);background:white}
+.status-option:active{transform:scale(.97)}
+.status-option.ready.selected{background:var(--green);border-color:var(--green);color:white}
+.status-option.conditional.selected{background:var(--orange);border-color:var(--orange);color:white}
+.status-option.not-ready.selected{background:var(--red);border-color:var(--red);color:white}
+.action-btns{display:flex;flex-direction:column;gap:10px}
+.btn-green{background:var(--green);color:white;border:none;border-radius:12px;padding:16px;font-size:16px;font-weight:700;cursor:pointer;width:100%}
+.btn-green:active{opacity:.85}
+.btn-outline{background:white;color:var(--navy);border:2px solid var(--navy);border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;width:100%}
+.btn-outline:active{background:var(--gray)}
+.btn-danger{background:var(--red);color:white;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:600;cursor:pointer;width:100%}
+.small-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--dark-gray);margin-bottom:6px}
+.charge-total{background:var(--red-light);border-radius:10px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+.charge-total-label{font-size:14px;font-weight:700;color:var(--red)}
+.charge-total-amt{font-size:22px;font-weight:800;color:var(--red)}
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:white;border-top:1px solid var(--mid-gray);display:flex;padding:8px 0 max(env(safe-area-inset-bottom),8px);z-index:100;box-shadow:0 -2px 12px rgba(0,0,0,.08)}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;cursor:pointer;padding:4px;color:var(--dark-gray);font-size:10px;font-weight:600}
+.nav-btn .nav-icon{font-size:22px}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:white;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;opacity:0;transition:all .3s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:flex-end}
+.modal-overlay.open{display:flex}
+.modal-sheet{background:white;border-radius:20px 20px 0 0;padding:20px 20px max(env(safe-area-inset-bottom),20px);width:100%;max-height:80vh;overflow-y:auto}
+.modal-handle{width:40px;height:4px;background:var(--mid-gray);border-radius:2px;margin:0 auto 16px}
+.modal-title{font-size:18px;font-weight:800;color:var(--navy);margin-bottom:12px}
+.modal-img{width:100%;border-radius:10px;margin-bottom:12px}
+.modal-close{width:100%;padding:14px;background:var(--gray);border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer}
 </style>
 </head>
 <body>
 
-<!-- ═══ HEADER ═══ -->
 <div class="header" id="appHeader">
-  <button class="header-back" id="backBtn" onclick="goBack()" style="display:none">‹</button>
+  <button class="header-back" id="backBtn" onclick="goBack()" style="display:none">&#8249;</button>
   <div style="flex:1">
     <div class="header-title" id="headerTitle">TLP Inspections</div>
     <div class="header-sub" id="headerSub">Tahoe Luxury Properties</div>
   </div>
-  <button class="header-action" id="headerAction" style="display:none" onclick="headerActionFn()">Done</button>
 </div>
 <div class="progress-bar-wrap" id="globalProg" style="display:none">
   <div class="progress-bar-fill" id="globalProgFill" style="width:0%"></div>
 </div>
-
-<!-- ═══ SCREENS ═══ -->
 
 <!-- HOME -->
 <div class="screen active" id="screenHome">
@@ -296,26 +171,10 @@
     <div class="home-sub">Tap a form to begin</div>
   </div>
   <div class="form-grid">
-    <div class="form-card arrival" onclick="startForm('arrival')">
-      <span class="icon">✅</span>
-      <div class="label">Guest Arrival</div>
-      <div class="count">Pre check-in</div>
-    </div>
-    <div class="form-card departure" onclick="startForm('departure')">
-      <span class="icon">🔍</span>
-      <div class="label">Guest Departure</div>
-      <div class="count">Post checkout</div>
-    </div>
-    <div class="form-card routine" onclick="startForm('routine')">
-      <span class="icon">📋</span>
-      <div class="label">Routine Inspection</div>
-      <div class="count">Quarterly / semi-annual</div>
-    </div>
-    <div class="form-card maintenance" onclick="startForm('maintenance')">
-      <span class="icon">🔧</span>
-      <div class="label">Maintenance Check</div>
-      <div class="count">Preventive tasks</div>
-    </div>
+    <div class="form-card arrival" onclick="startForm('arrival')"><span class="icon">&#9989;</span><div class="label">Guest Arrival</div><div class="count">Pre check-in</div></div>
+    <div class="form-card departure" onclick="startForm('departure')"><span class="icon">&#128269;</span><div class="label">Guest Departure</div><div class="count">Post checkout</div></div>
+    <div class="form-card routine" onclick="startForm('routine')"><span class="icon">&#128203;</span><div class="label">Routine Inspection</div><div class="count">Quarterly / semi-annual</div></div>
+    <div class="form-card maintenance" onclick="startForm('maintenance')"><span class="icon">&#128295;</span><div class="label">Maintenance Check</div><div class="count">Preventive tasks</div></div>
   </div>
   <div id="draftsSection" style="display:none">
     <div class="section-label">Saved Drafts</div>
@@ -326,37 +185,26 @@
 <!-- SETUP -->
 <div class="screen" id="screenSetup">
   <div class="setup-form">
-    <div class="setup-banner">
-      <span id="setupIcon">✅</span>
-      <div><strong id="setupFormName">Guest Arrival Inspection</strong><br><span style="font-size:12px;color:var(--dark-gray)">Fill in property details to begin</span></div>
-    </div>
+    <div class="setup-banner"><span id="setupIcon">&#9989;</span><div><strong id="setupFormName">Guest Arrival Inspection</strong><br><span style="font-size:12px;color:var(--dark-gray)">Select a property to begin</span></div></div>
     <div class="field">
-      <label>Property Name</label>
-      <input type="text" id="fieldProperty" placeholder="e.g. Lakefront Estate - North Shore" autocomplete="off">
+      <label>Property</label>
+      <div class="prop-search-wrap">
+        <input type="text" class="prop-search-input" id="propSearch" placeholder="Search by name or address..." autocomplete="off" oninput="filterProperties()" onfocus="openDropdown()" onblur="setTimeout(closeDropdown,200)">
+        <div class="prop-dropdown" id="propDropdown"></div>
+      </div>
+    </div>
+    <div class="prop-card" id="propCard">
+      <div class="prop-card-name" id="propCardName"></div>
+      <div class="prop-card-addr" id="propCardAddr"></div>
+      <div class="prop-tags" id="propTags"></div>
     </div>
     <div class="field-row">
-      <div class="field">
-        <label>Date</label>
-        <input type="date" id="fieldDate">
-      </div>
-      <div class="field">
-        <label>Time</label>
-        <input type="time" id="fieldTime">
-      </div>
+      <div class="field"><label>Date</label><input type="date" id="fieldDate"></div>
+      <div class="field"><label>Time</label><input type="time" id="fieldTime"></div>
     </div>
-    <div class="field">
-      <label>Inspector Name</label>
-      <input type="text" id="fieldInspector" placeholder="Your name" autocomplete="off">
-    </div>
-    <div class="field" id="guestNameField">
-      <label id="guestNameLabel">Guest Name</label>
-      <input type="text" id="fieldGuest" placeholder="Reservation guest" autocomplete="off">
-    </div>
-    <div class="field" id="checkInField" style="display:none">
-      <label id="checkInLabel">Check-in Date / Time</label>
-      <input type="text" id="fieldCheckIn" placeholder="e.g. July 4, 3:00 PM" autocomplete="off">
-    </div>
-    <button class="btn-primary" onclick="startChecklist()">Start Inspection →</button>
+    <div class="field"><label>Inspector Name</label><input type="text" id="fieldInspector" placeholder="Your name" autocomplete="off"></div>
+    <div class="field" id="guestNameField"><label id="guestNameLabel">Guest Name</label><input type="text" id="fieldGuest" placeholder="Reservation guest" autocomplete="off"></div>
+    <button class="btn-primary" onclick="startChecklist()">Start Inspection &#8594;</button>
   </div>
 </div>
 
@@ -364,15 +212,10 @@
 <div class="screen" id="screenChecklist">
   <div class="sticky-prog">
     <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
-    <div>
-      <div class="prog-text" id="progText">0 / 0</div>
-      <div class="prog-issues" id="progIssues"></div>
-    </div>
+    <div><div class="prog-text" id="progText">0 / 0</div><div class="prog-issues" id="progIssues"></div></div>
   </div>
   <div class="checklist-wrap" id="checklistWrap"></div>
-  <div style="padding: 16px;">
-    <button class="btn-primary" onclick="showSummary()">View Summary & Complete →</button>
-  </div>
+  <div style="padding:16px"><button class="btn-primary" onclick="showSummary()">View Summary &amp; Complete &#8594;</button></div>
 </div>
 
 <!-- SUMMARY -->
@@ -380,20 +223,12 @@
   <div class="summary-wrap" id="summaryWrap"></div>
 </div>
 
-<!-- ═══ BOTTOM NAV ═══ -->
 <div class="bottom-nav" id="bottomNav" style="display:none">
-  <button class="nav-btn" onclick="showScreen('screenChecklist')">
-    <span class="nav-icon">☑️</span>Checklist
-  </button>
-  <button class="nav-btn" onclick="saveAndHome()">
-    <span class="nav-icon">💾</span>Save Draft
-  </button>
-  <button class="nav-btn" onclick="showSummary()">
-    <span class="nav-icon">📊</span>Summary
-  </button>
+  <button class="nav-btn" onclick="showScreen('screenChecklist')"><span class="nav-icon">&#9989;</span>Checklist</button>
+  <button class="nav-btn" onclick="saveAndHome()"><span class="nav-icon">&#128190;</span>Save Draft</button>
+  <button class="nav-btn" onclick="showSummary()"><span class="nav-icon">&#128202;</span>Summary</button>
 </div>
 
-<!-- MODAL (photo viewer) -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal()">
   <div class="modal-sheet" onclick="event.stopPropagation()">
     <div class="modal-handle"></div>
@@ -402,1050 +237,658 @@
     <button class="modal-close" onclick="closeModal()">Close</button>
   </div>
 </div>
-
 <div class="toast" id="toast"></div>
 
 <script>
-// ═══════════════════════════════════════
-// DATA — ALL FORM CHECKLISTS
-// ═══════════════════════════════════════
-const FORMS = {
-  arrival: {
-    name: 'Guest Arrival Inspection',
-    icon: '✅',
-    type: 'arrival',
-    showCharge: false,
-    showRating: false,
-    sections: [
-      { title: 'Exterior & Entry', items: [
-        'Driveway clear and free of debris / snow',
-        'Exterior lighting functional (entry, pathway, landscape)',
-        'Front door lock / smart lock coded correctly',
-        'Welcome mat and entry area clean',
-        'Garbage and recycling bins emptied and stored',
-        'Exterior windows clean and free of damage',
-        'Deck / patio furniture clean and properly arranged',
-        'BBQ grill clean and propane tank full',
-        'Hot tub cover removed / spa ready (correct temp, clean water)',
-        'Firewood stocked (if wood-burning fireplace)',
-        'Dock / pier safe and accessible (seasonal)',
-        'Kayaks / paddleboards ready (seasonal)',
-        'Ski locker / boot warmer accessible and functional (seasonal)',
-      ]},
-      { title: 'Living Room & Common Areas', items: [
-        'Entry foyer clean and free of clutter',
-        'Living room cleaned and staged (pillows, throws arranged)',
-        'Fireplace clean, functional, and ready',
-        'TV and entertainment system functional (remotes present)',
-        'Wi-Fi router operational (password displayed)',
-        'Smart home system operational (thermostat, lighting, locks)',
-        'Windows and sliding doors clean and operational',
-        'Flooring clean (vacuumed / mopped)',
-        'Air quality acceptable (no odors)',
-        'Guest welcome book / binder present and current',
-        'Emergency contact info posted',
-      ]},
-      { title: 'Kitchen & Dining', items: [
-        'Countertops clean and sanitized',
-        'Refrigerator clean, empty of prior guest items, and at temp',
-        'Stovetop / oven clean and functional',
-        'Dishwasher clean (cycle complete)',
-        'Trash can empty and lined',
-        'Dishes, glasses, and cookware clean and properly stored',
-        'Coffee maker clean and stocked',
-        'Pantry stocked per welcome package (coffee, tea, oil, salt/pepper)',
-        'Paper towels, dish soap, sponge stocked',
-        'Dining table clean and properly set',
-      ]},
-      { title: 'Bedrooms', items: [
-        'Bedroom 1 — fresh linens, bed made, closet with hangers',
-        'Bedroom 1 — nightstands clean, lamps functional',
-        'Bedroom 1 — flooring clean, windows clean',
-        'Bedroom 2 — fresh linens, bed made, closet with hangers',
-        'Bedroom 2 — nightstands clean, lamps functional',
-        'Bedroom 2 — flooring clean, windows clean',
-        'Bedroom 3 — fresh linens, bed made, closet with hangers',
-        'Bedroom 3 — nightstands clean, lamps functional',
-        'Bedroom 4 — fresh linens, bed made, closet with hangers',
-        'All alarm clocks / phone chargers in place',
-        'Extra blankets and pillows in closets',
-      ]},
-      { title: 'Bathrooms', items: [
-        'Primary bath — toilet clean and functioning',
-        'Primary bath — shower/tub clean, no soap scum or hair',
-        'Primary bath — mirrors streak-free',
-        'Primary bath — towels fresh (per standard count)',
-        'Primary bath — toiletries fully stocked',
-        'Primary bath — toilet paper (min. 2 rolls visible)',
-        'Guest bath 1 — toilet, shower/tub clean and functional',
-        'Guest bath 1 — towels, toiletries, and TP stocked',
-        'Guest bath 2 — toilet, shower/tub clean and functional',
-        'Guest bath 2 — towels, toiletries, and TP stocked',
-        'Guest bath 3 — toilet, shower/tub clean and functional',
-        'Hair dryers present and functional in all bathrooms',
-        'No leaks under sinks or around toilets',
-      ]},
-      { title: 'Systems & Utilities', items: [
-        'HVAC / heating operational, thermostat set to welcome temp',
-        'All light switches and outlets functional',
-        'Generator tested and fueled (if applicable)',
-        'Smoke detectors tested and batteries good',
-        'Carbon monoxide detectors tested and batteries good',
-        'Fire extinguisher present, charged, and accessible',
-        'First aid kit stocked',
-        'Water pressure acceptable throughout',
-        'No signs of leaks, water damage, or mold',
-        'Internet / Wi-Fi confirmed operational',
-        'Smart door locks coded and functional',
-        'Garage door opener functional',
-      ]},
-      { title: 'Final Amenities', items: [
-        'Washer and dryer clean and operational',
-        'Laundry detergent and dryer sheets stocked',
-        'Game room / entertainment area set up',
-        'Ski storage / drying room organized (seasonal)',
-        'Boot warmers operational (seasonal)',
-        'Outdoor furniture covers removed and stored',
-        'Parking passes / garage remotes in designated place',
-        'Welcome gift / amenity package placed per reservation',
-      ]},
-    ]
-  },
+var PROPERTIES = [
+{"name":"Majestic Waters - Lakefront","address":"7780 North Lake Boulevard, Tahoe Vista, CA 96148","bedrooms":4,"bathrooms":5,"occupancy":10,"pets":false,"contact":"Caitlin McDonough","size":"4200 sq. ft.","email":"majesticwaters@tluxp.com"},
+{"name":"Starry Nights - Lakefront","address":"4110 Ferguson Avenue, Carnelian Bay, CA 96140","bedrooms":5,"bathrooms":4,"occupancy":10,"pets":true,"contact":"Kobe Robbin","size":"3570 sq. ft.","email":"starrynights@tluxp.com"},
+{"name":"Blissful Days - Lakefront","address":"5090 West Lake Boulevard, Homewood, CA 96141","bedrooms":4,"bathrooms":5,"occupancy":10,"pets":false,"contact":"Kayla Cox","size":"3528 sq. ft.","email":"blissfuldays@tluxp.com"},
+{"name":"Sandy Shores - Lakefront","address":"1011 Lakeshore Boulevard, Incline Village, NV 89451","bedrooms":6,"bathrooms":6,"occupancy":12,"pets":false,"contact":"Andrea Degliantoni","size":"4600 sq. ft.","email":"sandyshores@tluxp.com"},
+{"name":"Seek No Further - Lakefront","address":"5306 North Lake Boulevard, Carnelian Bay, CA 96140","bedrooms":6,"bathrooms":4,"occupancy":12,"pets":false,"contact":"Pat Hall","size":"","email":"seeknofurther@tluxp.com"},
+{"name":"Heavenly View - Lakefront","address":"8581 North Lane, Meeks Bay, CA 96142","bedrooms":4,"bathrooms":5,"occupancy":8,"pets":true,"contact":"Kayla Cox","size":"3550 sq. ft.","email":"heavenlyview@tluxp.com"},
+{"name":"Sittin' on the Dock - Lakefront","address":"8815 Rubicon Drive, Rubicon Bay, CA 96142","bedrooms":4,"bathrooms":2,"occupancy":8,"pets":true,"contact":"Kayla Cox","size":"2766 sq. ft.","email":"sittinonthedock@tluxp.com"},
+{"name":"Black Bear Cottage - Lakefront","address":"4950 North Lake Boulevard, Carnelian Bay, CA 96140","bedrooms":3,"bathrooms":2,"occupancy":8,"pets":false,"contact":"Annie Stryker","size":"1336 sq. ft.","email":"blackbearcottage@tluxp.com"},
+{"name":"Sail Away - Lakefront","address":"4960 North Lake Boulevard, Carnelian Bay, CA 96140","bedrooms":3,"bathrooms":3,"occupancy":6,"pets":false,"contact":"Annie Stryker","size":"1446 sq. ft.","email":"sailaway@tluxp.com"},
+{"name":"Summer Breeze - Lakefront","address":"8429 Meeks Bay Avenue, Meeks Bay, CA 96142","bedrooms":4,"bathrooms":4,"occupancy":8,"pets":true,"contact":"Kayla Cox","size":"2500 sq. ft.","email":"summerbreeze@tluxp.com"},
+{"name":"Water's Edge - Lakefront","address":"5568 North Lake Boulevard, Carnelian Bay, CA 96140","bedrooms":8,"bathrooms":5,"occupancy":16,"pets":false,"contact":"Andrea Degliantoni","size":"5600 sq. ft.","email":"watersedge@tluxp.com"},
+{"name":"Rise and Shine - Lakefront","address":"3940 North Lake Boulevard, Carnelian Bay, CA 96140","bedrooms":3,"bathrooms":3,"occupancy":8,"pets":true,"contact":"Christina Cifelli","size":"2200 sq. ft.","email":"riseandshine@tluxp.com"},
+{"name":"Shore Camp - Lakefront","address":"300 West Lake Boulevard Unit #134, Tahoe City, CA 96145","bedrooms":4,"bathrooms":3,"occupancy":8,"pets":false,"contact":"Ally Tanner","size":"2000 sq. ft.","email":"shorecamp@tluxp.com"},
+{"name":"Carnelian Haus - Lakefront","address":"4230 North Lake Boulevard, Carnelian Bay, CA 96140","bedrooms":5,"bathrooms":7,"occupancy":12,"pets":false,"contact":"Michael Ballew","size":"","email":"carnelianhaus@tluxp.com"},
+{"name":"Belleview's Beauty - Lakefront","address":"3765 Belleview Avenue, Homewood, CA 96141","bedrooms":4,"bathrooms":3,"occupancy":10,"pets":true,"contact":"Kayla Cox","size":"2428 sq. ft.","email":"belleviewsbeauty@tluxp.com"},
+{"name":"Sunset Blue - Lakefront","address":"4762 North Lake Boulevard, Carnelian Bay, CA 96140","bedrooms":5,"bathrooms":5,"occupancy":12,"pets":false,"contact":"Annie Stryker","size":"3482 sq. ft.","email":"sunsetblue@tluxp.com"},
+{"name":"Sierra Sunset Estate - Lakefront","address":"550 Sierra Sunset Lane, Zephyr Cove, NV 89448","bedrooms":8,"bathrooms":9,"occupancy":16,"pets":false,"contact":"Tina Geilenfeldt","size":"16703 sq. ft.","email":"sierrasunsetestate@tluxp.com"},
+{"name":"Peace of Tahoe - Lakefront","address":"5850 North Lake Boulevard, Carnelian Bay, CA 96140","bedrooms":6,"bathrooms":7,"occupancy":12,"pets":false,"contact":"Christina Cifelli","size":"6419 sq. ft.","email":"peaceoftahoe@tluxp.com"},
+{"name":"Tewesi Manor - Lakefront","address":"5360 North Lake Blvd., Carnelian Bay, CA 96140","bedrooms":9,"bathrooms":10,"occupancy":16,"pets":false,"contact":"Tina Geilenfeldt","size":"5857 sq. ft.","email":"tewesi@tluxp.com"},
+{"name":"Gonowabie Lodge - Lakefront","address":"514 Gonowabie Road, Crystal Bay, NV 89402","bedrooms":4,"bathrooms":4,"occupancy":8,"pets":true,"contact":"Andrea Degliantoni","size":"3057 sq. ft.","email":"gonowabielodge@tluxp.com"},
+{"name":"The Duck House","address":"714 Champagne Road, Incline Village, NV 89451","bedrooms":9,"bathrooms":7,"occupancy":18,"pets":true,"contact":"Andrea Degliantoni","size":"5630 sq. ft.","email":"theduckhouse@tluxp.com"},
+{"name":"Maybach Lake House - Lakefront","address":"664 Olympic Drive, Tahoe City, CA 96145","bedrooms":5,"bathrooms":5,"occupancy":10,"pets":true,"contact":"Kayla Cox","size":"3400 sq. ft.","email":"maybachlakehouse@tluxp.com"},
+{"name":"Lakeside Grove - Lakefront","address":"2250 North Lake Blvd., Tahoe City, CA 96145","bedrooms":10,"bathrooms":8,"occupancy":20,"pets":true,"contact":"Trevor Dimino-Simons","size":"6700 sq. ft.","email":"lakesidegrove@tluxp.com"},
+{"name":"Shimmering Shores - Lakefront","address":"6790 North Lake Boulevard, Tahoe Vista, CA 96148","bedrooms":4,"bathrooms":3,"occupancy":8,"pets":false,"contact":"Caitlin McDonough","size":"3065 sq. ft.","email":"shimmeringshores@tluxp.com"},
+{"name":"La Dolce Vita - Lakefront","address":"5520 West Lake Boulevard, Homewood, CA 96141","bedrooms":4,"bathrooms":4,"occupancy":10,"pets":true,"contact":"Kobe Robbin","size":"2565 sq. ft.","email":"ladolcevita@tluxp.com"},
+{"name":"Steeple Cove - Lakefront","address":"7212 North Lake Boulevard, Tahoe Vista, CA 96148","bedrooms":4,"bathrooms":5,"occupancy":12,"pets":true,"contact":"Trevor Dimino-Simons","size":"3000 sq. ft.","email":"steeplecove@tluxp.com"},
+{"name":"Sugar Pine Chalet - Lakefront","address":"10 Aspen Street, Tahoe City, CA 96145","bedrooms":5,"bathrooms":6,"occupancy":12,"pets":true,"contact":"Trevor Dimino-Simons","size":"3866 sq. ft.","email":"sugarpine@tluxp.com"},
+{"name":"Palatial Pines - Lakefront","address":"2210 North Lake Blvd., Tahoe City, CA 96145","bedrooms":4,"bathrooms":5,"occupancy":10,"pets":false,"contact":"Tina Geilenfeldt","size":"5514 sq. ft.","email":"palatialpines@tluxp.com"},
+{"name":"Lago Azul - Lakefront","address":"5256 North Lake Blvd., Carnelian Bay, CA 96140","bedrooms":5,"bathrooms":6,"occupancy":10,"pets":false,"contact":"","size":"4064 sq. ft.","email":"lagoazul@tluxp.com"},
+{"name":"Dancing Bear Lodge - Lakefront","address":"6956 Pomin Avenue, Tahoma, CA 96142","bedrooms":6,"bathrooms":5,"occupancy":14,"pets":true,"contact":"","size":"5759 sq. ft.","email":"dancingbear@tluxp.com"},
+{"name":"Laughing Waters - Lakefront","address":"2280 Sunnyside Lane, Tahoe City, CA 96145","bedrooms":7,"bathrooms":7,"occupancy":16,"pets":false,"contact":"Trevor Dimino-Simons","size":"7500 sq. ft.","email":"laughingwaters@tluxp.com"},
+{"name":"Pier Pleasure - Lakefront","address":"5920 North Lake Boulevard, Carnelian Bay, CA 96140","bedrooms":5,"bathrooms":5,"occupancy":10,"pets":false,"contact":"Trevor Dimino-Simons","size":"4037 sq. ft.","email":"pierpleasure@tluxp.com"},
+{"name":"Anchors Aweigh - Lakefront","address":"3338 Edgewater Drive, Tahoe City, CA 96145","bedrooms":4,"bathrooms":5,"occupancy":10,"pets":true,"contact":"Kobe Robbin","size":"3431 sq. ft.","email":"anchorsaweigh@tluxp.com"},
+{"name":"Stone Crest Estate - Lakefront","address":"5240 North Lake Boulevard, Carnelian Bay, CA 96140","bedrooms":7,"bathrooms":8,"occupancy":14,"pets":false,"contact":"Pat Hall","size":"","email":"stonecrestestate@tluxp.com"},
+{"name":"Lift and Tee Retreat at Schaffer's Mill","address":"9290 Brae Road, Truckee, CA 96161","bedrooms":4,"bathrooms":4,"occupancy":10,"pets":false,"contact":"Trevor Dimino-Simons","size":"3600 sq. ft.","email":"liftandtee@tluxp.com"},
+{"name":"Rising Sun","address":"1295 Snow Flower Lane, Tahoe City, CA 96145","bedrooms":4,"bathrooms":4,"occupancy":8,"pets":false,"contact":"Charli Martin","size":"2700 sq. ft.","email":"risingsun@tluxp.com"},
+{"name":"Alpine Perfection","address":"1036 Snowcrest Road, Alpine Meadows, CA 96146","bedrooms":4,"bathrooms":6,"occupancy":10,"pets":false,"contact":"Christian Cuneo","size":"4200 sq. ft.","email":"alpineperfection@tluxp.com"},
+{"name":"Gerry G. - Lakefront","address":"3190 Edgewater Drive, Tahoe City, CA 96145","bedrooms":4,"bathrooms":5,"occupancy":10,"pets":false,"contact":"Michael Ballew","size":"5000 sq. ft.","email":"gerryg@tluxp.com"},
+{"name":"Skippin' Stones - Lakefront","address":"8774 Brockway Vista Avenue, Kings Beach, CA 96143","bedrooms":5,"bathrooms":5,"occupancy":8,"pets":false,"contact":"Andrea Degliantoni","size":"2680 sq. ft.","email":"skippinstones@tluxp.com"},
+{"name":"Summerhouse - Lakefront","address":"4812 North Lake Boulevard, Carnelian Bay, CA 96140","bedrooms":5,"bathrooms":5,"occupancy":12,"pets":false,"contact":"Tina Geilenfeldt","size":"4250 sq. ft.","email":"summerhouse@tluxp.com"},
+{"name":"Above & Beyond - Lakeview","address":"569 Alden Lane, Incline Village, NV 89451","bedrooms":4,"bathrooms":8,"occupancy":10,"pets":true,"contact":"Andrea Degliantoni","size":"5950 sq. ft.","email":"aboveandbeyond@tluxp.com"},
+{"name":"Granite Chief Lodge At Palisades","address":"3107 Sierra Crest Court, Olympic Valley, CA 96146","bedrooms":4,"bathrooms":5,"occupancy":10,"pets":false,"contact":"Christian Cuneo","size":"3374 sq. ft.","email":"granitechief@tluxp.com"},
+{"name":"Sunrise by Sunnyside - Lakefront","address":"1320 West Lake Boulevard, Tahoe City, CA 96145","bedrooms":7,"bathrooms":7,"occupancy":16,"pets":true,"contact":"Tina Geilenfeldt","size":"5000 sq. ft.","email":"sunrisebysunnyside@tluxp.com"},
+{"name":"Lake Escape - Lakefront","address":"5440 North Lake Boulevard, Carnelian Bay, CA 96140","bedrooms":5,"bathrooms":5,"occupancy":12,"pets":false,"contact":"Tina Geilenfeldt","size":"3995 sq. ft.","email":"lakeescape@tluxp.com"},
+{"name":"Bellissimo Lago - Lakefront","address":"6400 North Lake Boulevard, Tahoe Vista, CA 96148","bedrooms":3,"bathrooms":4,"occupancy":7,"pets":false,"contact":"Pat Hall","size":"2200 sq. ft.","email":"bellissimolago@tluxp.com"},
+{"name":"Homewood Trifecta - Lakefront","address":"5128 West Lake Boulevard, Homewood, CA 96141","bedrooms":4,"bathrooms":4,"occupancy":10,"pets":false,"contact":"Kobe Robbin","size":"2471 sq. ft.","email":"homewoodtrifecta@tluxp.com"},
+{"name":"Donner Lake Dreams - Lakefront","address":"13111 Donner Pass Road, Truckee, CA 96161","bedrooms":4,"bathrooms":3,"occupancy":8,"pets":true,"contact":"Michael Ballew","size":"1478 sq. ft.","email":"donnerlakedreams@tluxp.com"},
+{"name":"The View at Big Pine - Lakeview","address":"1010 Big Pine Drive, Tahoe City, CA 96145","bedrooms":3,"bathrooms":4,"occupancy":8,"pets":true,"contact":"Charli Martin","size":"3062 sq. ft.","email":"bigpine@tluxp.com"},
+{"name":"Lake Of The Sky - Lakeview","address":"945 Skyline Drive, Tahoe City, CA 96145","bedrooms":4,"bathrooms":3,"occupancy":10,"pets":true,"contact":"Charli Martin","size":"2900 sq. ft.","email":"lakeofthesky@tluxp.com"},
+{"name":"Slopeside At Northstar","address":"14049 Trailside Loop, Truckee, CA 96161","bedrooms":4,"bathrooms":5,"occupancy":10,"pets":false,"contact":"","size":"3550 sq. ft.","email":"slopeside@tluxp.com"},
+{"name":"Tahoe's Ahwahnee - Lakeview","address":"520 Nightingale Road, Carnelian Bay, CA 96140","bedrooms":5,"bathrooms":5,"occupancy":12,"pets":false,"contact":"Pat Hall","size":"3700 sq. ft.","email":"tahoesahwahnee@tluxp.com"},
+{"name":"Twilight Ridge","address":"81 Tahoma Avenue, Tahoe City, CA 96145","bedrooms":3,"bathrooms":2,"occupancy":6,"pets":true,"contact":"Charli Martin","size":"1500 sq. ft.","email":"twilightridge@tluxp.com"},
+{"name":"Making Memories - Lakeview","address":"691 David Way, Incline Village, NV 89451","bedrooms":5,"bathrooms":6,"occupancy":14,"pets":false,"contact":"Andrea Degliantoni","size":"6801 sq. ft.","email":"makingmemories@tluxp.com"},
+{"name":"Riverfront Lodge","address":"5048 River Road, Olympic Valley, CA 96146","bedrooms":5,"bathrooms":6,"occupancy":12,"pets":false,"contact":"Christian Cuneo","size":"6500 sq. ft.","email":"riverfrontlodge@tluxp.com"},
+{"name":"Laura's Overlook Lodge at Northstar","address":"2338 Overlook Place, Truckee, CA 96161","bedrooms":5,"bathrooms":7,"occupancy":12,"pets":true,"contact":"Natalie Garnett","size":"4925 sq. ft.","email":"laurasoverlooklodge@tluxp.com"},
+{"name":"McKinney Bay Retreat","address":"4523 West Lake Boulevard, Homewood, CA 96141","bedrooms":6,"bathrooms":4,"occupancy":14,"pets":false,"contact":"Kobe Robbin","size":"4400 sq. ft.","email":"mckinneybay@tluxp.com"},
+{"name":"Blackwood Creek Chalet","address":"590 Sierra Vista Avenue, Homewood, CA 96141","bedrooms":4,"bathrooms":4,"occupancy":9,"pets":false,"contact":"Kobe Robbin","size":"2976 sq. ft.","email":"blackwoodcreekchalet@tluxp.com"},
+{"name":"Constellation #407 Ski-In & Out At Northstar","address":"13051 Ritz Carlton Highlands Court, Unit #4-407, Truckee, CA 96161","bedrooms":3,"bathrooms":4,"occupancy":8,"pets":false,"contact":"Ally Tanner","size":"1868 sq. ft.","email":"407constellation@tluxp.com"},
+{"name":"Luxury River Retreat","address":"6240 River Road, Bridge 5, Olympic Valley, CA 96146","bedrooms":5,"bathrooms":5,"occupancy":12,"pets":false,"contact":"Christian Cuneo","size":"6000 sq. ft.","email":"luxuryriverretreat@tluxp.com"},
+{"name":"Modern Mountain at Palisades","address":"343 Palisades Circle, Olympic Valley, CA 96146","bedrooms":4,"bathrooms":4,"occupancy":9,"pets":false,"contact":"Christian Cuneo","size":"2630 sq. ft.","email":"modernmountain@tluxp.com"},
+{"name":"Bluebird Days At Palisades","address":"276 Palisades Circle, Olympic Valley, CA 96146","bedrooms":4,"bathrooms":3,"occupancy":8,"pets":true,"contact":"Christian Cuneo","size":"2000 sq. ft.","email":"bluebird@tluxp.com"},
+{"name":"Clearview Chalet - Lakeview","address":"1136 Clearview Court, Tahoe City, CA 96145","bedrooms":5,"bathrooms":5,"occupancy":12,"pets":true,"contact":"","size":"5000 sq. ft.","email":"inspections@tluxp.com"},
+{"name":"Constellation #404 Ski-In & Out At Northstar","address":"13051 Ritz-Carlton Highlands Drive, Unit #4-404, Truckee, CA 96161","bedrooms":3,"bathrooms":3,"occupancy":7,"pets":false,"contact":"Ally Tanner","size":"1447 sq. ft.","email":"404constellation@tluxp.com"},
+{"name":"Cherry Lodge","address":"160 Cherry Street, Homewood, CA 96141","bedrooms":5,"bathrooms":5,"occupancy":12,"pets":false,"contact":"Christian Cuneo","size":"5670 sq. ft.","email":"cherrylodge@tluxp.com"},
+{"name":"Pineland Retreat","address":"445 Pineland Drive, Tahoe City, CA 96145","bedrooms":5,"bathrooms":5,"occupancy":12,"pets":true,"contact":"Natalie Garnett","size":"3268 sq. ft.","email":"pineland@tluxp.com"},
+{"name":"First Chair @ Palisades (The Bronson)","address":"249 Granite Chief Road, Olympic Valley, CA 96146","bedrooms":5,"bathrooms":4,"occupancy":12,"pets":true,"contact":"Christian Cuneo","size":"3450 sq. ft.","email":"firstchair@tluxp.com"},
+{"name":"Highlands Holiday","address":"3333 Polaris Road, Tahoe City, CA 96145","bedrooms":5,"bathrooms":6,"occupancy":12,"pets":true,"contact":"Kobe Robbin","size":"4869 sq. ft.","email":"highlands@tluxp.com"},
+{"name":"Moana Mountain Shack - Lakeview","address":"45 Moana Circle, Tahoma, CA 96142","bedrooms":3,"bathrooms":3,"occupancy":8,"pets":false,"contact":"Kobe Robbin","size":"2934 sq. ft.","email":"moana@tluxp.com"},
+{"name":"Wildwood at Dollar Point - Lakeview","address":"260 Observation Court, Tahoe City, CA 96145","bedrooms":4,"bathrooms":5,"occupancy":8,"pets":true,"contact":"Kobe Robbin","size":"4503 sq. ft.","email":"wildwood@tluxp.com"},
+{"name":"Charlie's Den - Lakefront","address":"6542 North Lake Boulevard, Tahoe Vista, CA 96148","bedrooms":4,"bathrooms":4,"occupancy":10,"pets":false,"contact":"Pat Hall","size":"","email":"charliesden@tluxp.com"},
+{"name":"Carnelian Charm - Lakefront","address":"4176 Ferguson Avenue, Carnelian Bay, CA 96140","bedrooms":4,"bathrooms":5,"occupancy":10,"pets":false,"contact":"Caitlin McDonough","size":"4280 sq. ft.","email":"carneliancharm@tluxp.com"},
+{"name":"Fleur du Lac #1 - Lakefront","address":"4000 West Lake Boulevard, Unit #1, Homewood, CA 96142","bedrooms":4,"bathrooms":5,"occupancy":10,"pets":true,"contact":"Charli Martin","size":"4060 sq. ft.","email":"fleurdulac1@tluxp.com"},
+{"name":"Rubicon Shores - Lakefront","address":"8613 North Lane, Tahoma, CA 96142","bedrooms":6,"bathrooms":6,"occupancy":16,"pets":true,"contact":"Kayla Cox","size":"6334 sq. ft.","email":"rubiconshores@tluxp.com"},
+{"name":"Summit Splendor at Martis Camp","address":"8262 Ehrman Drive, Truckee, CA 96161","bedrooms":5,"bathrooms":6,"occupancy":12,"pets":false,"contact":"Trevor Dimino-Simons","size":"5500 sq. ft.","email":"summitsplendor@tluxp.com"},
+{"name":"Hidden Ridge at Northstar","address":"2221 Silver Fox Court, Truckee, CA 96161","bedrooms":5,"bathrooms":6,"occupancy":12,"pets":true,"contact":"Caitlin McDonough","size":"6295 sq. ft.","email":"hiddenridge@tluxp.com"},
+{"name":"Serendipity - Lakeview","address":"604 Doeskin Court, Incline Village, NV 89451","bedrooms":4,"bathrooms":3,"occupancy":10,"pets":false,"contact":"Andrea Degliantoni","size":"3097 sq. ft.","email":"serendipity@tluxp.com"},
+{"name":"Manzanita House - Lakeview","address":"1063 Salisbury Lane, Kings Beach, CA 96143","bedrooms":3,"bathrooms":4,"occupancy":8,"pets":true,"contact":"Caitlin McDonough","size":"2880 sq. ft.","email":"manzanitahouse@tluxp.com"},
+{"name":"Sierra Vista - Lakeview","address":"1146 Clearview Court, Tahoe City, CA 96145","bedrooms":4,"bathrooms":4,"occupancy":8,"pets":true,"contact":"Charli Martin","size":"3000 sq. ft.","email":"sierravista@tluxp.com"},
+{"name":"Tahoe City Serenity","address":"615 Bunker Drive, Tahoe City, CA 96145","bedrooms":4,"bathrooms":4,"occupancy":10,"pets":true,"contact":"Trevor Dimino-Simons","size":"3220 sq. ft.","email":"tahoecityserenity@tluxp.com"},
+{"name":"Ramblin' Rose - Lakeview","address":"6077 North Lake Boulevard, Tahoe Vista, CA 96148","bedrooms":5,"bathrooms":4,"occupancy":12,"pets":false,"contact":"Michael Ballew","size":"4180 sq. ft.","email":"ramblinrose@tluxp.com"},
+{"name":"A Walk In The Woods","address":"6597 Wildwood Road, Tahoe Vista, CA 96148","bedrooms":4,"bathrooms":4,"occupancy":10,"pets":true,"contact":"Annie Stryker","size":"3000 sq. ft.","email":"awalkinthewoods@tluxp.com"},
+{"name":"Solitude","address":"850 Holly Road, Tahoe City, CA 96145","bedrooms":4,"bathrooms":4,"occupancy":10,"pets":true,"contact":"Kayla Cox","size":"3000 sq. ft.","email":"solitude@tluxp.com"},
+{"name":"Front and Center","address":"393 Center Street, Carnelian Bay, CA 96140","bedrooms":3,"bathrooms":3,"occupancy":8,"pets":true,"contact":"Annie Stryker","size":"2400 sq. ft.","email":"frontandcenter@tluxp.com"},
+{"name":"Creekview","address":"525 Ward Avenue, Tahoe City, CA 96145","bedrooms":5,"bathrooms":5,"occupancy":10,"pets":false,"contact":"Charli Martin","size":"5700 sq. ft.","email":"creekview@tluxp.com"},
+{"name":"Home Run at Northstar","address":"1778 Grouse Ridge Road, Truckee, CA 96161","bedrooms":4,"bathrooms":5,"occupancy":12,"pets":false,"contact":"Caitlin McDonough","size":"3594 sq. ft.","email":"homerun@tluxp.com"},
+{"name":"Tahoe's Tranquility - Lakeview","address":"9300 Bass Avenue, Brockway Vista, CA 96143","bedrooms":5,"bathrooms":4,"occupancy":12,"pets":true,"contact":"Stephanie Hoffman","size":"3719 sq. ft.","email":"tahoestranquility@tluxp.com"},
+{"name":"Reflections - Lakeview","address":"6 Tahoma Avenue, Tahoe City, CA 96145","bedrooms":5,"bathrooms":4,"occupancy":12,"pets":false,"contact":"Charli Martin","size":"3200 sq. ft.","email":"reflections@tluxp.com"},
+{"name":"Treetop Lodge","address":"4010 Nightingale Road, Carnelian Bay, CA 96140","bedrooms":5,"bathrooms":4,"occupancy":12,"pets":true,"contact":"Annie Stryker","size":"3048 sq. ft.","email":"treetoplodge@tluxp.com"},
+{"name":"Candlelight Lodge","address":"606 High Street, Carnelian Bay, CA 96140","bedrooms":5,"bathrooms":5,"occupancy":10,"pets":false,"contact":"Annie Stryker","size":"3760 sq. ft.","email":"candlelightlodge@tluxp.com"},
+{"name":"Tahoe Treehouse","address":"4160 Madrone Avenue, Homewood, CA 96141","bedrooms":5,"bathrooms":4,"occupancy":12,"pets":false,"contact":"Kobe Robbin","size":"3000 sq. ft.","email":"tahoetreehouse@tluxp.com"},
+{"name":"Backside 180 at Northstar","address":"1774 Grouse Ridge Road, Truckee, CA 96161","bedrooms":4,"bathrooms":5,"occupancy":10,"pets":true,"contact":"Caitlin McDonough","size":"3850 sq. ft.","email":"backside180@tluxp.com"},
+{"name":"5000 Acres At Northstar","address":"210 Bitter Brush Way, Truckee, CA 96161","bedrooms":5,"bathrooms":6,"occupancy":12,"pets":false,"contact":"","size":"4200 sq. ft.","email":"5000acres@tluxp.com"},
+{"name":"The Lodge at Swiss Lane","address":"14355 Swiss Lane, Truckee, CA 96161","bedrooms":4,"bathrooms":4,"occupancy":10,"pets":true,"contact":"Michael Ballew","size":"3050 sq. ft.","email":"thelodgeatswisslane@tluxp.com"},
+{"name":"Big Sky - Lakeview","address":"12212 Skislope Way, Truckee, CA 96161","bedrooms":5,"bathrooms":4,"occupancy":12,"pets":true,"contact":"Michael Ballew","size":"4650 sq. ft.","email":"bigsky@tluxp.com"},
+{"name":"Mountain Retreat - Lakeview","address":"587 Tyner Way, Incline Village, NV 89451","bedrooms":5,"bathrooms":6,"occupancy":12,"pets":true,"contact":"Andrea Degliantoni","size":"4185 sq. ft.","email":"mountainretreat@tluxp.com"},
+{"name":"Just Grand","address":"450 Grand Avenue, Homewood, CA 96141","bedrooms":5,"bathrooms":4,"occupancy":10,"pets":false,"contact":"Kayla Cox","size":"2835 sq. ft.","email":"justgrand@tluxp.com"},
+{"name":"The Frontier","address":"50 Shoreline Circle, Incline Village, NV 89451","bedrooms":4,"bathrooms":5,"occupancy":10,"pets":true,"contact":"Andrea Degliantoni","size":"4363 sq. ft.","email":"thefrontier@tluxp.com"},
+{"name":"Signature Retreat on the 18th","address":"13351 Cristallina Way, Truckee, CA 96161","bedrooms":5,"bathrooms":3,"occupancy":10,"pets":false,"contact":"Michael Ballew","size":"3437 sq. ft.","email":"signatureretreat@tluxp.com"},
+{"name":"Sunny Days","address":"112 Roundridge Road, Tahoe City, CA 96145","bedrooms":4,"bathrooms":4,"occupancy":8,"pets":false,"contact":"Michael Ballew","size":"2653 sq. ft.","email":"sunnydays@tluxp.com"},
+{"name":"In the Wild Woods","address":"6415 Wildwood Road, Tahoe Vista, CA 96148","bedrooms":4,"bathrooms":3,"occupancy":10,"pets":false,"contact":"Annie Stryker","size":"3011 sq. ft.","email":"inthewildwoods@tluxp.com"},
+{"name":"Forever Edgewood - Lakeview","address":"139 Edgewood Drive, Tahoe City, CA 96145","bedrooms":4,"bathrooms":3,"occupancy":8,"pets":true,"contact":"Christian Cuneo","size":"2000 sq. ft.","email":"foreveredgewood@tluxp.com"},
+{"name":"Adventure Awaits","address":"222 Vista Pines Circle, Tahoe Vista, CA 96148","bedrooms":5,"bathrooms":4,"occupancy":10,"pets":true,"contact":"Caitlin McDonough","size":"3000 sq. ft.","email":"adventureawaits@tluxp.com"},
+{"name":"Holly Hideaway","address":"1210 Holly Road, Tahoe City, CA 96145","bedrooms":5,"bathrooms":3,"occupancy":10,"pets":false,"contact":"Charli Martin","size":"2650 sq. ft.","email":"hollyhideaway@tluxp.com"},
+{"name":"Sundance","address":"121 Mammoth Drive, Tahoe City, CA 96145","bedrooms":4,"bathrooms":4,"occupancy":10,"pets":true,"contact":"Charli Martin","size":"2564 sq. ft.","email":"sundance@tluxp.com"},
+{"name":"Aspen Paradise","address":"755 Grand Avenue, Homewood, CA 96141","bedrooms":4,"bathrooms":3,"occupancy":8,"pets":true,"contact":"Kayla Cox","size":"2200 sq. ft.","email":"aspenparadise@tluxp.com"},
+{"name":"Incline Oasis - Lakeview","address":"707 Cristina Drive, Incline Village, NV 89451","bedrooms":5,"bathrooms":6,"occupancy":10,"pets":true,"contact":"Andrea Degliantoni","size":"4371 sq. ft.","email":"inclineoasis@tluxp.com"},
+{"name":"Bradley's Bungalow","address":"161 Marlette Drive, Tahoe City, CA 96145","bedrooms":4,"bathrooms":5,"occupancy":8,"pets":false,"contact":"Michael Ballew","size":"2250 sq. ft.","email":"bradleysbungalow@tluxp.com"},
+{"name":"Enchanted Ridge","address":"4575 Ridgewood Drive, Carnelian Bay, CA 96140","bedrooms":3,"bathrooms":4,"occupancy":8,"pets":true,"contact":"Annie Stryker","size":"3525 sq. ft.","email":"enchantedridge@tluxp.com"},
+{"name":"California Sunshine - Lakeview","address":"5059 California Street, Carnelian Bay, CA 96140","bedrooms":4,"bathrooms":4,"occupancy":10,"pets":false,"contact":"Annie Stryker","size":"3300 sq. ft.","email":"californiasunshine@tluxp.com"},
+{"name":"Fresh Tracks at Northstar","address":"2302 Overlook Place, Truckee, CA 96161","bedrooms":4,"bathrooms":5,"occupancy":10,"pets":false,"contact":"Trevor Dimino-Simons","size":"3660 sq. ft.","email":"freshtracks@tluxp.com"},
+{"name":"Mountain Bear Lodge At Northstar","address":"1771 Grouse Ridge Road, Truckee, CA 96161","bedrooms":5,"bathrooms":7,"occupancy":12,"pets":true,"contact":"Trevor Dimino-Simons","size":"4737 sq. ft.","email":"mountainbearlodge@tluxp.com"},
+{"name":"Eagle's Nest at Northstar","address":"2106 Eagle Feather Court, Truckee, CA 96161","bedrooms":5,"bathrooms":5,"occupancy":12,"pets":false,"contact":"","size":"4000 sq. ft.","email":"eaglesnest@tluxp.com"},
+{"name":"Silverfell Lodge at Northstar","address":"2208 Silver Fox Court, Truckee, CA 96161","bedrooms":5,"bathrooms":5,"occupancy":12,"pets":true,"contact":"Caitlin McDonough","size":"4300 sq. ft.","email":"silverfelllodge@tluxp.com"},
+{"name":"Zoe's North Star at Northstar","address":"1709 Grouse Ridge Road, Truckee, CA 96161","bedrooms":4,"bathrooms":4,"occupancy":10,"pets":false,"contact":"Caitlin McDonough","size":"2639 sq. ft.","email":"zoesnorthstar@tluxp.com"},
+{"name":"Streams and Dreams","address":"14765 Alder Creek Road, Truckee, CA 96161","bedrooms":4,"bathrooms":4,"occupancy":10,"pets":true,"contact":"Michael Ballew","size":"3117 sq. ft.","email":"streamsanddreams@tluxp.com"},
+{"name":"Twin Tips At Northstar","address":"15145 Boulder Place, Truckee, CA 96161","bedrooms":4,"bathrooms":5,"occupancy":12,"pets":true,"contact":"","size":"3204 sq. ft.","email":"twintips@tluxp.com"},
+{"name":"Mill Creek Retreat - Incline Village","address":"1059 Tiller Drive, Incline Village, NV 89451","bedrooms":5,"bathrooms":6,"occupancy":12,"pets":true,"contact":"Andrea Degliantoni","size":"4834 sq. ft.","email":"millcreekretreat@tluxp.com"},
+{"name":"Fairest Picture - Lakeview","address":"1865 Tahoe Park Heights, Tahoe City, CA 96145","bedrooms":3,"bathrooms":5,"occupancy":8,"pets":true,"contact":"Charli Martin","size":"3549 sq. ft.","email":"fairestpicture@tluxp.com"},
+{"name":"Boulder Place Lookout At Northstar","address":"15144 Boulder Place, Truckee, CA 96161","bedrooms":4,"bathrooms":5,"occupancy":12,"pets":false,"contact":"","size":"3728 sq. ft.","email":"boulderplace@tluxp.com"},
+{"name":"Wolf Ridge","address":"820 Arch Way, Carnelian Bay, CA 96140","bedrooms":4,"bathrooms":4,"occupancy":8,"pets":true,"contact":"Kobe Robbin","size":"2800 sq. ft.","email":"wolfridge@tluxp.com"},
+{"name":"Modern Marvel - Incline Village","address":"101 Pinion Drive, Incline Village, NV 89451","bedrooms":7,"bathrooms":8,"occupancy":14,"pets":true,"contact":"Natalie Garnett","size":"5151 sq. ft.","email":"modernmarvel@tluxp.com"},
+{"name":"Moondance At Tahoe Park","address":"301 Shoreview Drive, Tahoe City, CA 96145","bedrooms":4,"bathrooms":3,"occupancy":10,"pets":true,"contact":"Charli Martin","size":"2703 sq. ft.","email":"moondance@tluxp.com"},
+{"name":"Stanford Rock Retreat","address":"335 Leota Way, Homewood, CA 96141","bedrooms":4,"bathrooms":4,"occupancy":10,"pets":true,"contact":"Kobe Robbin","size":"2982 sq. ft.","email":"stanfordrock@tluxp.com"},
+{"name":"Shoshone Chalet at Palisades","address":"206 Shoshone Way, Olympic Valley, CA 96146","bedrooms":4,"bathrooms":4,"occupancy":8,"pets":false,"contact":"Christian Cuneo","size":"2567 sq. ft.","email":"shoshone@tluxp.com"},
+{"name":"Bella Vista Sul Lago - Lakeview","address":"180 Rim Drive, Tahoe Vista, CA 96148","bedrooms":5,"bathrooms":6,"occupancy":12,"pets":true,"contact":"Caitlin McDonough","size":"5378 sq. ft.","email":"bellavista@tluxp.com"},
+{"name":"Spirit of the Mountain","address":"235 Smiley Circle, Olympic Valley, CA 96146","bedrooms":5,"bathrooms":5,"occupancy":12,"pets":true,"contact":"Christian Cuneo","size":"3781 sq. ft.","email":"spirit@tluxp.com"},
+{"name":"Tall Pines Ski Shack","address":"15 Tall Pines Road, Zephyr Cove, NV 89448","bedrooms":5,"bathrooms":6,"occupancy":10,"pets":true,"contact":"Tina Geilenfeldt","size":"4838 sq. ft.","email":"tallpines@tluxp.com"},
+{"name":"Village Walk Skyline At Northstar","address":"7464 Larkspur Lane #17, Truckee, CA 96161","bedrooms":4,"bathrooms":4,"occupancy":10,"pets":false,"contact":"Caitlin McDonough","size":"2980 sq. ft.","email":"vistaazul@tluxp.com"},
+{"name":"12th Tee At Northstar","address":"125 Basque Drive, Truckee, CA 96161","bedrooms":4,"bathrooms":5,"occupancy":10,"pets":false,"contact":"Caitlin McDonough","size":"3440 sq. ft.","email":"12thtee@tluxp.com"},
+{"name":"King's View Lodge - Lakeview","address":"371 Mountain Lake Court, Incline Village, NV 89541","bedrooms":5,"bathrooms":5,"occupancy":10,"pets":true,"contact":"Andrea Degliantoni","size":"4008 sq. ft.","email":"jessie@tluxp.com"},
+{"name":"Whispering Winds","address":"225 Smiley Circle, Olympic Valley, CA 96146","bedrooms":4,"bathrooms":5,"occupancy":10,"pets":true,"contact":"Christian Cuneo","size":"4613 sq. ft.","email":"whisperingwinds@tluxp.com"},
+{"name":"Alpen Glow At Northstar","address":"14447 Home Run Trail, Truckee, CA 96161","bedrooms":4,"bathrooms":5,"occupancy":10,"pets":true,"contact":"","size":"3312 sq. ft.","email":"alpenglow@tluxp.com"},
+{"name":"Lakeside Cedars","address":"120 Old Cedars Place, Tahoma, CA 96142","bedrooms":3,"bathrooms":3,"occupancy":6,"pets":true,"contact":"Kobe Robbin","size":"2646 sq. ft.","email":"lakesidecedars@tluxp.com"}
+];
 
-  departure: {
-    name: 'Guest Departure Inspection',
-    icon: '🔍',
-    type: 'departure',
-    showCharge: true,
-    showRating: false,
-    sections: [
-      { title: 'Exterior & Entry', items: [
-        'Driveway / parking area condition',
-        'Entry and pathway clean',
-        'Exterior furniture returned to proper position',
-        'BBQ grill condition and cleanliness',
-        'Hot tub / spa condition (cover replaced, water clean)',
-        'Dock / watercraft returned and secured (seasonal)',
-        'Fire pit clean (ash cleaned, screen in place)',
-        'Garbage and recycling properly sorted and stored',
-        'Exterior windows — no new damage',
-      ]},
-      { title: 'Living Room & Common Areas', items: [
-        'Furniture — no stains, damage, or rearrangement',
-        'Fireplace clean (no excess ash, glass clean)',
-        'TV and remotes present and functional',
-        'Rugs and flooring — no stains or damage',
-        'Windows and sliding doors — no damage, locked',
-        'Walls and baseboards — no marks, holes, or damage',
-        'Décor items — all present and undamaged',
-        'Guest welcome book present and intact',
-      ]},
-      { title: 'Kitchen & Dining', items: [
-        'Countertops clean and undamaged',
-        'Refrigerator cleaned out and wiped down',
-        'Stovetop / oven clean',
-        'Microwave clean',
-        'Dishwasher run (dishes clean and put away)',
-        'Cookware and bakeware — count complete, undamaged',
-        'Dishes, glasses, mugs — count complete, undamaged',
-        'Small appliances present and undamaged',
-        'Trash cans emptied and cleaned',
-        'Dining table and chairs — clean, no damage',
-      ]},
-      { title: 'Bedrooms', items: [
-        'Bedroom 1 — linens condition and count (stains?)',
-        'Bedroom 1 — mattress / protector (no stains or damage)',
-        'Bedroom 1 — furniture, floors, walls, windows',
-        'Bedroom 2 — linens condition and count',
-        'Bedroom 2 — mattress / protector',
-        'Bedroom 2 — furniture, floors, walls, windows',
-        'Bedroom 3 — linens condition and count',
-        'Bedroom 3 — mattress / protector',
-        'Bedroom 3 — furniture, floors, walls, windows',
-        'Bedroom 4 — linens condition and count',
-        'Bedroom 4 — furniture, floors, walls, windows',
-        'Extra blankets / pillows — count and condition',
-      ]},
-      { title: 'Bathrooms', items: [
-        'Primary bath — toilet (clean, no damage)',
-        'Primary bath — shower/tub (no damage)',
-        'Primary bath — vanity, mirrors, fixtures',
-        'Primary bath — towels count and condition',
-        'Guest bath 1 — toilet, shower/tub, vanity',
-        'Guest bath 1 — towels count and condition',
-        'Guest bath 2 — toilet, shower/tub, vanity',
-        'Guest bath 3 — toilet, shower/tub, vanity',
-        'Hair dryers present and undamaged',
-        'No new plumbing leaks or clogs found',
-      ]},
-      { title: 'Systems Reset & Utilities', items: [
-        'Thermostat reset to standby temperature',
-        'Smart home devices / locks reset for next guest',
-        'All lights turned off',
-        'Windows and doors locked',
-        'Fireplace gas shutoff confirmed',
-        'Hot water heater set to standby (if seasonal)',
-        'No new damage to HVAC, appliances, or utilities',
-        'Smoke / CO detector batteries functional',
-      ]},
-    ]
-  },
-
-  routine: {
-    name: 'Routine Property Inspection',
-    icon: '📋',
-    type: 'routine',
-    showCharge: false,
-    showRating: true,
-    sections: [
-      { title: 'Exterior & Structure', items: [
-        'Roof — no missing shingles, sagging, or visible damage',
-        'Gutters and downspouts clear and properly attached',
-        'Chimney / flue condition and cap intact',
-        'Exterior siding / paint / stucco condition',
-        'Foundation — no cracks or water intrusion',
-        'Windows and doors (seals, frames, hardware)',
-        'Garage door and opener condition',
-        'Driveway and pathways (cracks, settling)',
-        'Deck structural integrity (boards, railings, fasteners)',
-        'Exterior stairs and handrails secure',
-        'Landscaping and irrigation condition',
-        'All exterior lighting functional',
-        'Snow load / drainage (post-winter)',
-      ]},
-      { title: 'Interior — Living Spaces', items: [
-        'Ceilings — no water stains, cracks, or damage',
-        'Walls and paint / wallcovering condition',
-        'Flooring — wear, damage, stains (hardwood, tile, carpet)',
-        'Baseboards and trim condition',
-        'Fireplace and hearth (structural, glass, damper)',
-        'Staircase and railings (secure, no creaking)',
-        'Windows (seals, operation)',
-        'Furniture (upholstery, frames, wear)',
-        'Lighting fixtures and fans (operation, condition)',
-        'Door hardware and locks (all rooms)',
-        'Smart home devices (hubs, thermostats, locks)',
-      ]},
-      { title: 'Kitchen', items: [
-        'Cabinets and drawer hardware',
-        'Countertops — no chips, cracks, or burns',
-        'Refrigerator (seal, interior, ice maker)',
-        'Dishwasher (door seal, spray arms, drain)',
-        'Oven and stovetop (burners, igniter)',
-        'Range hood / ventilation',
-        'Garbage disposal',
-        'Sink and faucet (leaks, drain, pressure)',
-        'Under-sink plumbing — no leaks',
-        'Small appliances inventory and condition',
-      ]},
-      { title: 'Bedrooms', items: [
-        'Bedroom 1 — walls, ceiling, floors, windows',
-        'Bedroom 1 — closet doors, hardware, shelving',
-        'Bedroom 2 — walls, ceiling, floors, windows',
-        'Bedroom 2 — closet doors, hardware, shelving',
-        'Bedroom 3 — walls, ceiling, floors, windows',
-        'Bedroom 4 — walls, ceiling, floors, windows',
-        'Mattresses (condition, support)',
-        'TV mounts and entertainment systems',
-      ]},
-      { title: 'Bathrooms', items: [
-        'Primary bath — grout, caulk, tile condition',
-        'Primary bath — shower/tub enclosure (seals, glass)',
-        'Primary bath — toilet (flush, seal, fill valve)',
-        'Guest bath 1 — overall condition',
-        'Guest bath 2 — overall condition',
-        'Guest bath 3 — overall condition',
-        'All exhaust fans functional',
-        'No signs of mold or mildew',
-        'Under-sink plumbing — no leaks',
-      ]},
-      { title: 'Systems & Mechanical', items: [
-        'HVAC system (filter condition, airflow)',
-        'Furnace / boiler (service record current)',
-        'Water heater (age, temperature, pressure relief valve)',
-        'Water pressure throughout (consistent)',
-        'Hot tub (jets, heater, chemistry, cover)',
-        'Generator (fuel, start test)',
-        'Electrical panel (no tripped breakers)',
-        'Smoke detectors (test all)',
-        'Carbon monoxide detectors (test all)',
-        'Fire extinguisher (charged, within service date)',
-        'Internet / Wi-Fi router and network equipment',
-        'Security system / cameras (operational)',
-        'Propane / natural gas lines and shutoff valves',
-      ]},
-      { title: 'Amenities & Specialty', items: [
-        'Hot tub / jacuzzi (jets, heater, water quality, cover)',
-        'Dock and lake access (structural, lighting, safety)',
-        'Kayaks / paddleboards (condition and storage)',
-        'Ski / snowboard storage and drying room',
-        'Boot warmers functional',
-        'Game room equipment',
-        'Home theater / AV system',
-        'Laundry room (washer, dryer, vent duct)',
-        'Outdoor BBQ (burners, igniter, cover)',
-        'Fire pit condition',
-      ]},
-      { title: 'Safety & Compliance', items: [
-        'STR permit posted and current',
-        'Noise / HOA rules posted for guests',
-        'Emergency evacuation route posted',
-        'First aid kit fully stocked',
-        'Fire escape route clear (all floors)',
-        'Life rings / safety at waterfront (seasonal)',
-        'No trip hazards on walkways or stairs',
-        'Exterior pathways lit adequately',
-      ]},
-    ]
-  },
-
-  maintenance: {
-    name: 'Maintenance Check',
-    icon: '🔧',
-    type: 'maintenance',
-    showCharge: false,
-    showRating: false,
-    sections: [
-      { title: 'HVAC & Heating (Monthly / Seasonal)', items: [
-        'Replace HVAC air filters',
-        'Test and calibrate thermostat',
-        'Check furnace / boiler igniter and burners',
-        'HVAC annual service completed (log date)',
-        'Clean air ducts (every 3 years)',
-      ]},
-      { title: 'Hot Tub / Spa', items: [
-        'Water chemistry test and balance',
-        'Inspect jets, pump, and heater',
-        'Check and clean filter',
-        'Inspect cover (condition, hinges, straps)',
-        'Full drain, clean, and refill (quarterly)',
-      ]},
-      { title: 'Plumbing', items: [
-        'Inspect all plumbing for leaks',
-        'Test water pressure (all fixtures)',
-        'Flush water heater and check anode rod',
-        'Inspect gutters and downspouts',
-        'Winterize irrigation system (October)',
-        'Activate and test irrigation (May)',
-      ]},
-      { title: 'Electrical & Safety', items: [
-        'Test all smoke detectors',
-        'Test all CO detectors',
-        'Replace smoke / CO detector batteries (annual)',
-        'Test GFCI outlets (kitchen, baths, exterior)',
-        'Inspect electrical panel (breakers, labeling)',
-        'Check and test generator (run under load)',
-        'Refuel and check generator oil',
-        'Fire extinguisher inspection (tagged)',
-      ]},
-      { title: 'Exterior & Structure', items: [
-        'Roof inspection (annual — post ski season)',
-        'Chimney sweep and inspection (September)',
-        'Check exterior caulking and weatherstripping',
-        'Power wash exterior, decks, and paths',
-        'Inspect and repair driveway',
-        'Pest inspection and treatment',
-        'Deck inspection and staining / sealing',
-        'Touch-up or repaint exterior (as needed)',
-      ]},
-      { title: 'Seasonal — Winter Prep (October)', items: [
-        'Activate snow removal contract',
-        'Winterize outdoor plumbing / irrigation',
-        'Install pipe insulation on at-risk pipes',
-        'Stock firewood (full cord)',
-        'Check and stock salt / ice melt',
-        'Inspect ski storage and boot warmers',
-        'Check and service generator pre-season',
-      ]},
-      { title: 'Seasonal — Spring/Summer Opening (May)', items: [
-        'Open and inspect dock',
-        'Service and launch watercraft',
-        'Service BBQ grill (deep clean, replace parts)',
-        'Set up and inspect outdoor furniture',
-        'Activate irrigation system',
-        'Carpet and upholstery professional cleaning',
-        'Mattress inspection and rotation',
-      ]},
-      { title: 'Interior & Compliance', items: [
-        'Deep clean all appliances',
-        'Inspect and replace caulking (baths / kitchen)',
-        'Touch-up interior paint',
-        'Inventory and restock linen supply',
-        'Restock welcome / consumable supplies',
-        'Verify STR permit current and posted',
-        'Update emergency contact list at property',
-        'First aid kit restock',
-      ]},
-    ]
+function getBedroomItems(n, type) {
+  var items = [];
+  for (var i = 1; i <= n; i++) {
+    if (type === 'arrival') {
+      items.push('Bedroom ' + i + ' — fresh linens, bed made, closet with hangers');
+      items.push('Bedroom ' + i + ' — nightstands clean, lamps functional, flooring clean');
+    } else if (type === 'departure') {
+      items.push('Bedroom ' + i + ' — mattress/protector condition, furniture, walls, windows');
+      items.push('Bedroom ' + i + ' — linens removed, flooring clean');
+    } else {
+      items.push('Bedroom ' + i + ' — walls, ceiling, floors, windows');
+      items.push('Bedroom ' + i + ' — closet doors, hardware, shelving');
+    }
   }
-};
-
-// ═══════════════════════════════════════
-// APP STATE
-// ═══════════════════════════════════════
-let state = {
-  formType: null,
-  formData: null,       // FORMS[formType]
-  info: {},             // property, date, time, inspector, guest
-  items: {},            // { sectionIdx_itemIdx: { status, notes, photos, charge } }
-  draftId: null,
-};
-
-function newState() {
-  return {
-    formType: null, formData: null, info: {}, items: {}, draftId: Date.now()
-  };
+  items.push('Extra blankets and pillows — count and condition');
+  return items;
 }
 
-// ═══════════════════════════════════════
-// NAV / SCREENS
-// ═══════════════════════════════════════
+function getBathroomItems(n, type, pets) {
+  var items = [];
+  for (var i = 1; i <= n; i++) {
+    var label = i === 1 ? 'Primary bath' : 'Bath ' + i;
+    if (type === 'arrival') {
+      items.push(label + ' — toilet clean and functioning, no leaks');
+      items.push(label + ' — shower/tub clean, fresh towels stocked');
+      items.push(label + ' — toiletries stocked, toilet paper (min. 2 rolls)');
+    } else if (type === 'departure') {
+      items.push(label + ' — toilet, shower/tub condition and cleanliness');
+      items.push(label + ' — towel count and condition, vanity clean');
+    } else {
+      items.push(label + ' — grout, caulk, tile, fixtures condition');
+      items.push(label + ' — toilet, shower/tub function and seals');
+    }
+  }
+  items.push('Hair dryers present and functional in all bathrooms');
+  items.push('No leaks under sinks or around toilets');
+  if (type === 'departure' && pets) items.push('Check all bathrooms for pet hair, damage, or odors');
+  return items;
+}
+
+function getSections(type, prop) {
+  var beds = prop ? prop.bedrooms : 4;
+  var baths = prop ? prop.bathrooms : 4;
+  var pets = prop ? prop.pets : false;
+  var bedTitle = 'Bedrooms (' + beds + ')';
+  var bathTitle = 'Bathrooms (' + baths + ')';
+
+  if (type === 'arrival') return [
+    {title:'Exterior & Entry', items:['Driveway clear and free of debris / snow','Exterior lighting functional (entry, pathway, landscape)','Front door lock / smart lock coded for this reservation','Welcome mat and entry area clean and presentable','Garbage and recycling bins emptied and stored','Exterior windows clean and free of damage','Deck / patio furniture clean and properly arranged','BBQ grill clean and propane tank full','Hot tub cover removed / spa ready (correct temp, clean water)','Firewood stocked (if wood-burning fireplace)','Dock / pier safe and accessible (seasonal)','Kayaks / paddleboards / watercraft ready (seasonal)','Ski locker / boot warmer accessible and functional (seasonal)'].concat(pets ? ['Pet amenities in place (pet bed, bowls, cleanup bags)'] : [])},
+    {title:'Living Room & Common Areas', items:['Entry foyer clean and free of clutter','Living room cleaned and staged (pillows, throws arranged)','Fireplace clean, functional, and ready','TV and entertainment system functional — remotes present','Wi-Fi router operational — password displayed for guest','Smart home system operational (thermostat, lighting, locks)','Windows and sliding doors clean and operational','Flooring clean (vacuumed / mopped)','No odors — air quality acceptable','Guest welcome book / binder present and current','Emergency contact info and house rules posted']},
+    {title:'Kitchen & Dining', items:['Countertops clean and sanitized','Refrigerator clean, empty of prior guest items, correct temp','Stovetop / oven clean and functional','Dishwasher clean — cycle complete','Trash can empty and lined','Dishes, glasses, and cookware clean and properly stored','Coffee maker / espresso machine clean and stocked','Pantry stocked per welcome package (coffee, tea, oil, salt, pepper)','Paper towels, dish soap, and sponge stocked','Dining table clean and properly set']},
+    {title: bedTitle, items: getBedroomItems(beds, 'arrival')},
+    {title: bathTitle, items: getBathroomItems(baths, 'arrival', pets)},
+    {title:'Systems & Utilities', items:['HVAC / heating operational — thermostat set to welcome temp','All light switches and outlets functional','Smoke detectors tested — batteries good','Carbon monoxide detectors tested — batteries good','Fire extinguisher present, charged, and accessible','First aid kit stocked','Water pressure acceptable throughout','No signs of leaks, water damage, or mold','Internet / Wi-Fi confirmed operational','Smart door locks coded and functional for this reservation','Garage door opener functional']},
+    {title:'Final Amenities Check', items:['Washer and dryer clean and operational','Laundry detergent and dryer sheets stocked','Game room / entertainment area set up','Outdoor furniture covers removed and stored','Parking passes / garage remotes in designated place','Welcome gift / amenity package placed per reservation notes']}
+  ];
+
+  if (type === 'departure') return [
+    {title:'Exterior & Entry', items:['Driveway / parking area — condition and cleanliness','Entry and pathway clean','Exterior furniture returned to proper position','BBQ grill — condition and cleanliness','Hot tub / spa — cover replaced, water clean','Dock / watercraft returned and secured (seasonal)','Fire pit — ash cleaned, screen in place','Garbage and recycling properly sorted and stored','Exterior windows — no new damage'].concat(pets ? ['Check exterior for pet waste or damage'] : [])},
+    {title:'Living Room & Common Areas', items:['Furniture — no stains, damage, or rearrangement','Fireplace clean (no excess ash, glass clean)','TV and remotes present and functional','Rugs and flooring — no stains or damage','Windows and sliding doors — no damage, locked','Walls and baseboards — no marks, holes, or damage','Decor items — all present and undamaged','Guest welcome book present and intact']},
+    {title:'Kitchen & Dining', items:['Countertops clean and undamaged','Refrigerator cleaned out and wiped down','Stovetop / oven clean','Microwave clean','Dishwasher run — dishes clean and put away','Cookware and bakeware — count complete, undamaged','Dishes, glasses, mugs — count complete, undamaged','Small appliances present and undamaged','Trash cans emptied and cleaned','Dining table and chairs — clean, no damage']},
+    {title: bedTitle, items: getBedroomItems(beds, 'departure')},
+    {title: bathTitle, items: getBathroomItems(baths, 'departure', pets)},
+    {title:'Systems Reset & Utilities', items:['Thermostat reset to standby temperature','Smart home devices / locks reset for next guest','All lights turned off','Windows and doors locked','Fireplace gas shutoff confirmed','No new damage to HVAC, appliances, or utilities','Smoke / CO detector batteries functional'].concat(pets ? ['Inspect for pet damage — furniture, floors, walls, doors'] : [])}
+  ];
+
+  if (type === 'routine') return [
+    {title:'Exterior & Structure', items:['Roof — no missing shingles, sagging, or visible damage','Gutters and downspouts clear and properly attached','Chimney / flue condition and cap intact','Exterior siding / paint / stucco condition','Foundation — no cracks or water intrusion','Windows and doors (seals, frames, hardware)','Garage door and opener condition','Driveway and pathways (cracks, settling)','Deck structural integrity (boards, railings, fasteners)','Exterior stairs and handrails secure','Landscaping and irrigation condition','All exterior lighting functional']},
+    {title:'Interior — Living Spaces', items:['Ceilings — no water stains, cracks, or damage','Walls and paint condition','Flooring — wear, damage, stains','Baseboards and trim condition','Fireplace and hearth (structural, glass, damper)','Staircase and railings (secure, no creaking)','Windows (seals, operation)','Furniture (upholstery, frames, wear)','Lighting fixtures and fans','Door hardware and locks (all rooms)','Smart home devices (hubs, thermostats, locks)']},
+    {title:'Kitchen', items:['Cabinets and drawer hardware','Countertops — no chips, cracks, or burns','Refrigerator (seal, interior, ice maker)','Dishwasher (door seal, spray arms, drain)','Oven and stovetop (burners, igniter)','Range hood / ventilation','Garbage disposal','Sink and faucet (leaks, drain, pressure)','Under-sink plumbing — no leaks','Small appliances inventory and condition']},
+    {title: bedTitle, items: getBedroomItems(beds, 'routine')},
+    {title: bathTitle, items: getBathroomItems(baths, 'routine', pets)},
+    {title:'Systems & Mechanical', items:['HVAC system (filter condition, airflow)','Furnace / boiler (service record current)','Water heater (age, temperature, pressure relief valve)','Water pressure throughout (consistent)','Hot tub (jets, heater, chemistry, cover)','Generator (fuel, start test)','Electrical panel (no tripped breakers)','Smoke detectors (test all)','Carbon monoxide detectors (test all)','Fire extinguisher (charged, within service date)','Internet / Wi-Fi router and network equipment','Security system / cameras (operational)','Propane / natural gas lines and shutoff valves']},
+    {title:'Safety & Compliance', items:['STR permit posted and current','Noise / HOA rules posted for guests','Emergency evacuation route posted','First aid kit fully stocked','Fire escape route clear (all floors)','Life rings / safety at waterfront (seasonal)','No trip hazards on walkways or stairs','Exterior pathways lit adequately']}
+  ];
+
+  return [
+    {title:'HVAC & Heating', items:['Replace HVAC air filters','Test and calibrate thermostat','Check furnace / boiler igniter and burners','HVAC annual service completed (log date)','Clean air ducts (every 3 years)']},
+    {title:'Hot Tub / Spa', items:['Water chemistry test and balance','Inspect jets, pump, and heater','Check and clean filter','Inspect cover (condition, hinges, straps)','Full drain, clean, and refill (quarterly)']},
+    {title:'Plumbing', items:['Inspect all plumbing for leaks','Test water pressure (all fixtures)','Flush water heater and check anode rod','Inspect gutters and downspouts','Winterize irrigation system (October)','Activate and test irrigation (May)']},
+    {title:'Electrical & Safety', items:['Test all smoke detectors','Test all CO detectors','Replace smoke / CO detector batteries (annual)','Test GFCI outlets (kitchen, baths, exterior)','Inspect electrical panel (breakers, labeling)','Check and test generator (run under load)','Refuel and check generator oil','Fire extinguisher inspection (tagged)']},
+    {title:'Exterior & Structure', items:['Roof inspection (annual — post ski season)','Chimney sweep and inspection (September)','Check exterior caulking and weatherstripping','Power wash exterior, decks, and paths','Inspect and repair driveway','Pest inspection and treatment','Deck inspection and staining / sealing','Touch-up or repaint exterior (as needed)']},
+    {title:'Seasonal — Winter Prep (October)', items:['Activate snow removal contract','Winterize outdoor plumbing / irrigation','Install pipe insulation on at-risk pipes','Stock firewood (full cord)','Check and stock salt / ice melt','Inspect ski storage and boot warmers','Check and service generator pre-season']},
+    {title:'Seasonal — Spring/Summer Opening (May)', items:['Open and inspect dock','Service and launch watercraft','Service BBQ grill (deep clean, replace parts)','Set up and inspect outdoor furniture','Activate irrigation system','Carpet and upholstery professional cleaning','Mattress inspection and rotation']},
+    {title:'Interior & Compliance', items:['Deep clean all appliances','Inspect and replace caulking (baths / kitchen)','Touch-up interior paint','Inventory and restock linen supply','Restock welcome / consumable supplies','Verify STR permit current and posted','Update emergency contact list at property','First aid kit restock']}
+  ];
+}
+
+var state = {};
+function newState() { return {formType:null, selectedProp:null, info:{}, items:{}, draftId:Date.now(), overallStatus:null, _sections:null}; }
+state = newState();
+
+var filteredProps = [];
+function filterProperties() {
+  var q = document.getElementById('propSearch').value.toLowerCase();
+  filteredProps = q.length < 1 ? PROPERTIES : PROPERTIES.filter(function(p) {
+    return p.name.toLowerCase().indexOf(q) >= 0 || p.address.toLowerCase().indexOf(q) >= 0;
+  });
+  renderDropdown();
+}
+function renderDropdown() {
+  var dd = document.getElementById('propDropdown');
+  dd.innerHTML = '';
+  var list = filteredProps.slice(0, 20);
+  list.forEach(function(p) {
+    var el = document.createElement('div');
+    el.className = 'prop-option';
+    el.innerHTML = '<div class="prop-option-name">' + esc(p.name) + '</div><div class="prop-option-addr">' + esc(p.address) + '</div>';
+    el.onmousedown = function() { selectProperty(p); };
+    dd.appendChild(el);
+  });
+  dd.classList.toggle('open', list.length > 0);
+}
+function openDropdown() { filteredProps = PROPERTIES; renderDropdown(); }
+function closeDropdown() { document.getElementById('propDropdown').classList.remove('open'); }
+function selectProperty(p) {
+  state.selectedProp = p;
+  document.getElementById('propSearch').value = p.name;
+  document.getElementById('propDropdown').classList.remove('open');
+  document.getElementById('propCardName').textContent = p.name;
+  document.getElementById('propCardAddr').textContent = p.address;
+  var tags = document.getElementById('propTags');
+  tags.innerHTML =
+    '<span class="prop-tag">&#127. ' + p.bedrooms + ' bed</span>' +
+    '<span class="prop-tag">&#128698; ' + p.bathrooms + ' bath</span>' +
+    '<span class="prop-tag">&#128101; Max ' + p.occupancy + '</span>' +
+    (p.size ? '<span class="prop-tag">&#9634; ' + esc(p.size) + '</span>' : '') +
+    '<span class="prop-tag ' + (p.pets ? 'pets' : 'no-pets') + '">' + (p.pets ? 'Pets OK' : 'No pets') + '</span>' +
+    (p.contact ? '<span class="prop-tag contact">Contact: ' + esc(p.contact) + '</span>' : '');
+  document.getElementById('propCard').classList.add('show');
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
 function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
   document.getElementById(id).classList.add('active');
   window.scrollTo(0, 0);
 }
-
 function goBack() {
   if (document.getElementById('screenSummary').classList.contains('active')) {
     showScreen('screenChecklist');
     document.getElementById('bottomNav').style.display = 'flex';
-    setHeader('Inspection', state.info.property || '', true, false, null);
+    setHeader(FORM_META[state.formType].name, state.selectedProp ? state.selectedProp.name : '', true);
   } else if (document.getElementById('screenChecklist').classList.contains('active')) {
-    if (confirm('Go back? Your progress is saved.')) {
-      saveDraft();
-      resetToHome();
-    }
+    if (confirm('Go back? Progress will be saved as a draft.')) { saveDraft(); resetToHome(); }
   } else if (document.getElementById('screenSetup').classList.contains('active')) {
     resetToHome();
   }
 }
-
 function resetToHome() {
   state = newState();
   document.getElementById('bottomNav').style.display = 'none';
   document.getElementById('globalProg').style.display = 'none';
-  setHeader('TLP Inspections', 'Tahoe Luxury Properties', false, false, null);
-  document.getElementById('backBtn').style.display = 'none';
+  setHeader('TLP Inspections', 'Tahoe Luxury Properties', false);
   renderDrafts();
   showScreen('screenHome');
 }
-
-function setHeader(title, sub, showBack, showAction, actionLabel) {
+function setHeader(title, sub, showBack) {
   document.getElementById('headerTitle').textContent = title;
   document.getElementById('headerSub').textContent = sub;
   document.getElementById('backBtn').style.display = showBack ? 'block' : 'none';
-  const btn = document.getElementById('headerAction');
-  if (showAction) {
-    btn.style.display = 'block';
-    btn.textContent = actionLabel;
-  } else {
-    btn.style.display = 'none';
-  }
 }
 
-let headerActionFn = () => {};
+var FORM_META = {
+  arrival:     {name:'Guest Arrival Inspection',            icon:'&#9989;'},
+  departure:   {name:'Guest Departure & Damage Assessment', icon:'&#128269;'},
+  routine:     {name:'Routine Property Inspection',         icon:'&#128203;'},
+  maintenance: {name:'Maintenance Check',                   icon:'&#128295;'}
+};
 
-// ═══════════════════════════════════════
-// FORM START
-// ═══════════════════════════════════════
 function startForm(type, draftId) {
   state = newState();
   state.formType = type;
-  state.formData = FORMS[type];
   if (draftId) state.draftId = draftId;
-
-  const form = FORMS[type];
-  document.getElementById('setupIcon').textContent = form.icon;
-  document.getElementById('setupFormName').textContent = form.name;
-
-  // Set date/time defaults
-  const now = new Date();
+  var meta = FORM_META[type];
+  document.getElementById('setupIcon').innerHTML = meta.icon;
+  document.getElementById('setupFormName').textContent = meta.name;
+  var now = new Date();
   document.getElementById('fieldDate').value = now.toISOString().split('T')[0];
-  document.getElementById('fieldTime').value = now.toTimeString().slice(0,5);
-
-  // Restore saved inspector name
-  const savedInspector = localStorage.getItem('tlp_inspector');
-  if (savedInspector) document.getElementById('fieldInspector').value = savedInspector;
-
-  // Adjust guest field label
-  const guestLabel = document.getElementById('guestNameLabel');
-  const checkInField = document.getElementById('checkInField');
-  if (type === 'arrival') {
-    guestLabel.textContent = 'Guest Name';
-    document.getElementById('guestNameField').style.display = 'block';
-    checkInField.style.display = 'block';
-    document.getElementById('checkInLabel').textContent = 'Reservation / Check-in Time';
-  } else if (type === 'departure') {
-    guestLabel.textContent = 'Guest Name (departing)';
-    document.getElementById('guestNameField').style.display = 'block';
-    checkInField.style.display = 'none';
-  } else {
-    document.getElementById('guestNameField').style.display = 'none';
-    checkInField.style.display = 'none';
-  }
-
-  // Load draft if exists
+  document.getElementById('fieldTime').value = now.toTimeString().slice(0, 5);
+  var saved = localStorage.getItem('tlp_inspector');
+  if (saved) document.getElementById('fieldInspector').value = saved;
+  document.getElementById('fieldGuest').value = '';
+  document.getElementById('propSearch').value = '';
+  document.getElementById('propCard').classList.remove('show');
+  document.getElementById('guestNameField').style.display = (type === 'maintenance' || type === 'routine') ? 'none' : 'block';
+  document.getElementById('guestNameLabel').textContent = type === 'departure' ? 'Guest Name (departing)' : 'Guest Name';
   if (draftId) loadDraft(draftId);
-
-  setHeader(form.name, '', true, false, null);
+  setHeader(meta.name, '', true);
   showScreen('screenSetup');
 }
 
 function startChecklist() {
-  const prop = document.getElementById('fieldProperty').value.trim();
-  if (!prop) { showToast('Enter a property name'); document.getElementById('fieldProperty').focus(); return; }
-  const inspector = document.getElementById('fieldInspector').value.trim();
-  if (!inspector) { showToast('Enter inspector name'); document.getElementById('fieldInspector').focus(); return; }
-
+  if (!state.selectedProp) { showToast('Please select a property'); return; }
+  var inspector = document.getElementById('fieldInspector').value.trim();
+  if (!inspector) { showToast('Enter your name'); document.getElementById('fieldInspector').focus(); return; }
   state.info = {
-    property: prop,
+    property: state.selectedProp.name,
+    address: state.selectedProp.address,
     date: document.getElementById('fieldDate').value,
     time: document.getElementById('fieldTime').value,
-    inspector,
-    guest: document.getElementById('fieldGuest').value.trim(),
-    checkIn: document.getElementById('fieldCheckIn').value.trim(),
+    inspector: inspector,
+    guest: document.getElementById('fieldGuest').value.trim()
   };
-
-  // Save inspector name for next time
   localStorage.setItem('tlp_inspector', inspector);
-
   buildChecklist();
-  setHeader(state.formData.icon + ' ' + state.formData.name, state.info.property, true, false, null);
+  setHeader(FORM_META[state.formType].name, state.selectedProp.name, true);
   document.getElementById('bottomNav').style.display = 'flex';
   document.getElementById('globalProg').style.display = 'block';
   showScreen('screenChecklist');
   updateProgress();
 }
 
-// ═══════════════════════════════════════
-// CHECKLIST BUILDER
-// ═══════════════════════════════════════
 function buildChecklist() {
-  const wrap = document.getElementById('checklistWrap');
+  var wrap = document.getElementById('checklistWrap');
   wrap.innerHTML = '';
-  const form = state.formData;
-
-  form.sections.forEach((section, si) => {
-    const block = document.createElement('div');
+  var sections = getSections(state.formType, state.selectedProp);
+  state._sections = sections;
+  sections.forEach(function(section, si) {
+    var block = document.createElement('div');
     block.className = 'section-block';
-
-    const head = document.createElement('div');
+    var head = document.createElement('div');
     head.className = 'section-head';
-    head.innerHTML = `<span>${section.title}</span><span class="section-badge" id="sec-badge-${si}">${section.items.length}</span>`;
+    head.innerHTML = '<span>' + esc(section.title) + '</span><span class="section-badge" id="sec-badge-' + si + '">' + section.items.length + '</span>';
     block.appendChild(head);
-
-    section.items.forEach((itemText, ii) => {
-      const key = `${si}_${ii}`;
-      const saved = state.items[key] || {};
-
-      const row = document.createElement('div');
-      row.className = 'item-row';
-      row.id = `row-${key}`;
-      if (saved.status) row.classList.add(saved.status + '-row');
-
-      const main = document.createElement('div');
+    section.items.forEach(function(itemText, ii) {
+      var key = si + '_' + ii;
+      var saved = state.items[key] || {};
+      var row = document.createElement('div');
+w' + (saved.status ? ' ' + saved.status + '-row' : '');
+      row.id = 'row-' + key;
+      var main = document.createElement('div');
       main.className = 'item-main';
-
-      const text = document.createElement('div');
+      var text = document.createElement('div');
       text.className = 'item-text';
       text.textContent = itemText;
-
-      const btns = document.createElement('div');
+      var btns = document.createElement('div');
       btns.className = 'item-btns';
-
-      ['ok','issue','na'].forEach(s => {
-        const btn = document.createElement('button');
+      ['ok','issue','na'].forEach(function(s) {
+        var btn = document.createElement('button');
         btn.className = 'status-btn' + (saved.status === s ? ' ' + s : '');
-        btn.textContent = s === 'ok' ? '✓' : s === 'issue' ? '!' : 'N/A';
+        btn.textContent = s === 'ok' ? 'OK' : s === 'issue' ? '!' : 'N/A';
         btn.dataset.status = s;
-        btn.onclick = (e) => { e.stopPropagation(); setStatus(key, s, si); };
+        btn.onclick = (function(k,ss,ssi){return function(e){e.stopPropagation();setStatus(k,ss,ssi);};})(key,s,si);
         btns.appendChild(btn);
       });
-
-      const expandBtn = document.createElement('button');
-      expandBtn.className = 'item-expand' + (saved.notes || (saved.photos && saved.photos.length) ? ' has-notes' : '');
-      expandBtn.textContent = '…';
-      expandBtn.id = `expand-${key}`;
-      expandBtn.onclick = () => toggleExtras(key);
-
-      main.appendChild(text);
-      main.appendChild(btns);
-      main.appendChild(expandBtn);
+      var expandBtn = document.createElement('button');
+      expandBtn.className = 'item-expand' + ((saved.notes||(saved.photos&&saved.photos.length))?' has-notes':'');
+      expandBtn.textContent = '...';
+      expandBtn.id = 'expand-' + key;
+      expandBtn.onclick = (function(k){return function(){toggleExtras(k);};})(key);
+      main.appendChild(text); main.appendChild(btns); main.appendChild(expandBtn);
       row.appendChild(main);
-
-      // Extras panel
-      const extras = document.createElement('div');
+      var extras = document.createElement('div');
       extras.className = 'item-extras';
-      extras.id = `extras-${key}`;
-
-      const noteInput = document.createElement('textarea');
+      extras.id = 'extras-' + key;
+      var noteInput = document.createElement('textarea');
       noteInput.className = 'note-input';
-      noteInput.placeholder = 'Add notes here…';
+      noteInput.placeholder = 'Add notes here...';
       noteInput.value = saved.notes || '';
-      noteInput.onchange = () => { updateItem(key, 'notes', noteInput.value); };
+      noteInput.onchange = (function(k,ni){return function(){updateItem(k,'notes',ni.value);};})(key,noteInput);
       extras.appendChild(noteInput);
-
-      // Photo area
-      const photoRow = document.createElement('div');
+      var photoRow = document.createElement('div');
       photoRow.className = 'photo-row';
-      photoRow.id = `photos-${key}`;
-
-      const addBtn = document.createElement('div');
+      photoRow.id = 'photos-' + key;
+      var addBtn = document.createElement('div');
       addBtn.className = 'photo-add';
-      addBtn.textContent = '📷';
-      addBtn.onclick = () => document.getElementById(`photo-file-${key}`).click();
-
-      const fileInput = document.createElement('input');
-      fileInput.type = 'file';
-      fileInput.accept = 'image/*';
-      fileInput.capture = 'environment';
-      fileInput.className = 'photo-file';
-      fileInput.id = `photo-file-${key}`;
-      fileInput.onchange = (e) => handlePhoto(e, key);
-
-      photoRow.appendChild(addBtn);
-      photoRow.appendChild(fileInput);
-
-      // Restore saved photos
-      if (saved.photos) {
-        saved.photos.forEach((src, pi) => addPhotoThumb(photoRow, src, key, pi));
-      }
+      addBtn.textContent = 'Photo';
+      addBtn.onclick = (function(k){return function(){document.getElementById('photo-file-'+k).click();};})(key);
+      var fileInput = document.createElement('input');
+      fileInput.type = 'file'; fileInput.accept = 'image/*'; fileInput.capture = 'environment';
+      fileInput.className = 'photo-file'; fileInput.id = 'photo-file-' + key;
+      fileInput.onchange = (function(k){return function(e){handlePhoto(e,k);};})(key);
+      photoRow.appendChild(addBtn); photoRow.appendChild(fileInput);
+      if (saved.photos) saved.photos.forEach(function(src,pi){addPhotoThumb(photoRow,src,key,pi);});
       extras.appendChild(photoRow);
-
-      // Charge field (departure only)
-      if (state.formData.showCharge) {
-        const chargeRow = document.createElement('div');
-        chargeRow.className = 'charge-row';
-        chargeRow.innerHTML = '<label>Damage Charge ($):</label>';
-        const chargeInput = document.createElement('input');
-        chargeInput.type = 'number';
-        chargeInput.className = 'charge-input';
-        chargeInput.placeholder = '0.00';
-        chargeInput.value = saved.charge || '';
-        chargeInput.onchange = () => updateItem(key, 'charge', parseFloat(chargeInput.value) || 0);
-        chargeRow.appendChild(chargeInput);
-        extras.appendChild(chargeRow);
+      if (state.formType === 'departure') {
+        var cr = document.createElement('div'); cr.className = 'charge-row';
+        cr.innerHTML = '<label>Damage Charge ($):</label>';
+        var ci = document.createElement('input'); ci.type='number'; ci.className='charge-input'; ci.placeholder='0.00'; ci.value=saved.charge||'';
+        ci.onchange=(function(k,inp){return function(){updateItem(k,'charge',parseFloat(inp.value)||0);};})(key,ci);
+        cr.appendChild(ci); extras.appendChild(cr);
       }
-
       row.appendChild(extras);
       block.appendChild(row);
     });
-
     wrap.appendChild(block);
   });
 }
 
 function toggleExtras(key) {
-  const el = document.getElementById(`extras-${key}`);
+  var el = document.getElementById('extras-' + key);
   el.classList.toggle('open');
-  if (el.classList.contains('open')) {
-    el.querySelector('.note-input').focus();
-  }
+  if (el.classList.contains('open')) el.querySelector('.note-input').focus();
 }
 
 function setStatus(key, status, si) {
-  const row = document.getElementById(`row-${key}`);
-  const old = (state.items[key] || {}).status;
-
-  // Toggle off if same
+  var row = document.getElementById('row-' + key);
+  var old = (state.items[key]||{}).status;
   if (old === status) {
-    row.classList.remove(status + '-row');
-    if (!state.items[key]) state.items[key] = {};
+    row.classList.remove(status+'-row');
+    if (!state.items[key]) state.items[key]={};
     state.items[key].status = null;
-    row.querySelectorAll('.status-btn').forEach(b => b.classList.remove(b.dataset.status));
-    // Auto-open extras if issue
+    row.querySelectorAll('.status-btn').forEach(function(b){b.classList.remove(b.dataset.status);});
   } else {
     row.classList.remove('ok-row','issue-row','na-row');
-    row.classList.add(status + '-row');
-    if (!state.items[key]) state.items[key] = {};
+    row.classList.add(status+'-row');
+    if (!state.items[key]) state.items[key]={};
     state.items[key].status = status;
-    row.querySelectorAll('.status-btn').forEach(b => {
-      b.classList.remove('ok','issue','na');
-      if (b.dataset.status === status) b.classList.add(status);
-    });
-    // Auto-open notes on issue
-    if (status === 'issue') {
-      const extras = document.getElementById(`extras-${key}`);
-      if (!extras.classList.contains('open')) extras.classList.add('open');
-    }
+    row.querySelectorAll('.status-btn').forEach(function(b){b.classList.remove('ok','issue','na');if(b.dataset.status===status)b.classList.add(status);});
+    if (status==='issue') { var ex=document.getElementById('extras-'+key); if(!ex.classList.contains('open'))ex.classList.add('open'); }
   }
-
-  saveDraftSilent();
-  updateProgress();
-  updateSectionBadge(si);
+  saveDraftSilent(); updateProgress(); updateSectionBadge(si);
 }
 
 function updateItem(key, field, value) {
-  if (!state.items[key]) state.items[key] = {};
+  if (!state.items[key]) state.items[key]={};
   state.items[key][field] = value;
-  // Update expand button color
-  const expand = document.getElementById(`expand-${key}`);
-  if (expand) {
-    const item = state.items[key];
-    const hasExtras = item.notes || (item.photos && item.photos.length);
-    expand.classList.toggle('has-notes', !!hasExtras);
-  }
+  var exp = document.getElementById('expand-'+key);
+  if (exp) { var it=state.items[key]; exp.classList.toggle('has-notes',!!(it.notes||(it.photos&&it.photos.length))); }
   saveDraftSilent();
 }
 
 function handlePhoto(e, key) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    if (!state.items[key]) state.items[key] = {};
-    if (!state.items[key].photos) state.items[key].photos = [];
-    const src = ev.target.result;
-    const idx = state.items[key].photos.length;
+  var file = e.target.files[0]; if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    if (!state.items[key]) state.items[key]={};
+    if (!state.items[key].photos) state.items[key].photos=[];
+    var src = ev.target.result;
     state.items[key].photos.push(src);
-    const photoRow = document.getElementById(`photos-${key}`);
-    addPhotoThumb(photoRow, src, key, idx);
-    const expand = document.getElementById(`expand-${key}`);
-    if (expand) expand.classList.add('has-notes');
-    saveDraftSilent();
-    showToast('📷 Photo added');
+    var pr = document.getElementById('photos-'+key);
+    addPhotoThumb(pr, src, key, state.items[key].photos.length-1);
+    var exp = document.getElementById('expand-'+key);
+    if (exp) exp.classList.add('has-notes');
+    saveDraftSilent(); showToast('Photo added');
   };
   reader.readAsDataURL(file);
 }
 
 function addPhotoThumb(container, src, key, idx) {
-  const img = document.createElement('img');
-  img.src = src;
-  img.className = 'photo-thumb';
-  img.onclick = () => openModal('Photo', src);
-  // Insert before the add button
-  const addBtn = container.querySelector('.photo-add');
-  container.insertBefore(img, addBtn);
+  var img = document.createElement('img');
+  img.src = src; img.className = 'photo-thumb';
+  img.onclick = function(){openModal('Photo',src);};
+  container.insertBefore(img, container.querySelector('.photo-add'));
 }
 
 function updateProgress() {
-  const form = state.formData;
-  if (!form) return;
-  let total = 0, answered = 0, issues = 0;
-  form.sections.forEach((sec, si) => {
-    sec.items.forEach((_, ii) => {
-      total++;
-      const item = state.items[`${si}_${ii}`];
-      if (item && item.status) {
-        answered++;
-        if (item.status === 'issue') issues++;
-      }
-    });
-  });
-  const pct = total > 0 ? Math.round((answered/total)*100) : 0;
-  document.getElementById('progFill').style.width = pct + '%';
-  document.getElementById('progText').textContent = `${answered} / ${total}`;
-  document.getElementById('progIssues').textContent = issues > 0 ? `${issues} issue${issues>1?'s':''} flagged` : '';
-  document.getElementById('globalProgFill').style.width = pct + '%';
+  var sections = state._sections; if (!sections) return;
+  var total=0, answered=0, issues=0;
+  sections.forEach(function(sec,si){sec.items.forEach(function(_,ii){total++;var item=state.items[si+'_'+ii];if(item&&item.status){answered++;if(item.status==='issue')issues++;}});});
+  var pct = total>0 ? Math.round((answered/total)*100) : 0;
+  document.getElementById('progFill').style.width = pct+'%';
+  document.getElementById('progText').textContent = answered+' / '+total;
+  document.getElementById('progIssues').textContent = issues>0 ? (issues+' issue'+(issues>1?'s':'')+' flagged') : '';
+  document.getElementById('globalProgFill').style.width = pct+'%';
 }
 
 function updateSectionBadge(si) {
-  const badge = document.getElementById(`sec-badge-${si}`);
-  if (!badge) return;
-  const sec = state.formData.sections[si];
-  let done = 0, issues = 0;
-  sec.items.forEach((_, ii) => {
-    const item = state.items[`${si}_${ii}`];
-    if (item && item.status) done++;
-    if (item && item.status === 'issue') issues++;
-  });
-  badge.textContent = issues > 0 ? `${issues} ⚠️` : `${done}/${sec.items.length}`;
-  badge.style.background = issues > 0 ? 'rgba(204,0,0,0.7)' : done === sec.items.length ? 'rgba(26,122,63,0.7)' : 'rgba(255,255,255,0.2)';
+  var badge = document.getElementById('sec-badge-'+si); if (!badge) return;
+  var sec = state._sections[si]; var done=0, issues=0;
+  sec.items.forEach(function(_,ii){var item=state.items[si+'_'+ii];if(item&&item.status)done++;if(item&&item.status==='issue')issues++;});
+  badge.textContent = issues>0 ? (issues+' !') : (done+'/'+sec.items.length);
+  badge.style.background = issues>0 ? 'rgba(204,0,0,0.7)' : done===sec.items.length ? 'rgba(26,122,63,0.7)' : 'rgba(255,255,255,0.2)';
 }
 
-// ═══════════════════════════════════════
-// SUMMARY
-// ═══════════════════════════════════════
 function showSummary() {
   saveDraft();
-  const form = state.formData;
-  let total = 0, ok = 0, issues = 0, na = 0, totalCharge = 0;
-  const issueList = [];
-
-  form.sections.forEach((sec, si) => {
-    sec.items.forEach((itemText, ii) => {
-      total++;
-      const item = state.items[`${si}_${ii}`] || {};
-      if (item.status === 'ok') ok++;
-      else if (item.status === 'issue') {
-        issues++;
-        issueList.push({ section: sec.title, text: itemText, notes: item.notes || '', charge: item.charge || 0, photos: item.photos || [] });
-        totalCharge += item.charge || 0;
-      }
-      else if (item.status === 'na') na++;
-    });
-  });
-
-  const pct = total > 0 ? Math.round(((ok+issues+na)/total)*100) : 0;
-  const icon = issues === 0 ? '🏆' : issues < 5 ? '⚠️' : '🚨';
-  const summaryTitle = issues === 0 ? 'All Clear!' : `${issues} Issue${issues>1?'s':''} Found`;
-
-  let html = `
-  <div class="summary-hero">
-    <div class="summary-icon">${icon}</div>
-    <div class="summary-title">${summaryTitle}</div>
-    <div class="summary-sub">${state.info.property} &nbsp;·&nbsp; ${formatDate(state.info.date)}</div>
-  </div>
-  <div class="stat-row">
-    <div class="stat-card"><div class="stat-num green">${ok}</div><div class="stat-label">OK</div></div>
-    <div class="stat-card"><div class="stat-num red">${issues}</div><div class="stat-label">Issues</div></div>
-    <div class="stat-card"><div class="stat-num gray">${na}</div><div class="stat-label">N/A</div></div>
-  </div>`;
-
-  // Issue list
-  html += `<div class="issues-card">
-    <div class="issues-head"><span>⚠️ Issues Flagged</span><span>${issues}</span></div>`;
-  if (issueList.length === 0) {
-    html += `<div class="no-issues">✅ No issues found — property is in great shape!</div>`;
-  } else {
-    issueList.forEach(it => {
-      html += `<div class="issue-item">
-        <div class="issue-item-section">${it.section}</div>
-        <div class="issue-item-name">${it.text}</div>
-        ${it.notes ? `<div class="issue-item-note">"${it.notes}"</div>` : ''}
-        ${it.charge > 0 ? `<div class="issue-item-charge">Charge: $${it.charge.toFixed(2)}</div>` : ''}
-      </div>`;
-    });
-  }
+  var sections = state._sections;
+  var total=0, ok=0, issues=0, na=0, totalCharge=0, issueList=[];
+  sections.forEach(function(sec,si){sec.items.forEach(function(itemText,ii){total++;var item=state.items[si+'_'+ii]||{};if(item.status==='ok')ok++;else if(item.status==='issue'){issues++;issueList.push({section:sec.title,text:itemText,notes:item.notes||'',charge:item.charge||0});totalCharge+=item.charge||0;}else if(item.status==='na')na++;});});
+  var pct = total>0 ? Math.round(((ok+issues+na)/total)*100) : 0;
+  var prop = state.selectedProp;
+  var html = '<div class="summary-hero"><div class="summary-icon">'+(issues===0?'&#127942;':issues<5?'&#9888;&#65039;':'&#128680;')+'</div><div class="summary-title">'+(issues===0?'All Clear!':issues+' Issue'+(issues>1?'s':'')+' Found')+'</div><div class="summary-sub">'+esc(state.info.property)+' &bull; '+formatDate(state.info.date)+'</div></div>';
+  html += '<div class="stat-row"><div class="stat-card"><div class="stat-num green">'+ok+'</div><div class="stat-label">OK</div></div><div class="stat-card"><div class="stat-num red">'+issues+'</div><div class="stat-label">Issues</div></div><div class="stat-card"><div class="stat-num gray">'+na+'</div><div class="stat-label">N/A</div></div></div>';
+  html += '<div class="issues-card"><div class="issues-head"><span>Issues Flagged</span><span>'+issues+'</span></div>';
+  if (issueList.length===0) html += '<div class="no-issues">No issues found — property in great shape!</div>';
+  else issueList.forEach(function(it){html+='<div class="issue-item"><div class="issue-item-section">'+esc(it.section)+'</div><div class="issue-item-name">'+esc(it.text)+'</div>'+(it.notes?'<div class="issue-item-note">"'+esc(it.notes)+'"</div>':'')+(it.charge>0?'<div class="issue-item-charge">Charge: $'+it.charge.toFixed(2)+'</div>':'')+'</div>';});
   html += '</div>';
-
-  // Total charges (departure only)
-  if (state.formData.showCharge && totalCharge > 0) {
-    html += `<div class="charge-total">
-      <span class="charge-total-label">Total Damage Charges</span>
-      <span class="charge-total-amt">$${totalCharge.toFixed(2)}</span>
-    </div>`;
-  }
-
-  // Overall status selector (arrival / departure)
-  if (state.formType === 'arrival') {
-    html += `<div>
-      <div class="small-label">Overall Status</div>
-      <div class="status-select-row">
-        <div class="status-option ready" id="s-ready" onclick="selectStatus('ready')">✅ Ready</div>
-        <div class="status-option conditional" id="s-conditional" onclick="selectStatus('conditional')">⚠️ Conditional</div>
-        <div class="status-option not-ready" id="s-not-ready" onclick="selectStatus('not-ready')">🚫 Not Ready</div>
-      </div>
-    </div>`;
-  }
-
-  // Inspector info
-  html += `<div style="background:white;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);font-size:13px;line-height:2;color:var(--dark-gray)">
-    <strong style="color:var(--navy);font-size:14px">Inspection Details</strong><br>
-    <strong>Form:</strong> ${form.name}<br>
-    <strong>Property:</strong> ${state.info.property}<br>
-    <strong>Inspector:</strong> ${state.info.inspector}<br>
-    <strong>Date / Time:</strong> ${formatDate(state.info.date)} at ${state.info.time}<br>
-    ${state.info.guest ? `<strong>Guest:</strong> ${state.info.guest}<br>` : ''}
-    <strong>Completion:</strong> ${pct}% (${ok+issues+na}/${total} items)
-  </div>`;
-
-  // Action buttons
-  html += `<div class="action-btns">
-    <button class="btn-green" onclick="emailReport()">📧 Email Report</button>
-    <button class="btn-outline" onclick="showScreen('screenChecklist'); document.getElementById('bottomNav').style.display='flex'">← Back to Checklist</button>
-    <button class="btn-danger" onclick="confirmFinish()">✅ Mark Complete & Finish</button>
-  </div>`;
-
-  html += `<div style="height:20px"></div>`;
-
+  if (state.formType==='departure'&&totalCharge>0) html+='<div class="charge-total"><span class="charge-total-label">Total Damage Charges</span><span class="charge-total-amt">$'+totalCharge.toFixed(2)+'</span></div>';
+  if (state.formType==='arrival') html+='<div><div class="small-label">Overall Status</div><div class="status-select-row"><div class="status-option ready" id="s-ready" onclick="selectStatus(\'ready\')">Ready</div><div class="status-option conditional" id="s-conditional" onclick="selectStatus(\'conditional\')">Conditional</div><div class="status-option not-ready" id="s-not-ready" onclick="selectStatus(\'not-ready\')">Not Ready</div></div></div>';
+  html += '<div style="background:white;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);font-size:13px;line-height:2;color:var(--dark-gray)"><strong style="color:var(--navy);font-size:14px">Inspection Details</strong><br>';
+  html += '<strong>Property:</strong> '+esc(state.info.property)+'<br>';
+  html += '<strong>Address:</strong> '+esc(state.info.address||'')+'<br>';
+  html += '<strong>Inspector:</strong> '+esc(state.info.inspector)+'<br>';
+  html += '<strong>Date / Time:</strong> '+formatDate(state.info.date)+' at '+esc(state.info.time)+'<br>';
+  if (state.info.guest) html += '<strong>Guest:</strong> '+esc(state.info.guest)+'<br>';
+  if (prop&&prop.contact) html += '<strong>Ops Contact:</strong> '+esc(prop.contact)+'<br>';
+  if (prop) html += '<strong>Stats:</strong> '+prop.bedrooms+' bed / '+prop.bathrooms+' bath &bull; Max '+prop.occupancy+(prop.size?' &bull; '+esc(prop.size):'')+(prop.pets?' &bull; Pets OK':' &bull; No pets')+'<br>';
+  html += '<strong>Completion:</strong> '+pct+'% ('+(ok+issues+na)+'/'+total+' items)</div>';
+  html += '<div class="action-btns"><button class="btn-green" onclick="emailReport()">Email Report</button><button class="btn-outline" onclick="showScreen(\'screenChecklist\');document.getElementById(\'bottomNav\').style.display=\'flex\'">Back to Checklist</button><button class="btn-danger" onclick="confirmFinish()">Mark Complete &amp; Finish</button></div><div style="height:20px"></div>';
   document.getElementById('summaryWrap').innerHTML = html;
-
-  // Restore status selection
   if (state.overallStatus) selectStatus(state.overallStatus);
-
-  setHeader('Summary', state.info.property, true, false, null);
+  setHeader('Summary', state.info.property, true);
   document.getElementById('bottomNav').style.display = 'none';
   showScreen('screenSummary');
 }
 
-let selectedStatus = null;
 function selectStatus(s) {
-  selectedStatus = s;
   state.overallStatus = s;
-  document.querySelectorAll('.status-option').forEach(el => el.classList.remove('selected'));
-  const el = document.getElementById('s-' + s);
-  if (el) el.classList.add('selected');
+  document.querySelectorAll('.status-option').forEach(function(el){el.classList.remove('selected');});
+  var el = document.getElementById('s-'+s); if (el) el.classList.add('selected');
   saveDraftSilent();
 }
 
-// ═══════════════════════════════════════
-// EMAIL REPORT
-// ═══════════════════════════════════════
 function emailReport() {
-  const form = state.formData;
-  const info = state.info;
-  let body = `TAHOE LUXURY PROPERTIES — ${form.name.toUpperCase()}\n`;
-  body += '='.repeat(50) + '\n';
-  body += `Property: ${info.property}\n`;
-  body += `Date/Time: ${formatDate(info.date)} at ${info.time}\n`;
-  body += `Inspector: ${info.inspector}\n`;
-  if (info.guest) body += `Guest: ${info.guest}\n`;
-  body += '\n';
-
-  let totalCharge = 0;
-  form.sections.forEach((sec, si) => {
-    let secLines = [];
-    sec.items.forEach((itemText, ii) => {
-      const item = state.items[`${si}_${ii}`] || {};
-      const tag = item.status === 'ok' ? '✓ OK' : item.status === 'issue' ? '⚠ ISSUE' : item.status === 'na' ? '- N/A' : '  ';
-      let line = `  ${tag}  ${itemText}`;
-      if (item.notes) line += `\n       Note: ${item.notes}`;
-      if (item.charge > 0) { line += `\n       Charge: $${item.charge.toFixed(2)}`; totalCharge += item.charge; }
-      secLines.push(line);
+  var sections=state._sections, info=state.info, prop=state.selectedProp;
+  var div='==================================================';
+  var total=0, ok=0, issues=0, na=0, totalCharge=0;
+  sections.forEach(function(sec,si){sec.items.forEach(function(_,ii){total++;var item=state.items[si+'_'+ii]||{};if(item.status==='ok')ok++;else if(item.status==='issue'){issues++;totalCharge+=item.charge||0;}else if(item.status==='na')na++;});});
+  var body='TAHOE LUXURY PROPERTIES - '+FORM_META[state.formType].name.toUpperCase()+'\n'+div+'\n';
+  body+='Property: '+info.property+'\nAddress: '+(info.address||'')+'\nDate/Time: '+formatDate(info.date)+' at '+info.time+'\nInspector: '+info.inspector+'\n';
+  if (info.guest) body+='Guest: '+info.guest+'\n';
+  if (prop&&prop.contact) body+='Operations Contact: '+prop.contact+'\n';
+  if (prop) body+='Property: '+prop.bedrooms+' bed / '+prop.bathrooms+' bath | Max '+prop.occupancy+' | Pets: '+(prop.pets?'Yes':'No')+'\n';
+  if (state.overallStatus) { var m={'ready':'READY FOR CHECK-IN','conditional':'CONDITIONAL - NEEDS ATTENTION','not-ready':'NOT READY FOR CHECK-IN'}; body+='Overall Status: '+m[state.overallStatus]+'\n'; }
+  body+='\nSUMMARY: '+ok+' OK | '+issues+' ISSUE'+(issues!==1?'S':'')+' | '+na+' N/A | '+(total-ok-issues-na)+' not checked\n';
+  body+=div+'\n';
+  if (issues===0) {
+    body+='\nNo issues found. All checked items passed.\n';
+  } else {
+    body+='\nITEMS REQUIRING ATTENTION\n';
+    sections.forEach(function(sec,si){
+      var lines=[];
+      sec.items.forEach(function(itemText,ii){
+        var item=state.items[si+'_'+ii]||{};
+        if (item.status==='issue') {
+          var line='  - '+itemText;
+          if (item.notes) line+='\n    Note: '+item.notes;
+          if (item.charge>0) line+='\n    Est. Charge: $'+item.charge.toFixed(2);
+          lines.push(line);
+        }
+      });
+      if (lines.length>0) body+='\n'+sec.title.toUpperCase()+'\n'+lines.join('\n')+'\n';
     });
-    body += `\n${sec.title.toUpperCase()}\n${'─'.repeat(40)}\n`;
-    body += secLines.join('\n') + '\n';
-  });
-
-  if (state.formData.showCharge && totalCharge > 0) {
-    body += `\n${'='.repeat(50)}\nTOTAL DAMAGE CHARGES: $${totalCharge.toFixed(2)}\n`;
+    if (state.formType==='departure'&&totalCharge>0) body+='\n'+div+'\nTOTAL ESTIMATED DAMAGE CHARGES: $'+totalCharge.toFixed(2)+'\n';
   }
-
-  if (state.overallStatus) {
-    const statusMap = { 'ready': '✅ READY FOR CHECK-IN', 'conditional': '⚠️ CONDITIONAL', 'not-ready': '🚫 NOT READY' };
-    body += `\nOVERALL STATUS: ${statusMap[state.overallStatus]}\n`;
-  }
-
-  body += `\n—\nSent from TLP Inspection App`;
-
-  const subject = `${form.name} — ${info.property} — ${formatDate(info.date)}`;
-  const mailto = `mailto:info@tluxp.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  window.location.href = mailto;
-  showToast('Opening email app…');
+  body+='\n--\nSent from TLP Inspection App';
+  var subject=issues>0 ? (issues+' Item'+(issues!==1?'s':'')+' Need Attention - '+info.property+' - '+formatDate(info.date)) : ('All Clear - '+info.property+' - '+formatDate(info.date));
+  var toEmail=(prop&&prop.email)?prop.email:'inspections@tluxp.com';
+  var ccPart=(prop&&prop.email&&prop.email!=='inspections@tluxp.com')?'&cc=inspections%40tluxp.com':'';
+  window.location.href='mailto:'+encodeURIComponent(toEmail)+'?subject='+encodeURIComponent(subject)+ccPart+'&body='+encodeURIComponent(body);
+  showToast('Opening email...');
 }
 
-// ═══════════════════════════════════════
-// DRAFT SAVE / LOAD
-// ═══════════════════════════════════════
 function saveDraftSilent() {
   if (!state.formType) return;
-  const drafts = getDrafts();
-  drafts[state.draftId] = {
-    id: state.draftId,
-    formType: state.formType,
-    info: state.info,
-    items: state.items,
-    overallStatus: state.overallStatus,
-    savedAt: Date.now(),
-  };
-  localStorage.setItem('tlp_drafts', JSON.stringify(drafts));
+  var drafts=getDrafts();
+  drafts[state.draftId]={id:state.draftId,formType:state.formType,selectedProp:state.selectedProp,info:state.info,items:state.items,overallStatus:state.overallStatus,savedAt:Date.now()};
+  localStorage.setItem('tlp_drafts',JSON.stringify(drafts));
 }
-
-function saveDraft() {
-  saveDraftSilent();
-  showToast('💾 Draft saved');
-}
-
+function saveDraft() { saveDraftSilent(); showToast('Draft saved'); }
 function loadDraft(id) {
-  const drafts = getDrafts();
-  const d = drafts[id];
-  if (!d) return;
-  state.items = d.items || {};
-  state.info = d.info || {};
-  state.overallStatus = d.overallStatus;
-  // Pre-fill setup fields
-  if (d.info.property) document.getElementById('fieldProperty').value = d.info.property;
-  if (d.info.date) document.getElementById('fieldDate').value = d.info.date;
-  if (d.info.time) document.getElementById('fieldTime').value = d.info.time;
-  if (d.info.inspector) document.getElementById('fieldInspector').value = d.info.inspector;
-  if (d.info.guest) document.getElementById('fieldGuest').value = d.info.guest;
+  var drafts=getDrafts(), d=drafts[id]; if (!d) return;
+  state.items=d.items||{}; state.info=d.info||{}; state.overallStatus=d.overallStatus; state.selectedProp=d.selectedProp;
+  if (d.selectedProp) { document.getElementById('propSearch').value=d.selectedProp.name; selectProperty(d.selectedProp); }
+  if (d.info&&d.info.date) document.getElementById('fieldDate').value=d.info.date;
+  if (d.info&&d.info.time) document.getElementById('fieldTime').value=d.info.time;
+  if (d.info&&d.info.inspector) document.getElementById('fieldInspector').value=d.info.inspector;
+  if (d.info&&d.info.guest) document.getElementById('fieldGuest').value=d.info.guest;
 }
-
-function getDrafts() {
-  try { return JSON.parse(localStorage.getItem('tlp_drafts') || '{}'); } catch { return {}; }
-}
-
+function getDrafts() { try{return JSON.parse(localStorage.getItem('tlp_drafts')||'{}');}catch(e){return{};} }
 function renderDrafts() {
-  const drafts = getDrafts();
-  const keys = Object.keys(drafts).sort((a,b) => drafts[b].savedAt - drafts[a].savedAt);
-  const section = document.getElementById('draftsSection');
-  const list = document.getElementById('draftsList');
-  if (keys.length === 0) { section.style.display = 'none'; return; }
-  section.style.display = 'block';
-  list.innerHTML = '';
-  keys.slice(0, 5).forEach(id => {
-    const d = drafts[id];
-    const form = FORMS[d.formType];
-    if (!form) return;
-    // Count progress
-    let total = 0, done = 0;
-    form.sections.forEach((sec, si) => sec.items.forEach((_, ii) => { total++; if ((d.items[`${si}_${ii}`]||{}).status) done++; }));
-    const pct = total > 0 ? Math.round(done/total*100) : 0;
-    const el = document.createElement('div');
-    el.className = 'draft-card';
-    el.innerHTML = `
-      <div class="draft-icon">${form.icon}</div>
-      <div class="draft-info">
-        <div class="draft-name">${d.info.property || 'Unnamed property'}</div>
-        <div class="draft-meta">${form.name} · ${d.info.date || 'No date'}</div>
-      </div>
-      <div class="draft-pct">${pct}%</div>
-      <button class="draft-delete" onclick="deleteDraft(event,'${id}')">×</button>`;
-    el.onclick = () => { startForm(d.formType, id); };
+  var drafts=getDrafts(), keys=Object.keys(drafts).sort(function(a,b){return drafts[b].savedAt-drafts[a].savedAt;});
+  var section=document.getElementById('draftsSection'), list=document.getElementById('draftsList');
+  if (keys.length===0){section.style.display='none';return;}
+  section.style.display='block'; list.innerHTML='';
+  keys.slice(0,5).forEach(function(id){
+    var d=drafts[id], meta=FORM_META[d.formType]; if (!meta) return;
+    var sections=d.selectedProp?getSections(d.formType,d.selectedProp):[];
+    var total=0, done=0;
+    sections.forEach(function(sec,si){sec.items.forEach(function(_,ii){total++;if((d.items[si+'_'+ii]||{}).status)done++;});});
+    var pct=total>0?Math.round(done/total*100):0;
+    var el=document.createElement('div'); el.className='draft-card';
+    el.innerHTML='<div class="draft-icon">'+meta.icon+'</div><div class="draft-info"><div class="draft-name">'+esc((d.info&&d.info.property)||(d.selectedProp&&d.selectedProp.name)||'Unnamed')+'</div><div class="draft-meta">'+meta.name+' &bull; '+((d.info&&d.info.date)||'No date')+'</div></div><div class="draft-pct">'+pct+'%</div><button class="draft-delete" onclick="deleteDraft(event,\''+id+'\')">x</button>';
+    el.onclick=function(){startForm(d.formType,id);};
     list.appendChild(el);
   });
 }
-
 function deleteDraft(e, id) {
   e.stopPropagation();
-  if (!confirm('Delete this draft?')) return;
-  const drafts = getDrafts();
+  var drafts=getDrafts();
   delete drafts[id];
-  localStorage.setItem('tlp_drafts', JSON.stringify(drafts));
+  localStorage.setItem('tlp_drafts',JSON.stringify(drafts));
   renderDrafts();
-  showToast('Draft deleted');
 }
-
-function saveAndHome() {
-  saveDraft();
-  if (confirm('Save draft and return home?')) {
-    resetToHome();
-  }
-}
-
 function confirmFinish() {
-  if (!confirm('Mark this inspection as complete? It will be saved and you\'ll return home.')) return;
-  saveDraftSilent();
-  showToast('✅ Inspection complete!');
-  setTimeout(resetToHome, 1000);
+  if (!confirm('Mark this inspection complete and clear the draft?')) return;
+  var drafts=getDrafts();
+  delete drafts[state.draftId];
+  localStorage.setItem('tlp_drafts',JSON.stringify(drafts));
+  showToast('Inspection marked complete!');
+  resetToHome();
 }
-
-// ═══════════════════════════════════════
-// UTILS
-// ═══════════════════════════════════════
-function formatDate(d) {
-  if (!d) return '';
-  const dt = new Date(d + 'T12:00:00');
-  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2200);
-}
-
+function saveAndHome() { saveDraftSilent(); showToast('Draft saved'); resetToHome(); }
 function openModal(title, src) {
-  document.getElementById('modalTitle').textContent = title;
-  document.getElementById('modalImg').src = src;
+  document.getElementById('modalTitle').textContent=title;
+  document.getElementById('modalImg').src=src;
   document.getElementById('modalOverlay').classList.add('open');
 }
-
 function closeModal() {
   document.getElementById('modalOverlay').classList.remove('open');
 }
-
-// ═══════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════
-document.addEventListener('DOMContentLoaded', () => {
-  renderDrafts();
-  // Set today's date default
-  document.getElementById('fieldDate').value = new Date().toISOString().split('T')[0];
-});
+function showToast(msg) {
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show');},2500);
+}
+function formatDate(d) {
+  if (!d) return '';
+  var p=d.split('-'); if (p.length!==3) return d;
+  return p[1]+'/'+p[2]+'/'+p[0]}
+window.addEventListener('load',function(){renderDrafts();});
 </script>
 </body>
 </html>
