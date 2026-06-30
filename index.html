@@ -605,7 +605,7 @@ function buildChecklist() {
       var key = si + '_' + ii;
       var saved = state.items[key] || {};
       var row = document.createElement('div');
-w' + (saved.status ? ' ' + saved.status + '-row' : '');
+      row.className = 'item-row' + (saved.status ? ' ' + saved.status + '-row' : '');
       row.id = 'row-' + key;
       var main = document.createElement('div');
       main.className = 'item-main';
