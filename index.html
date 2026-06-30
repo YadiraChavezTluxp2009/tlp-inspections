@@ -31,7 +31,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .form-card .icon{font-size:32px;margin-bottom:10px;display:block}
 .form-card .label{font-size:13px;font-weight:700;color:var(--navy);line-height:1.3}
 .form-card .count{font-size:11px;color:var(--dark-gray);margin-top:4px}
-.form-card.arrival{border-color:var(--green)}.form-card.departure{border-color:var(--red)}.form-card.routine{border-color:var(--blue)}.form-card.maintenance{border-color:var(--orange)}
+.form-card.spring{border-color:#2E8B57}.form-card.fall{border-color:#CC6600}.form-card.checkin-summer{border-color:var(--blue)}.form-card.checkin-winter{border-color:#5B9FD4}.form-card.checkout{border-color:var(--red)}
 .section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--dark-gray);padding:0 16px 8px;margin-top:4px}
 .drafts-list{padding:0 16px;display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
 .draft-card{background:white;border-radius:10px;padding:14px 16px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;cursor:pointer}
@@ -171,10 +171,11 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
     <div class="home-sub">Tap a form to begin</div>
   </div>
   <div class="form-grid">
-    <div class="form-card arrival" onclick="startForm('arrival')"><span class="icon">&#9989;</span><div class="label">Guest Arrival</div><div class="count">Pre check-in</div></div>
-    <div class="form-card departure" onclick="startForm('departure')"><span class="icon">&#128269;</span><div class="label">Guest Departure</div><div class="count">Post checkout</div></div>
-    <div class="form-card routine" onclick="startForm('routine')"><span class="icon">&#128203;</span><div class="label">Routine Inspection</div><div class="count">Quarterly / semi-annual</div></div>
-    <div class="form-card maintenance" onclick="startForm('maintenance')"><span class="icon">&#128295;</span><div class="label">Maintenance Check</div><div class="count">Preventive tasks</div></div>
+    <div class="form-card spring" onclick="startForm('spring')"><span class="icon">&#127800;</span><div class="label">Spring Inspection</div><div class="count">Season opening</div></div>
+    <div class="form-card fall" onclick="startForm('fall')"><span class="icon">&#127810;</span><div class="label">Fall Inspection</div><div class="count">Season prep</div></div>
+    <div class="form-card checkin-summer" onclick="startForm('checkin_summer')"><span class="icon">&#9728;</span><div class="label">Check In &mdash; Summer</div><div class="count">Pre check-in</div></div>
+    <div class="form-card checkin-winter" onclick="startForm('checkin_winter')"><span class="icon">&#10052;</span><div class="label">Check In &mdash; Winter</div><div class="count">Pre check-in</div></div>
+    <div class="form-card checkout" style="grid-column:span 2" onclick="startForm('checkout')"><span class="icon">&#128269;</span><div class="label">Check Out</div><div class="count">Departure inspection</div></div>
   </div>
   <div id="draftsSection" style="display:none">
     <div class="section-label">Saved Drafts</div>
@@ -417,52 +418,779 @@ function getBathroomItems(n, type, pets) {
 }
 
 function getSections(type, prop) {
-  var beds = prop ? prop.bedrooms : 4;
-  var baths = prop ? prop.bathrooms : 4;
-  var pets = prop ? prop.pets : false;
-  var bedTitle = 'Bedrooms (' + beds + ')';
-  var bathTitle = 'Bathrooms (' + baths + ')';
 
-  if (type === 'arrival') return [
-    {title:'Exterior & Entry', items:['Driveway clear and free of debris / snow','Exterior lighting functional (entry, pathway, landscape)','Front door lock / smart lock coded for this reservation','Welcome mat and entry area clean and presentable','Garbage and recycling bins emptied and stored','Exterior windows clean and free of damage','Deck / patio furniture clean and properly arranged','BBQ grill clean and propane tank full','Hot tub cover removed / spa ready (correct temp, clean water)','Firewood stocked (if wood-burning fireplace)','Dock / pier safe and accessible (seasonal)','Kayaks / paddleboards / watercraft ready (seasonal)','Ski locker / boot warmer accessible and functional (seasonal)'].concat(pets ? ['Pet amenities in place (pet bed, bowls, cleanup bags)'] : [])},
-    {title:'Living Room & Common Areas', items:['Entry foyer clean and free of clutter','Living room cleaned and staged (pillows, throws arranged)','Fireplace clean, functional, and ready','TV and entertainment system functional — remotes present','Wi-Fi router operational — password displayed for guest','Smart home system operational (thermostat, lighting, locks)','Windows and sliding doors clean and operational','Flooring clean (vacuumed / mopped)','No odors — air quality acceptable','Guest welcome book / binder present and current','Emergency contact info and house rules posted']},
-    {title:'Kitchen & Dining', items:['Countertops clean and sanitized','Refrigerator clean, empty of prior guest items, correct temp','Stovetop / oven clean and functional','Dishwasher clean — cycle complete','Trash can empty and lined','Dishes, glasses, and cookware clean and properly stored','Coffee maker / espresso machine clean and stocked','Pantry stocked per welcome package (coffee, tea, oil, salt, pepper)','Paper towels, dish soap, and sponge stocked','Dining table clean and properly set']},
-    {title: bedTitle, items: getBedroomItems(beds, 'arrival')},
-    {title: bathTitle, items: getBathroomItems(baths, 'arrival', pets)},
-    {title:'Systems & Utilities', items:['HVAC / heating operational — thermostat set to welcome temp','All light switches and outlets functional','Smoke detectors tested — batteries good','Carbon monoxide detectors tested — batteries good','Fire extinguisher present, charged, and accessible','First aid kit stocked','Water pressure acceptable throughout','No signs of leaks, water damage, or mold','Internet / Wi-Fi confirmed operational','Smart door locks coded and functional for this reservation','Garage door opener functional']},
-    {title:'Final Amenities Check', items:['Washer and dryer clean and operational','Laundry detergent and dryer sheets stocked','Game room / entertainment area set up','Outdoor furniture covers removed and stored','Parking passes / garage remotes in designated place','Welcome gift / amenity package placed per reservation notes']}
+  /* ── SHARED: Supply Inventory ── */
+  var supplyInv = {title:'Supply Inventory', items:[
+    'Toilet Paper — Charmin preferred',
+    'Paper Towels — Bounty preferred',
+    'Kleenex — square box in cover',
+    'Kitchen Bags 13 gal — unscented',
+    'Small Trash Bags — for bathrooms',
+    'Large Black Contractor Bags',
+    'Blue Sponges — individually wrapped (no green)',
+    'Hand Soap Refill — clear/unscented',
+    'Dish Soap — Dawn preferred',
+    'Dishwasher Detergent',
+    'Laundry Soap — fragrance free, no Tide',
+    'Dryer Sheets — fragrance free',
+    'TLUXP Soaps',
+    'TLUXP Shampoo',
+    'TLUXP Conditioner',
+    'Window Cleaner',
+    'All Purpose Cleaner',
+    'Foil',
+    'Saran Wrap',
+    'Ziploc Bags — assorted sizes',
+    'Salt (refilled)',
+    'Peppercorns for grinder',
+    'Cooking Oil and Spray',
+    'Coffee Filters — correct type, reusable checked if applicable',
+    'Olive Oil',
+    'Wand Lighters or Long Matches',
+    'Firestarters — if applicable',
+    'Batteries: AA',
+    'Batteries: AAA',
+    'Batteries: C',
+    'Batteries: 9V',
+    'Batteries: Other as needed',
+    'Light Bulbs — all types assessed and restocked',
+    'Heater Air Filters — current sizes read and replaced if needed',
+    'Ice Melt and Scoop in bucket',
+    'Propane Spare Tank — if applicable',
+    'Wastebasket Bags 4 gal'
+  ]};
+
+  /* ── SHARED: Kitchen Inventory ── */
+  var kitchenDishes = {title:'Kitchen Inventory — Dishes & Glassware', items:[
+    'Bowls: Large / Soup (1.5 per person min.)',
+    'Bowls: Small / Ice Cream',
+    'Dinner Plates (1.5 per person min.)',
+    'Salad Plates (1.5 per person min.)',
+    'Serving Bowls — 3 large sizes',
+    'Serving Plates — 3 (one large platter)',
+    'Coffee Mugs (1.5 per person, matching)',
+    'Drinking Glasses — Large (1.5 per person)',
+    'Drinking Glasses — Small (1.5 per person)',
+    'Drinking Glasses — Plastic for Hot Tub',
+    'Pitcher — Large Water (glass or ceramic)',
+    'Wine Glasses (1 per person, matching)',
+    'Champagne Flutes (optional, check present)'
+  ]};
+
+  var kitchenSilver = {title:'Kitchen Inventory — Silverware & Knives', items:[
+    'Spoons — Large (1.5 per person)',
+    'Spoons — Small (1.5 per person)',
+    'Forks — Dinner (1.5 per person)',
+    'Forks — Salad / Dessert (1.5 per person)',
+    'Knives — Dinner / Butter (1.5 per person)',
+    'Knives — Steak (1.5 per person)',
+    'Salad Servers',
+    'Serving Fork (flatware)',
+    'Serving Spoons (flatware) — 3',
+    'Paring Knife: 3.5"',
+    'Serrated Knife: 5"',
+    "Chef's Knife: 8\"",
+    'Bread Knife: 10"',
+    'Shears / Scissors',
+    'Knife Sharpener (optional)',
+    'Knife Block (optional)'
+  ]};
+
+  var kitchenPots = {title:'Kitchen Inventory — Pots, Pans & Bakeware', items:[
+    'Stock Pot — large, for pasta',
+    'Saucepans with lids: 3 sizes (S, M, L)',
+    'Skillet / Frying Pan: 12" with lid',
+    'Skillet / Frying Pan: 8"',
+    'Skillet / Frying Pan: 6"',
+    'Colander — Large (metal or plastic)',
+    'Colander — Small mesh for straining',
+    'Broiler Pan',
+    'Baking Sheets — 3',
+    'Casserole Dishes (Pyrex ideally) — 3 sizes',
+    'Cooling Racks — 2',
+    'Loaf Pan',
+    'Measuring Cup — 2-cup glass',
+    'Measuring Cups — full set up to 1 cup',
+    'Measuring Spoons — full set up to 1 tbsp',
+    'Mixing Bowls — 3 varying sizes',
+    'Muffin Tin',
+    'Pie Pan',
+    'Roasting Pan — large',
+    'Tupperware Set — glass ideally, 6 sizes'
+  ]};
+
+  var kitchenUtensils = {title:'Kitchen Inventory — Utensils & Misc', items:[
+    'BBQ Utensils (spatula, fork, tong, brush)',
+    'Bottle Opener',
+    'Can Opener (electric or manual)',
+    'Cooking Fork (14", 2 or 3 prong)',
+    'Cutting Boards — 2 (in great shape)',
+    'Grater — Large (cheese)',
+    'Ice Cream Scooper',
+    'Meat Thermometer',
+    'Pasta Spoon',
+    'Rolling Pin',
+    'Soup Ladle',
+    'Slotted Spoon',
+    'Spatula — for baking / scraping bowl',
+    'Spatula — for pancake flipping',
+    'Tongs (utility or scissor type)',
+    'Trivets — 2',
+    'Turkey Baster',
+    'Vegetable Peeler',
+    'Vegetable Steamer Basket',
+    'Wine Opener',
+    'Whisk',
+    'Wooden Spoons — 3 varying types',
+    'Cloth / Wood Placemats (1.5 per person)',
+    'Cloth Napkins (1.5 per person)',
+    'Dish Towels — 10 matching',
+    'Fire Extinguisher (checked, in date)',
+    'Ice Trays',
+    'Matches or Wand Lighter',
+    'Paper Towel Holder',
+    'Pot Holders — 2 glove & 2 flat',
+    'Salt and Pepper Shakers',
+    'Sink Drain Stopper',
+    'Toothpicks'
+  ]};
+
+  var kitchenAppliances = {title:'Kitchen Inventory — Small Appliances', items:[
+    'Blender',
+    'Microwave',
+    'Mixer (Hand or Stand)',
+    'Pancake Griddle',
+    'Toaster / Toaster Oven',
+    'Waffle Maker — 4-piece (not 2)'
+  ]};
+
+  /* ── SHARED: Linen Inventory ── */
+  var linenSheets = {title:'Linen Inventory — Sheets & Pillows', items:[
+    'Twin Sheets: 2 sets per bed (fitted + flat)',
+    'Full Sheets: 2 sets per bed',
+    'Queen Sheets: 2 sets per bed',
+    'King Sheets: 2 sets per bed',
+    'Cal King Sheets: 2 sets per bed',
+    'Standard Pillows: 2 per sleeper on bed + 1 extra per bed in closet (with case)',
+    'King Pillows: 2 per sleeper on bed + 1 extra per bed in closet (with case)',
+    'Decorative Insert Pillows: min. 2 per bed',
+    'Shams: min. 2 per bed'
+  ]};
+
+  var linenBlankets = {title:'Linen Inventory — Blankets & Towels', items:[
+    'Spare Blanket: 1 per closet minimum',
+    'Throw Blankets: sufficient quantity',
+    'Comforter or Duvet Insert: 1 per bed minimum',
+    'Duvet Covers: 1 per bed (if duvet inserts used)',
+    'Bath Towels: 2 per person',
+    'Hand Towels: 2 per person',
+    'Wash Cloths: 2 per person',
+    'Black Makeup Towels (recommended)',
+    'Bath Mats: 1 per sink + 1 per shower/tub',
+    'Hot Tub / Beach Towels: 1 per person, matching'
+  ]};
+
+  /* ═══════════════════════════════════════════════════════════
+     SPRING INSPECTION
+  ═══════════════════════════════════════════════════════════ */
+  if (type === 'spring') return [
+    {title:'Office Pre-Check', items:[
+      'House keys confirmed (4 copies required)',
+      'Supply key copy present in office (min. 1)',
+      'HOA pass numbers documented before heading out',
+      'Hidden key location confirmed',
+      'Next check-in date noted',
+      'Kitchen inventory printed and ready',
+      'Supply inventory printed and ready',
+      'Linen inventory printed and ready',
+      'Batteries and needed supplies packed'
+    ]},
+    {title:'Front Exterior', items:[
+      'Snow poles removed for season',
+      'Yard clean — pine needles, cones, debris removed',
+      'Eaves cleaned',
+      'Exterior condition — staining / paint / power wash needed?',
+      'Deck condition — staining needed?',
+      'Garage face — power wash needed?',
+      'Ice bucket, melt, and shovels stored away',
+      'Screens installed and in good condition',
+      'Bear Bin cleaned',
+      'Bear Bin trash cans in good shape',
+      'Buoy inspection scheduled (if applicable)',
+      'Dock depth checked (if applicable)'
+    ]},
+    {title:'Front Entry', items:[
+      'New key tag made / present',
+      'Lockbox functioning properly',
+      'Lockbox appearance good (not on front door)',
+      'Door and lock working properly',
+      'Hidden key confirmed in noted location'
+    ]},
+    {title:'General Interior', items:[
+      'Garage remotes counted and working',
+      'HOA passes counted and match records',
+      'Guest Book Tablet reviewed — property guide accurate',
+      'WiFi info in guest book matches router',
+      'Interior paint in good condition (no scuffs / touch-up needed)',
+      'Windows clean',
+      'Carpet condition acceptable (cleaning needed?)',
+      'Furniture clean (throw pillows, cushions, etc.)',
+      'All blinds in good working order',
+      'Gas fireplace functional — remotes present and working',
+      'Wood burning fireplace — charged fire extinguisher nearby',
+      'Gas fireplace hatch — no excess dust buildup',
+      'Matches or fire starters present',
+      'Carbon monoxide alarms present and functioning',
+      'Furnace filters checked (replaced / cleaned as needed)',
+      'All lights, lamps, outlets tested',
+      'All light bulbs working (burned out ones replaced)',
+      'Picture frames straight',
+      'Photo book present for cleaners'
+    ]},
+    {title:'Electronics', items:[
+      'Instructions present, accurate, and easy to follow',
+      'All remotes working (batteries replaced as needed)',
+      'Stereo equipment present with printed instructions',
+      'Music playback working in all appropriate rooms',
+      'All TVs working',
+      'Streaming devices (Roku, Apple TV, etc.) working'
+    ]},
+    {title:'Kitchen', items:[
+      'Kitchen meets inventory requirements',
+      'Drawers and cabinets organized',
+      'Salt and pepper refilled',
+      'Supplies present (foil, saran wrap, baggies)',
+      'All large appliance make and model documented',
+      'All cabinet doors and drawers open / close properly',
+      'Small appliances in good condition and tested',
+      'Pots and pans in good shape',
+      'Dishtowels — at least 8 matching, good condition',
+      'Potholders — at least 2 glove + 2 flat, good condition',
+      'Garbage disposal working',
+      'All burners working properly',
+      'Dishwasher drain cleaned',
+      'All drains cleaned (bathtubs, sinks, etc.)',
+      'Ice maker producing ice (or ample ice trays present)',
+      'Sink caulking in good condition'
+    ]},
+    {title:'Bedrooms', items:[
+      'Fan in each bedroom closet with neatly wrapped cord',
+      'Pillows: 2 per sleeper on bed + 1 per sleeper in closet (with pillow case)',
+      'Pillow condition good (no yellowing, odors, damage)',
+      'Duvets / shams — no stains, in good condition',
+      'Sheets and bedding in good condition',
+      'Extra linens location confirmed and labeled',
+      'Under each bed clean',
+      'Furniture in good condition (no updates needed)',
+      'Nightstand and lamp on each side of every bed',
+      'Dresser present in each bedroom',
+      'Dresser drawers tight, handles secure, no trash inside',
+      'Mattress comfortable (lay on it!)',
+      'Power Outage Kit confirmed in primary bedroom closet',
+      'Art, d\xe9cor, and updates assessed'
+    ]},
+    {title:'Bathrooms', items:[
+      'All drains flowing freely (sink, tub, shower)',
+      'Jetted tubs tested — jets working, no dirty buildup',
+      'No mold — grout clean in showers, sinks, etc.',
+      'Caulking in good condition',
+      'Towels in good condition (soft, no stains / rips / fraying)',
+      'Bath mats and rugs in good shape',
+      'No hard water stains on shower doors',
+      'Shower / bath faucets functioning (no leaks, easy to operate)',
+      'Shower curtains / liners in good condition',
+      'Blow dryer present in each full bathroom',
+      'Glass, stone, or metal soap dispensers at each sink',
+      'Any d\xe9cor updates assessed'
+    ]},
+    {title:'Linens', items:[
+      'Total linen inventory meets standards (2 sets per bed)',
+      'Sheets and pillowcases in good condition (no stains / rips / fraying)',
+      'Linen closet labeled and organized',
+      'Hot tub towels in good shape and sufficient (1 per person, matching)'
+    ]},
+    {title:'Games & Recreation', items:[
+      'All game / rec equipment in good working order',
+      'Foosball men intact, 3+ soccer balls present',
+      'Pool table felt in good condition',
+      'Pool cues in good condition with intact tips',
+      'Pool table bumpers and pockets in good condition',
+      'Ping pong: 4 paddles, 5+ balls, and caddy present',
+      'Ping pong table and net intact and sturdy'
+    ]},
+    {title:'Decks, Outdoor & Garage', items:[
+      'Patio furniture put out and ready for season',
+      'Patio dining table capacity noted in Track',
+      'Patio umbrella present and in good shape',
+      'BBQ in good condition (no rust, all burners work)',
+      'BBQ auto ignitor working',
+      'Two full propane tanks present',
+      'BBQ cover in good shape',
+      'BBQ tools in good shape (brush, spatula, fork)',
+      'Garage clean and organized',
+      'Garage swept',
+      'Guest bikes, SUPs, watercraft documented (if applicable)'
+    ]},
+    {title:'Seasonal Services — Schedule Before Summer', items:[
+      'Battery change — all smoke / CO alarms',
+      'Carpet cleaning scheduled',
+      'Mattress pads and duvet cleaning scheduled',
+      'Deck staining assessed (2 bids obtained if needed)',
+      'Seasonal deep clean scheduled',
+      'Firewood arranged',
+      'Heater filter change',
+      'Patio furniture setup complete',
+      'Window cleaning scheduled',
+      'Yard clean-up complete',
+      'Large appliance annual check-up scheduled'
+    ]},
+    supplyInv,
+    kitchenDishes,
+    kitchenSilver,
+    kitchenPots,
+    kitchenUtensils,
+    kitchenAppliances,
+    linenSheets,
+    linenBlankets,
+    {title:'Before You Leave', items:[
+      'Kitchen inventory form complete and filed',
+      'Linen inventory form complete and filed',
+      'Supply inventory form complete and filed',
+      'All windows closed and locked',
+      'All doors locked',
+      'TLP TO-DO items noted and submitted'
+    ]}
   ];
 
-  if (type === 'departure') return [
-    {title:'Exterior & Entry', items:['Driveway / parking area — condition and cleanliness','Entry and pathway clean','Exterior furniture returned to proper position','BBQ grill — condition and cleanliness','Hot tub / spa — cover replaced, water clean','Dock / watercraft returned and secured (seasonal)','Fire pit — ash cleaned, screen in place','Garbage and recycling properly sorted and stored','Exterior windows — no new damage'].concat(pets ? ['Check exterior for pet waste or damage'] : [])},
-    {title:'Living Room & Common Areas', items:['Furniture — no stains, damage, or rearrangement','Fireplace clean (no excess ash, glass clean)','TV and remotes present and functional','Rugs and flooring — no stains or damage','Windows and sliding doors — no damage, locked','Walls and baseboards — no marks, holes, or damage','Decor items — all present and undamaged','Guest welcome book present and intact']},
-    {title:'Kitchen & Dining', items:['Countertops clean and undamaged','Refrigerator cleaned out and wiped down','Stovetop / oven clean','Microwave clean','Dishwasher run — dishes clean and put away','Cookware and bakeware — count complete, undamaged','Dishes, glasses, mugs — count complete, undamaged','Small appliances present and undamaged','Trash cans emptied and cleaned','Dining table and chairs — clean, no damage']},
-    {title: bedTitle, items: getBedroomItems(beds, 'departure')},
-    {title: bathTitle, items: getBathroomItems(baths, 'departure', pets)},
-    {title:'Systems Reset & Utilities', items:['Thermostat reset to standby temperature','Smart home devices / locks reset for next guest','All lights turned off','Windows and doors locked','Fireplace gas shutoff confirmed','No new damage to HVAC, appliances, or utilities','Smoke / CO detector batteries functional'].concat(pets ? ['Inspect for pet damage — furniture, floors, walls, doors'] : [])}
+  /* ═══════════════════════════════════════════════════════════
+     FALL INSPECTION
+  ═══════════════════════════════════════════════════════════ */
+  if (type === 'fall') return [
+    {title:'Office Pre-Check', items:[
+      'House keys confirmed (4 copies required)',
+      'Supply key copy present in office (min. 1)',
+      'New key tag made / present',
+      'HOA pass numbers documented before heading out',
+      'Hidden key location confirmed',
+      'Next check-in date noted',
+      'Kitchen inventory printed and ready',
+      'Supply inventory printed and ready'
+    ]},
+    {title:'Front Exterior', items:[
+      'Snow poles in place for season',
+      'Yard clean — pine needles, cones, debris removed',
+      'Eaves cleaned',
+      'Exterior condition — staining / paint / power wash needed?',
+      'Deck condition — staining needed?',
+      'Ice bucket with ice melt and scoop out and placed',
+      'Screens removed and stored (if applicable)',
+      'Bear Bin cleaned',
+      'Bear Bin trash cans in good shape',
+      'Bear Bin sign present and in good condition',
+      'Cameras noted (quantity and location)'
+    ]},
+    {title:'Front Entry', items:[
+      'Lockbox clean and in good condition',
+      'Lockbox not on front door',
+      'Door and lock working properly',
+      'Hidden key confirmed in noted location'
+    ]},
+    {title:'General Interior', items:[
+      'HOA passes counted and match records',
+      'Garage remotes counted and working',
+      'Ski locker key and hot tub key present',
+      'Interior paint in good condition (no scuffs / touch-up needed)',
+      'Windows and shower doors clean',
+      'Carpet condition acceptable (cleaning needed?)',
+      'Furniture clean (throw pillows, cushions)',
+      'All blinds in good working order',
+      'Gas fireplace functional — remotes present and working',
+      'Gas fireplace hatch — no excess dust buildup',
+      'Wood burning fireplace — fire extinguisher charged and nearby',
+      'Furnace filters checked (replaced / cleaned)',
+      'All lamps, light fixtures, outlets tested',
+      'All light bulbs working (burned out ones replaced)',
+      'Picture frames straight'
+    ]},
+    {title:'Electronics', items:[
+      'Instructions present, accurate, and easy to follow',
+      'All remotes working (batteries replaced as needed)',
+      'Stereo equipment with printed instructions',
+      'Music playback working in all appropriate rooms',
+      'All TVs working (brand and location noted)',
+      'Streaming devices (Roku, Apple TV) working'
+    ]},
+    {title:'Kitchen', items:[
+      'Drawers and cabinets organized (photos taken)',
+      'Salt and pepper refilled',
+      'Make and model of all large appliances recorded',
+      'All cabinet doors and drawers open / close properly',
+      'Garbage disposal working',
+      'All burners working properly',
+      'Ice maker producing ice (or ice trays present)',
+      'Sink caulking in good condition',
+      'Grout clean (if counter tile)',
+      'Fire extinguisher location and service date noted'
+    ]},
+    {title:'Bedrooms', items:[
+      'Bedding in good condition (update needed?)',
+      'Furniture in good condition',
+      'Linens look upscale and inviting',
+      'Mattress comfortable (lay on it!)',
+      'Two side tables, two lamps, and dresser in each room',
+      'Under each bed clean',
+      'Luggage racks present (if applicable)',
+      '2nd set of sheets stored in closet or linen closet'
+    ]},
+    {title:'Bathrooms', items:[
+      'All drains flowing freely (sink, tub, shower)',
+      'Drain clean-out scheduled if needed',
+      'No mold — grout clean in showers and sinks',
+      'Caulking in good condition',
+      'Towels in good condition (soft, no stains / rips / fraying)',
+      'Bath mats and rugs in good shape',
+      'No hard water stains on shower doors',
+      'Shower / bath faucets functioning (no leaks, easy to use)'
+    ]},
+    {title:'Linens', items:[
+      'Linen closet location noted — labeled and organized',
+      'All linens in good condition (no stains / rips / fraying)'
+    ]},
+    {title:'Decks & Outdoor', items:[
+      'Patio furniture brought in or covered for winter',
+      'Patio furniture cushions stored and in good shape',
+      'BBQ in good condition (no rust, all burners work)',
+      'BBQ auto ignitor working',
+      'Two full propane tanks present',
+      'BBQ cover in good shape',
+      'BBQ grease pan clean'
+    ]},
+    {title:'Garage', items:[
+      'Two shovels present',
+      'Garage clean and organized',
+      'Garage swept',
+      'Oil stains on floor noted (if any)'
+    ]},
+    {title:'House Inventory', items:[
+      'Fans: 1 per bedroom present in closet',
+      'CO Detectors: 1 per floor / zone (manufacture date noted)',
+      'Power Outage Kit present (location noted)',
+      'Blow dryers: 1 per full bathroom',
+      'Pool cue tips intact',
+      'Pool chalk color matches felt'
+    ]},
+    supplyInv,
+    kitchenDishes,
+    kitchenSilver,
+    kitchenPots,
+    kitchenUtensils,
+    kitchenAppliances,
+    linenSheets,
+    linenBlankets,
+    {title:'Damages & Repairs', items:[
+      'All damages, repairs, or work to be done noted and photographed',
+      'Damage report submitted to TLP office'
+    ]},
+    {title:'Before You Leave', items:[
+      'Kitchen inventory form complete and filed',
+      'Linen inventory form complete and filed',
+      'Supply inventory form complete and filed',
+      'All windows closed and locked',
+      'All doors locked'
+    ]}
   ];
 
-  if (type === 'routine') return [
-    {title:'Exterior & Structure', items:['Roof — no missing shingles, sagging, or visible damage','Gutters and downspouts clear and properly attached','Chimney / flue condition and cap intact','Exterior siding / paint / stucco condition','Foundation — no cracks or water intrusion','Windows and doors (seals, frames, hardware)','Garage door and opener condition','Driveway and pathways (cracks, settling)','Deck structural integrity (boards, railings, fasteners)','Exterior stairs and handrails secure','Landscaping and irrigation condition','All exterior lighting functional']},
-    {title:'Interior — Living Spaces', items:['Ceilings — no water stains, cracks, or damage','Walls and paint condition','Flooring — wear, damage, stains','Baseboards and trim condition','Fireplace and hearth (structural, glass, damper)','Staircase and railings (secure, no creaking)','Windows (seals, operation)','Furniture (upholstery, frames, wear)','Lighting fixtures and fans','Door hardware and locks (all rooms)','Smart home devices (hubs, thermostats, locks)']},
-    {title:'Kitchen', items:['Cabinets and drawer hardware','Countertops — no chips, cracks, or burns','Refrigerator (seal, interior, ice maker)','Dishwasher (door seal, spray arms, drain)','Oven and stovetop (burners, igniter)','Range hood / ventilation','Garbage disposal','Sink and faucet (leaks, drain, pressure)','Under-sink plumbing — no leaks','Small appliances inventory and condition']},
-    {title: bedTitle, items: getBedroomItems(beds, 'routine')},
-    {title: bathTitle, items: getBathroomItems(baths, 'routine', pets)},
-    {title:'Systems & Mechanical', items:['HVAC system (filter condition, airflow)','Furnace / boiler (service record current)','Water heater (age, temperature, pressure relief valve)','Water pressure throughout (consistent)','Hot tub (jets, heater, chemistry, cover)','Generator (fuel, start test)','Electrical panel (no tripped breakers)','Smoke detectors (test all)','Carbon monoxide detectors (test all)','Fire extinguisher (charged, within service date)','Internet / Wi-Fi router and network equipment','Security system / cameras (operational)','Propane / natural gas lines and shutoff valves']},
-    {title:'Safety & Compliance', items:['STR permit posted and current','Noise / HOA rules posted for guests','Emergency evacuation route posted','First aid kit fully stocked','Fire escape route clear (all floors)','Life rings / safety at waterfront (seasonal)','No trip hazards on walkways or stairs','Exterior pathways lit adequately']}
+  /* ═══════════════════════════════════════════════════════════
+     CHECK IN — SUMMER
+  ═══════════════════════════════════════════════════════════ */
+  if (type === 'checkin_summer') return [
+    {title:'Exterior', items:[
+      'Driveway and walkway clear of debris',
+      'Dinghy clean inside (if applicable)',
+      'Oars present (if applicable)',
+      'Dinghy secured and upside down on shore — photo taken (if applicable)',
+      'Pollen wiped off all decks (time stamped)',
+      'Trash and debris removed from yard (cigarettes especially near hot tub)',
+      'Dog waste removed from yard and all decks',
+      'Entry, patios, and decks cleaned of cobwebs',
+      'BBQ clean and working',
+      'Wand lighter present as backup',
+      'Two full propane tanks (if applicable)',
+      'BBQ utensils / brush present',
+      'BBQ utensils / brush cleaned or replaced as needed',
+      'Patio furniture cleaned and straightened',
+      'Umbrella opens and is in good shape',
+      'All exterior lights working',
+      'Hot tub clean, working (jets and temp), and unlocked',
+      'Hot tub cover and lift in good condition, easy to open',
+      'House propane tank level noted (if applicable)'
+    ]},
+    {title:'Interior — General', items:[
+      'All interior lights work (welcome lighting on for guests)',
+      'HOA cards / passes counted and numbers noted',
+      'Garage openers present and working',
+      'Exterior garage keypad working',
+      'TLUXP Pad, Pen, and RE flyer set up',
+      'Wi-Fi working (speed test completed)',
+      'Pool, Ping Pong, Foosball tables checked',
+      'Pool cues — tips in good condition',
+      'Plenty of balls for pool and foosball',
+      'Paddles in good shape',
+      'Heat set to 65\xb0F, A/C set to 70\xb0F',
+      'Under couch and cushions checked for debris',
+      'Hot water working on all levels and sinks',
+      'All sink drains flowing freely',
+      'Power Outage Kit confirmed in primary closet',
+      'All toilets flushed',
+      'All fireplace remotes working (gas only)',
+      'Wood burning fireplace clean (if applicable)',
+      'Firewood, kindling, lighter at each wood burning fireplace',
+      'Extra wood storage accessible for guests',
+      'Ironing board and iron present',
+      'All blinds set at even levels',
+      'All music / Sonos / Alexa players working',
+      'All TVs working (channels and volume tested)',
+      'Remotes working with batteries and backups',
+      'TV directions clear for guests',
+      'Washer checked (door left open) and dryer checked',
+      'Lint trap emptied',
+      'Hot tub towels in good condition and matching'
+    ]},
+    {title:'Kitchen', items:[
+      'Bear Bin note present and clean (no trash in garage)',
+      '1 full paper towel roll on counter + 1 underneath',
+      'Full liquid dish soap and hand soap at sink',
+      'Hand soap is ONE color / type (dump and refill if mixed)',
+      'New sponge in wrapper present',
+      'At least 8 kitchen towels that match',
+      'Dishwasher clean and drain clear of debris',
+      'Garbage disposal clean',
+      'Trash bags in bins / compactor',
+      'Ice maker working in freezer',
+      'No smells in refrigerator / freezer',
+      'All major appliances turned on / run and clocks set',
+      'Hood fan, hood light, and oven light working',
+      'Under sink: trash bags, extra dish soap, dishwasher detergent, cleaning products',
+      'Kitchen drawers / cabinets organized and clean',
+      'Potholders checked — replacement needed?',
+      'Salt and pepper grinders filled, olive oil and coffee filters present'
+    ]},
+    {title:'Bedrooms', items:[
+      'All bedding clean and free of debris (2 sleeping pillows per person)',
+      'Under beds and all drawers checked for trash / debris',
+      'All blinds operational and raised to same height',
+      '1 additional pillow with case in closet for each bed',
+      '20 matching hangers in each closet (no plastic)',
+      'Fan in each closet with neatly wrapped cord',
+      'Liquid soap dispensers metal / glass / stone only (no plastic store-bought)',
+      'TLUXP soap / shampoo / conditioner present in every shower'
+    ]},
+    {title:'Bathrooms', items:[
+      '4 extra rolls of toilet paper + 1 on holder',
+      'Liquid soap containers full and ONE color / type',
+      'TLUXP soap / shampoo / conditioner in every shower',
+      'Bathroom fan working',
+      'Shower curtains in good condition',
+      'Towels: 2 of each type per sleeper',
+      'Teams Chat updated, reservation notes added, HSK grid updated'
+    ]},
+    {title:'Supply Checklist', items:[
+      'Toilet Paper — Charmin preferred',
+      'Paper Towels — Bounty preferred',
+      'Kleenex (square box in cover)',
+      'Kitchen Bags 13 gal — unscented',
+      'Coffee Filters (type confirmed, reusable present if applicable)',
+      'Small Trash Bags for bathrooms',
+      'Large Black Contractor Bags',
+      'Sponges — blue individually wrapped (no green)',
+      'Hand Soap Refill (clear)',
+      'Dishwashing Soap — Dawn preferred',
+      'Dishwasher Detergent',
+      'Laundry Soap (no Tide, fragrance free preferred)',
+      'Dryer Sheets (fragrance free)',
+      'Olive Oil',
+      'Foil',
+      'Saran Wrap',
+      'Ziploc Bags',
+      'Salt',
+      'Peppercorns for the grinder',
+      'Wand Lighters',
+      'Batteries: 9V, AA, AAA',
+      'Ice Melt and Scoop for bucket',
+      'Light Bulbs (assessed for home)',
+      'Heater Air Filters (read current size)'
+    ]}
   ];
 
+  /* ═══════════════════════════════════════════════════════════
+     CHECK IN — WINTER
+  ═══════════════════════════════════════════════════════════ */
+  if (type === 'checkin_winter') return [
+    {title:'Exterior', items:[
+      'Driveway and walkway clear of debris',
+      'Driveway plowed and shoveling completed',
+      'Ice melt put out on slick areas and stairs',
+      'Ice / snow concerns assessed (ice dams, snow load)',
+      'Trash and debris removed from yard (cigarettes especially near hot tub)',
+      'Dog waste removed from yard and all decks',
+      'BBQ clean and working',
+      'Two full propane tanks present',
+      'BBQ utensils / brush present',
+      'BBQ utensils / brush need replacing?',
+      'House propane tank level noted (if applicable)',
+      'Propane tank shoveled out (if applicable)',
+      'All exterior lights working',
+      'Hot tub clean, working (jets and temp), and unlocked',
+      'Hot tub temp set to 102\xb0F'
+    ]},
+    {title:'Interior — General', items:[
+      'Full bucket of ice melt + scoop in the garage',
+      'All interior lights checked (bulbs replaced as needed)',
+      'HOA cards / passes counted and numbers noted',
+      'Garage openers present and working',
+      'TLUXP Pad, Pen, RE flyer, and Survey set up',
+      'Wi-Fi working (speed test completed)',
+      'Pool, Ping Pong, Foosball tables and equipment checked',
+      'Temperature set to 68\xb0F',
+      'Hot water working on all levels and sinks',
+      'All toilets flushed',
+      'All fireplace remotes working (gas only)',
+      'Wood burning fireplace clean (if applicable)',
+      'Firewood, kindling, lighter at each wood burning fireplace',
+      'Ironing board and iron present',
+      'All damages checked (stained furniture, carpets, comforters — photos taken)',
+      'Any scratches on floors, backs of doors — photos taken',
+      'All blinds set at even levels',
+      'All music / Sonos / Alexa players working',
+      'All TVs working (channels and volume tested)',
+      'Washer checked (door left open) and dryer checked',
+      'Mouse traps checked under everything — removed if found'
+    ]},
+    {title:'Kitchen', items:[
+      '1 full paper towel roll on counter + 1 underneath',
+      'Full liquid dish soap and hand soap at sink',
+      'New sponge in wrapper present',
+      'At least 8 kitchen towels that match',
+      'Dishwasher clean and drain clear of debris',
+      'Garbage disposal working and clean',
+      'Trash bags in bins / compactor',
+      'Ice maker working in freezer',
+      'All major appliances turned on / run and clocks set',
+      'All major appliances clean inside and out',
+      'Hood fan, hood light, and oven light working',
+      'Under sink: trash bags, extra dish soap, dishwasher detergent, cleaning products',
+      'Kitchen drawers / cabinets organized and clean',
+      'Dinnerware, flatware, glasses, pot holders, towels checked'
+    ]},
+    {title:'Bedrooms', items:[
+      'All beds made nicely (no wrinkles — use wrinkle remover)',
+      '2 sleeping pillows per person on each bed',
+      'Under beds and all drawers checked for trash / debris',
+      'All blinds operational and raised to same height',
+      '2 additional pillows with cases in each room',
+      '20 matching hangers in each closet (no plastic)',
+      'Heater and fan in each closet with neatly wrapped cord',
+      'Power Outage Kit in primary closet (accessible, zip-tied, and full)'
+    ]},
+    {title:'Bathrooms', items:[
+      '4 extra rolls of toilet paper + 1 on holder',
+      'Liquid soap containers full and ONE color / type',
+      'TLUXP soap / shampoo / conditioner in every shower',
+      'Bathroom fan working',
+      'Shower curtains in good condition',
+      'Towels: 2 of each type per sleeper',
+      'Teams Chat updated and HSK grid updated'
+    ]},
+    {title:'Supply Checklist', items:[
+      'Toilet Paper — Charmin preferred',
+      'Paper Towels — Bounty preferred',
+      'Kleenex (square box in cover)',
+      'Kitchen Bags 13 gal — unscented',
+      'Coffee Filters (type confirmed, reusable present)',
+      'Small Trash Bags for bathrooms',
+      'Large Black Contractor Bags',
+      'Sponges — blue individually wrapped (no green)',
+      'Hand Soap Refill (clear)',
+      'Dishwashing Soap — Dawn preferred',
+      'Dishwasher Detergent',
+      'Laundry Soap (no Tide, fragrance free preferred)',
+      'Dryer Sheets (fragrance free)',
+      'Olive Oil',
+      'Foil',
+      'Saran Wrap',
+      'Ziploc Bags',
+      'Salt',
+      'Peppercorns for the grinder',
+      'Wand Lighters',
+      'Batteries: 9V, AA, AAA',
+      'Ice Melt and Scoop for bucket',
+      'Light Bulbs (assessed for home)',
+      'Heater Air Filters (read current size)'
+    ]}
+  ];
+
+  /* ═══════════════════════════════════════════════════════════
+     CHECK OUT
+  ═══════════════════════════════════════════════════════════ */
   return [
-    {title:'HVAC & Heating', items:['Replace HVAC air filters','Test and calibrate thermostat','Check furnace / boiler igniter and burners','HVAC annual service completed (log date)','Clean air ducts (every 3 years)']},
-    {title:'Hot Tub / Spa', items:['Water chemistry test and balance','Inspect jets, pump, and heater','Check and clean filter','Inspect cover (condition, hinges, straps)','Full drain, clean, and refill (quarterly)']},
-    {title:'Plumbing', items:['Inspect all plumbing for leaks','Test water pressure (all fixtures)','Flush water heater and check anode rod','Inspect gutters and downspouts','Winterize irrigation system (October)','Activate and test irrigation (May)']},
-    {title:'Electrical & Safety', items:['Test all smoke detectors','Test all CO detectors','Replace smoke / CO detector batteries (annual)','Test GFCI outlets (kitchen, baths, exterior)','Inspect electrical panel (breakers, labeling)','Check and test generator (run under load)','Refuel and check generator oil','Fire extinguisher inspection (tagged)']},
-    {title:'Exterior & Structure', items:['Roof inspection (annual — post ski season)','Chimney sweep and inspection (September)','Check exterior caulking and weatherstripping','Power wash exterior, decks, and paths','Inspect and repair driveway','Pest inspection and treatment','Deck inspection and staining / sealing','Touch-up or repaint exterior (as needed)']},
-    {title:'Seasonal — Winter Prep (October)', items:['Activate snow removal contract','Winterize outdoor plumbing / irrigation','Install pipe insulation on at-risk pipes','Stock firewood (full cord)','Check and stock salt / ice melt','Inspect ski storage and boot warmers','Check and service generator pre-season']},
-    {title:'Seasonal — Spring/Summer Opening (May)', items:['Open and inspect dock','Service and launch watercraft','Service BBQ grill (deep clean, replace parts)','Set up and inspect outdoor furniture','Activate irrigation system','Carpet and upholstery professional cleaning','Mattress inspection and rotation']},
-    {title:'Interior & Compliance', items:['Deep clean all appliances','Inspect and replace caulking (baths / kitchen)','Touch-up interior paint','Inventory and restock linen supply','Restock welcome / consumable supplies','Verify STR permit current and posted','Update emergency contact list at property','First aid kit restock']}
+    {title:'Exterior', items:[
+      'Bear Bin checked — pickup scheduled if full and guests arriving before trash day',
+      'Exterior walk completed',
+      'Dog waste removed from yard',
+      'Trash and debris removed from yard (cigarettes, bottles, etc.)',
+      'Umbrella down / closed',
+      'BBQ checked for condition and cleanliness',
+      'Propane tanks checked — filled if needed',
+      'BBQ gas confirmed off',
+      'BBQ cover in place (note if missing)',
+      'BBQ utensils — clean or replacement needed?',
+      'Hard gas line confirmed off',
+      'Propane tank level noted — needs shoveling?',
+      'Patio furniture and cushions checked for damage, reset in place',
+      'Hot tub checked — how did tenants leave it?',
+      'Hot tub — immediate service needed?',
+      'Hot tub temp set to 102\xb0F',
+      'Garage — no trash left by guests',
+      'Garage swept if needed'
+    ]},
+    {title:'Interior — General', items:[
+      'Guest Book area organized',
+      'HOA passes counted and confirmed with TLUXP lanyard',
+      'Garage openers counted',
+      'Key confirmed in lockbox',
+      'House walked up and down — new damage photos taken and noted',
+      'All doors and windows locked',
+      'Thermostat set correctly (Winter: Forced Air 55\xb0F / Radiant 65\xb0F — Summer: all at 55\xb0F, A/C 70\xb0F)',
+      'All TVs confirmed working',
+      'All stereos and SONOS confirmed working',
+      'Carpets — any new spots noted (compare to check-in record)',
+      'New carpet spots listed in notes',
+      'Scratches noted — floors, furniture, or doors',
+      'Pool Table / Ping Pong / Foosball — checked for damage',
+      'All game table parts present and in working order'
+    ]},
+    {title:'Dogs (if dog on reservation)', items:[
+      'Scratches checked — floors, doors, trim',
+      'Furniture checked for soils, nibbles, or damage',
+      'Hair checked throughout property',
+      'Accidents, soils, or smells checked',
+      'Carpet stains checked and documented'
+    ]},
+    {title:'Bedrooms', items:[
+      'Under beds and in closets checked for hidden damage',
+      'Closets and drawers checked for lost and found / garbage',
+      'Comforters and decorative pillows checked for stains / damage'
+    ]},
+    {title:'Before You Leave — Confirm All', items:[
+      'All doors locked (each door tested, especially 3-point locks)',
+      'All windows shut and locked',
+      'Heat turned down to proper setting',
+      'All lights off',
+      'Alarm set (unless back-to-back or asked to keep off)'
+    ]}
   ];
 }
+
 
 var state = {};
 function newState() { return {formType:null, selectedProp:null, info:{}, items:{}, draftId:Date.now(), overallStatus:null, _sections:null}; }
@@ -540,10 +1268,11 @@ function setHeader(title, sub, showBack) {
 }
 
 var FORM_META = {
-  arrival:     {name:'Guest Arrival Inspection',            icon:'&#9989;'},
-  departure:   {name:'Guest Departure & Damage Assessment', icon:'&#128269;'},
-  routine:     {name:'Routine Property Inspection',         icon:'&#128203;'},
-  maintenance: {name:'Maintenance Check',                   icon:'&#128295;'}
+  spring:         {name:'Spring Inspection',   icon:'&#127800;'},
+  fall:           {name:'Fall Inspection',     icon:'&#127810;'},
+  checkin_summer: {name:'Check In — Summer', icon:'&#9728;'},
+  checkin_winter: {name:'Check In — Winter', icon:'&#10052;'},
+  checkout:       {name:'Check Out',           icon:'&#128269;'}
 };
 
 function startForm(type, draftId) {
@@ -561,8 +1290,8 @@ function startForm(type, draftId) {
   document.getElementById('fieldGuest').value = '';
   document.getElementById('propSearch').value = '';
   document.getElementById('propCard').classList.remove('show');
-  document.getElementById('guestNameField').style.display = (type === 'maintenance' || type === 'routine') ? 'none' : 'block';
-  document.getElementById('guestNameLabel').textContent = type === 'departure' ? 'Guest Name (departing)' : 'Guest Name';
+  document.getElementById('guestNameField').style.display = (type === 'spring' || type === 'fall') ? 'none' : 'block';
+  document.getElementById('guestNameLabel').textContent = type === 'checkout' ? 'Guest Name (departing)' : 'Guest Name';
   if (draftId) loadDraft(draftId);
   setHeader(meta.name, '', true);
   showScreen('screenSetup');
@@ -652,7 +1381,7 @@ function buildChecklist() {
       photoRow.appendChild(addBtn); photoRow.appendChild(fileInput);
       if (saved.photos) saved.photos.forEach(function(src,pi){addPhotoThumb(photoRow,src,key,pi);});
       extras.appendChild(photoRow);
-      if (state.formType === 'departure') {
+      if (state.formType === 'checkout') {
         var cr = document.createElement('div'); cr.className = 'charge-row';
         cr.innerHTML = '<label>Damage Charge ($):</label>';
         var ci = document.createElement('input'); ci.type='number'; ci.className='charge-input'; ci.placeholder='0.00'; ci.value=saved.charge||'';
@@ -743,6 +1472,12 @@ function updateSectionBadge(si) {
 }
 
 function showSummary() {
+  var sections = state._sections;
+  var unchecked = 0;
+  sections.forEach(function(sec,si){sec.items.forEach(function(_,ii){var item=state.items[si+'_'+ii];if(!item||!item.status)unchecked++;});});
+  if (unchecked > 0) {
+    if (!confirm(unchecked+' item'+(unchecked>1?' are':' is')+' not yet marked.\n\nAll items should be marked OK, Issue, or N/A for quality control.\n\nContinue to summary anyway?')) return;
+  }
   saveDraft();
   var sections = state._sections;
   var total=0, ok=0, issues=0, na=0, totalCharge=0, issueList=[];
@@ -755,8 +1490,8 @@ function showSummary() {
   if (issueList.length===0) html += '<div class="no-issues">No issues found — property in great shape!</div>';
   else issueList.forEach(function(it){html+='<div class="issue-item"><div class="issue-item-section">'+esc(it.section)+'</div><div class="issue-item-name">'+esc(it.text)+'</div>'+(it.notes?'<div class="issue-item-note">"'+esc(it.notes)+'"</div>':'')+(it.charge>0?'<div class="issue-item-charge">Charge: $'+it.charge.toFixed(2)+'</div>':'')+'</div>';});
   html += '</div>';
-  if (state.formType==='departure'&&totalCharge>0) html+='<div class="charge-total"><span class="charge-total-label">Total Damage Charges</span><span class="charge-total-amt">$'+totalCharge.toFixed(2)+'</span></div>';
-  if (state.formType==='arrival') html+='<div><div class="small-label">Overall Status</div><div class="status-select-row"><div class="status-option ready" id="s-ready" onclick="selectStatus(\'ready\')">Ready</div><div class="status-option conditional" id="s-conditional" onclick="selectStatus(\'conditional\')">Conditional</div><div class="status-option not-ready" id="s-not-ready" onclick="selectStatus(\'not-ready\')">Not Ready</div></div></div>';
+  if (state.formType==='checkout'&&totalCharge>0) html+='<div class="charge-total"><span class="charge-total-label">Total Damage Charges</span><span class="charge-total-amt">$'+totalCharge.toFixed(2)+'</span></div>';
+  if (state.formType==='checkin_summer'||state.formType==='checkin_winter') html+='<div><div class="small-label">Overall Status</div><div class="status-select-row"><div class="status-option ready" id="s-ready" onclick="selectStatus(\'ready\')">Ready</div><div class="status-option conditional" id="s-conditional" onclick="selectStatus(\'conditional\')">Conditional</div><div class="status-option not-ready" id="s-not-ready" onclick="selectStatus(\'not-ready\')">Not Ready</div></div></div>';
   html += '<div style="background:white;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);font-size:13px;line-height:2;color:var(--dark-gray)"><strong style="color:var(--navy);font-size:14px">Inspection Details</strong><br>';
   html += '<strong>Property:</strong> '+esc(state.info.property)+'<br>';
   html += '<strong>Address:</strong> '+esc(state.info.address||'')+'<br>';
@@ -811,7 +1546,7 @@ function emailReport() {
       });
       if (lines.length>0) body+='\n'+sec.title.toUpperCase()+'\n'+lines.join('\n')+'\n';
     });
-    if (state.formType==='departure'&&totalCharge>0) body+='\n'+div+'\nTOTAL ESTIMATED DAMAGE CHARGES: $'+totalCharge.toFixed(2)+'\n';
+    if (state.formType==='checkout'&&totalCharge>0) body+='\n'+div+'\nTOTAL ESTIMATED DAMAGE CHARGES: $'+totalCharge.toFixed(2)+'\n';
   }
   body+='\n--\nSent from TLP Inspection App';
   var subject=issues>0 ? (issues+' Item'+(issues!==1?'s':'')+' Need Attention - '+info.property+' - '+formatDate(info.date)) : ('All Clear - '+info.property+' - '+formatDate(info.date));
