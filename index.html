@@ -420,6 +420,18 @@ function getBathroomItems(n, type, pets) {
 }
 
 function getSections(type, prop) {
+  /* ═══ KITCHEN / LINEN INVENTORY ═══ */
+  if (type === 'kitchen_inv' || type === 'linen_inv') {
+    var kitInv1 = {title:'Kitchen — Dishes & Glassware', items:['Dinner Plates','Salad / Appetizer Plates','Bowls / Soup Bowls','Mugs / Coffee Cups','Wine Glasses','Water / Juice Glasses','Champagne Flutes','Cocktail Glasses','Ramekins / Prep Bowls']};
+    var kitInv2 = {title:'Kitchen — Silverware & Knives', items:['Dinner Forks','Salad Forks','Dinner Spoons','Teaspoons','Soup Spoons','Steak Knives','Dinner Knives','Serving Spoons']};
+    var kitInv3 = {title:'Kitchen — Pots, Pans & Bakeware', items:['Stock Pot','Saute Pan','Frying Pan / Skillets','Sauce Pan','Dutch Oven','Baking Sheet / Cookie Sheet','Roasting Pan','Muffin Tin / Baking Pans','Casserole Dish']};
+    var kitInv4 = {title:'Kitchen — Utensils & Misc', items:['Serving Spoons','Ladle','Whisk','Spatula','Tongs','Peeler','Can Opener','Corkscrew','Cheese Grater','Cutting Boards (note count & sizes)','Mixing Bowls (note count)','Colander / Strainer']};
+    var kitInv5 = {title:'Kitchen — Small Appliances', items:['Coffee Maker (note type)','Blender','Toaster','Toaster Oven','Stand Mixer','Hand Mixer','Waffle Iron','Electric Griddle','Food Processor','Instant Pot / Slow Cooker','Air Fryer','Rice Cooker','Wine Fridge (note capacity)','Espresso Machine (note type)']};
+    var linInv1 = {title:'Linen — Sheets & Pillowcases', items:['King Sheet Sets','Queen Sheet Sets','Full / Double Sheet Sets','Twin Sheet Sets','Extra Pillow Cases (King)','Extra Pillow Cases (Queen / Standard)','Mattress Pads / Protectors (King)','Mattress Pads / Protectors (Queen)','Mattress Pads / Protectors (Full)','Mattress Pads / Protectors (Twin)']};
+    var linInv2 = {title:'Linen — Blankets & Towels', items:['King Comforters / Duvets','Queen Comforters / Duvets','Full Comforters / Duvets','Twin Comforters / Duvets','Extra Blankets / Throws','Bath Towels (large)','Hand Towels','Washcloths','Pool Towels (if applicable)','Beach Towels (if applicable)','Bath Mats','Dish Towels']};
+    if (type === 'kitchen_inv') return [kitInv1, kitInv2, kitInv3, kitInv4, kitInv5];
+    return [linInv1, linInv2];
+  }
 
   /* ── SHARED: Supply Inventory ── */
   var supplyInv = {title:'Supply Inventory', items:[
@@ -882,13 +894,6 @@ function getSections(type, prop) {
       'Pool chalk color matches felt'
     ]},
     supplyInv,
-    kitchenDishes,
-    kitchenSilver,
-    kitchenPots,
-    kitchenUtensils,
-    kitchenAppliances,
-    linenSheets,
-    linenBlankets,
     {title:'Damages & Repairs', items:[
       'All damages, repairs, or work to be done noted and photographed',
       'Damage report submitted to TLP office'
@@ -938,7 +943,7 @@ function getSections(type, prop) {
       'Pool cues — tips in good condition',
       'Plenty of balls for pool and foosball',
       'Paddles in good shape',
-      'Heat set to 65\xb0F, A/C set to 70\xb0F',
+      'Heat set to 55\xb0F, A/C set to 70\xb0F',
       'Under couch and cushions checked for debris',
       'Hot water working on all levels and sinks',
       'All sink drains flowing freely',
@@ -1705,6 +1710,30 @@ function updateSectionBadge(si) {
 }
 
 function showSummary() {
+  // ── Inventory summary ──
+  if (state.formType === 'kitchen_inv' || state.formType === 'linen_inv') {
+    var imeta = FORM_META[state.formType];
+    var iprop = state.selectedProp;
+    var secs = state._sections || getSections(state.formType, state.selectedProp);
+    var html = '<div class="summary-card"><div class="summary-header"><div class="prop-name">' + esc(iprop ? iprop.name : '') + '</div><div class="form-type-label">' + imeta.icon + ' ' + esc(imeta.name) + '</div></div>';
+    var filled = 0, total = 0;
+    secs.forEach(function(sec, si) { sec.items.forEach(function(it, ii) { total++; var k = si + '_' + ii; if (state.items[k] && state.items[k].value !== '' && state.items[k].value !== undefined) filled++; }); });
+    html += '<div class="summary-stats"><div class="stat"><div class="stat-num">' + filled + '</div><div class="stat-label">Filled</div></div><div class="stat"><div class="stat-num" style="color:var(--dark-gray)">' + (total-filled) + '</div><div class="stat-label">Blank</div></div><div class="stat"><div class="stat-num">' + total + '</div><div class="stat-label">Total</div></div></div>';
+    secs.forEach(function(sec, si) {
+      html += '<div style="background:white;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);margin-bottom:10px"><strong style="color:var(--navy);font-size:13px">' + esc(sec.title) + '</strong><table style="width:100%;margin-top:8px;border-collapse:collapse">';
+      sec.items.forEach(function(it, ii) {
+        var k = si + '_' + ii;
+        var val = (state.items[k] && state.items[k].value !== undefined && state.items[k].value !== '') ? state.items[k].value : '<span style="color:#aaa">—</span>';
+        html += '<tr><td style="font-size:13px;padding:3px 0;color:var(--dark-gray)">' + esc(it) + '</td><td style="font-size:13px;text-align:right;font-weight:600;color:var(--navy)">' + val + '</td></tr>';
+      });
+      html += '</table></div>';
+    });
+    html += '<div class="action-btns"><button class="btn-outline" onclick="showScreen(\'screenChecklist\');document.getElementById(\'bottomNav\').style.display=\'flex\'">Back to Checklist</button><button class="btn-green" onclick="submitReport()">Submit &amp; Send Email</button></div><div style="height:20px"></div></div>';
+    document.getElementById('summaryContent').innerHTML = html;
+    showScreen('screenSummary');
+    document.getElementById('bottomNav').style.display = 'none';
+    return;
+  }
   var sections = state._sections;
   var unchecked = 0;
   sections.forEach(function(sec,si){sec.items.forEach(function(_,ii){var item=state.items[si+'_'+ii];if(!item||!item.status)unchecked++;});});
@@ -1751,6 +1780,28 @@ function selectStatus(s) {
 }
 
 function emailReport() {
+  // ── Inventory email ──
+  if (state.formType === 'kitchen_inv' || state.formType === 'linen_inv') {
+    var imeta2 = FORM_META[state.formType];
+    var iprop2 = state.selectedProp;
+    var isecs = state._sections || getSections(state.formType, state.selectedProp);
+    var subj = imeta2.name.toUpperCase() + (iprop2 ? ' — ' + iprop2.name : '');
+    var body = subj + '\nDate: ' + new Date().toLocaleDateString() + '\nInspector: ' + (state.info.inspector || '') + '\n';
+    if (iprop2) body += 'Property: ' + iprop2.name + '\nAddress: ' + (iprop2.address || '') + '\n';
+    body += '\n';
+    isecs.forEach(function(sec, si) {
+      body += sec.title.toUpperCase() + '\n';
+      sec.items.forEach(function(it, ii) {
+        var k = si + '_' + ii;
+        var val = (state.items[k] && state.items[k].value !== undefined && state.items[k].value !== '') ? state.items[k].value : '—';
+        body += '  ' + it + ': ' + val + '\n';
+      });
+      body += '\n';
+    });
+    body += '\n--\nSent from TLP Inspection App';
+    window.location.href = 'mailto:inspections@tluxp.com?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
+    return;
+  }
   var sections=state._sections, info=state.info, prop=state.selectedProp;
   var div='==================================================';
   var total=0, ok=0, issues=0, na=0, totalCharge=0;
