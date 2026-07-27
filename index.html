@@ -31,7 +31,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .form-card .icon{font-size:32px;margin-bottom:10px;display:block}
 .form-card .label{font-size:13px;font-weight:700;color:var(--navy);line-height:1.3}
 .form-card .count{font-size:11px;color:var(--dark-gray);margin-top:4px}
-.form-card.spring{border-color:#2E8B57}.form-card.fall{border-color:#CC6600}.form-card.checkin-summer{border-color:var(--blue)}.form-card.checkin-winter{border-color:#5B9FD4}.form-card.checkout{border-color:var(--red)}
+.form-card.spring{border-color:#2E8B57}.form-card.fall{border-color:#CC6600}.form-card.checkin-summer{border-color:var(--blue)}.form-card.checkin-winter{border-color:#5B9FD4}.form-card.checkout-summer{border-color:var(--red)}.form-card.checkout-winter{border-color:#063461}.form-card.qc{border-color:#7B2D8B}
 .section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--dark-gray);padding:0 16px 8px;margin-top:4px}
 .drafts-list{padding:0 16px;display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
 .draft-card{background:white;border-radius:10px;padding:14px 16px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;cursor:pointer}
@@ -175,7 +175,9 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
     <div class="form-card fall" onclick="startForm('fall')"><span class="icon">&#127810;</span><div class="label">Fall Inspection</div><div class="count">Season prep</div></div>
     <div class="form-card checkin-summer" onclick="startForm('checkin_summer')"><span class="icon">&#9728;</span><div class="label">Check In &mdash; Summer</div><div class="count">Pre check-in</div></div>
     <div class="form-card checkin-winter" onclick="startForm('checkin_winter')"><span class="icon">&#10052;</span><div class="label">Check In &mdash; Winter</div><div class="count">Pre check-in</div></div>
-    <div class="form-card checkout" style="grid-column:span 2" onclick="startForm('checkout')"><span class="icon">&#128269;</span><div class="label">Check Out</div><div class="count">Departure inspection</div></div>
+    <div class="form-card checkout-summer" onclick="startForm('checkout_summer')"><span class="icon">&#9728;</span><div class="label">Check Out &mdash; Summer</div><div class="count">Departure inspection</div></div>
+    <div class="form-card checkout-winter" onclick="startForm('checkout_winter')"><span class="icon">&#10052;</span><div class="label">Check Out &mdash; Winter</div><div class="count">Departure inspection</div></div>
+    <div class="form-card qc" style="grid-column:span 2" onclick="startForm('qc_check')"><span class="icon">&#128373;</span><div class="label">QC Check</div><div class="count">Manager spot-check</div></div>
   </div>
   <div id="draftsSection" style="display:none">
     <div class="section-label">Saved Drafts</div>
@@ -1130,70 +1132,277 @@ function getSections(type, prop) {
   ];
 
   /* ═══════════════════════════════════════════════════════════
-     CHECK OUT
+     QUALITY CONTROL CHECK  — random 12-item spot-check
+  ═══════════════════════════════════════════════════════════ */
+  if (type === 'qc_check') {
+    var pool = [
+      '[Exterior] Driveway and walkway clear of debris',
+      '[Exterior] BBQ clean and working',
+      '[Exterior] Wand lighter present as backup',
+      '[Exterior] Two full propane tanks confirmed',
+      '[Exterior] BBQ utensils / brush present and clean',
+      '[Exterior] Patio furniture cleaned and straightened',
+      '[Exterior] Umbrella in good shape and can open',
+      '[Exterior] All exterior lights working',
+      '[Exterior] Hot tub clean, jets and temp working, unlocked',
+      '[Exterior] Hot tub cover and lift in good condition',
+      '[Exterior] Cobwebs cleared from entry, patios, and decks',
+      '[Exterior] Trash and debris removed from yard',
+      '[Exterior] Dog waste removed from yard and decks',
+      '[Interior] All interior lights working',
+      '[Interior] HOA cards / passes counted and numbers noted',
+      '[Interior] Garage openers present and working',
+      '[Interior] TLUXP Pad, Pen, and RE flyer set up',
+      '[Interior] Wi-Fi working and speed tested',
+      '[Interior] Pool, Ping Pong, Foosball tables checked',
+      '[Interior] Pool cues — tips in good condition',
+      '[Interior] Paddles and balls in good shape',
+      '[Interior] Thermostat set to correct temperature',
+      '[Interior] Hot water working on all levels',
+      '[Interior] All toilets flushed and working',
+      '[Interior] Fireplace remotes working',
+      '[Interior] Firewood and kindling at each fireplace',
+      '[Interior] Ironing board and iron present',
+      '[Interior] All blinds set at even levels',
+      '[Interior] All music / Sonos / Alexa players working',
+      '[Interior] All TVs working — channels and volume tested',
+      '[Interior] Remotes present with working batteries',
+      '[Interior] Washer and dryer checked, lint trap emptied',
+      '[Interior] Hot tub towels in good condition and matching',
+      '[Kitchen] Bear Bin note present, no trash in garage',
+      '[Kitchen] 1 full paper towel roll on counter + 1 underneath',
+      '[Kitchen] Full liquid dish soap and hand soap at sink',
+      '[Kitchen] Hand soap is ONE color / type',
+      '[Kitchen] New sponge in wrapper present',
+      '[Kitchen] At least 8 matching kitchen towels',
+      '[Kitchen] Dishwasher clean, drain clear of debris',
+      '[Kitchen] Garbage disposal clean and working',
+      '[Kitchen] Trash bags in bins / compactor',
+      '[Kitchen] Ice maker working in freezer',
+      '[Kitchen] No smells in refrigerator / freezer',
+      '[Kitchen] All appliance clocks set correctly',
+      '[Kitchen] Hood fan, hood light, and oven light working',
+      '[Kitchen] Under sink stocked (trash bags, soap, detergent)',
+      '[Kitchen] Drawers and cabinets organized and clean',
+      '[Kitchen] Salt, pepper, and olive oil present',
+      '[Kitchen] Potholders present and in good condition',
+      '[Bedrooms] All bedding clean, 2 pillows per person',
+      '[Bedrooms] Under beds and drawers checked for trash',
+      '[Bedrooms] All blinds raised to same height',
+      '[Bedrooms] 20 matching hangers in each closet',
+      '[Bedrooms] Fan in each closet with neatly wrapped cord',
+      '[Bedrooms] Soap dispensers metal / glass / stone only',
+      '[Bedrooms] TLUXP soap / shampoo / conditioner present',
+      '[Bathrooms] 4 extra rolls of toilet paper + 1 on holder',
+      '[Bathrooms] Soap containers full and ONE color / type',
+      '[Bathrooms] TLUXP soap / shampoo / conditioner in every shower',
+      '[Bathrooms] Bathroom fan working',
+      '[Bathrooms] Shower curtains in good condition',
+      '[Bathrooms] Towels: 2 of each type per sleeper',
+      '[Supplies] Toilet paper stocked',
+      '[Supplies] Paper towels stocked',
+      '[Supplies] Dishwasher detergent stocked',
+      '[Supplies] Laundry soap stocked',
+      '[Supplies] Ice melt and scoop in bucket'
+    ];
+    // Fisher-Yates shuffle
+    for (var _i = pool.length - 1; _i > 0; _i--) {
+      var _j = Math.floor(Math.random() * (_i + 1));
+      var _t = pool[_i]; pool[_i] = pool[_j]; pool[_j] = _t;
+    }
+    var selected = pool.slice(0, 12);
+    return [{
+      title: 'QC Spot-Check — 12 Random Items (from pool of ' + pool.length + ')',
+      items: selected
+    }];
+  }
+
+
+  /* ═══════════════════════════════════════════════════════════
+     CHECK OUT — SUMMER
+  ═══════════════════════════════════════════════════════════ */
+  if (type === 'checkout_summer') return [
+    {title:'Exterior', items:[
+      'Bear Bin checked — pickup scheduled if full and guests arriving before next trash day',
+      'Is dinghy clean inside (if applicable)?',
+      'Are oars present? (if applicable)',
+      'Is dinghy secured and upside down on shore? — take photo (if applicable)',
+      'Remove trash / debris from yard — look for cigarettes especially by hot tub',
+      'Dog waste — walk yard and all decks and remove',
+      'Lockbox — is key there, does it open easily?',
+      'Does key tag need replacing?',
+      'Did you close patio umbrellas and tie them?',
+      'Is the BBQ cover present?',
+      'Are there 2 full propane tanks for BBQ?',
+      'Do BBQ utensils need replacement?',
+      'Is BBQ propane tank or gas line turned OFF?',
+      'Is there damage to patio furniture / cushions?',
+      'Did you put patio furniture back in place?',
+      'Does hot tub have any damage?',
+      'Does hot tub need dump & scrub?',
+      'Is hot tub temp set to 102\xb0F?',
+      'Is there trash in the garage?',
+      'Did you schedule a pickup (if applicable)?',
+      'How full is house propane tank (if applicable)?'
+    ]},
+    {title:'Interior — General', items:[
+      'If complete, send pic of guest eval to Mgt / Steph',
+      'How many HOA cards / passes? — write down pass numbers',
+      'Do passes have TLUXP lanyard (if applicable)?',
+      'How many garage openers?',
+      'Did you set heat temp to 55\xb0F, A/C to 70\xb0F?',
+      'Firewood, kindling, lighter at each wood burning fireplace',
+      'Is extra wood storage accessible for guests?',
+      'Did you check under furniture for lost & found?',
+      'Did you check ALL drawers for lost & found?'
+    ]},
+    {title:'Damage — Dogs (if dog on reservation)', items:[
+      'Was there a dog on the reservation? (Y/N)',
+      'Is there excess pet hair requiring extra cleaning?',
+      'Are there any scratches on doors or floors? (note below)',
+      'Are there any stains in carpets or rugs? (note below)',
+      'Are there any stains or tears in upholstery? (note below)',
+      'Is there any damage to the inside of the fridge / freezer?',
+      'Are any pieces missing for pool table / ping pong / foosball?'
+    ]},
+    {title:'Bedrooms', items:[
+      'Did you check under beds and dressers for lost & found?',
+      'Did you check closets and drawers for lost & found?',
+      'Are there any stains or damage to bedding or pillows?',
+      'Was power outage kit used / opened? Inventory it if so'
+    ]},
+    {title:'Shut Down / Security', items:[
+      'Did you lock ALL doors and test to ensure they\'re locked?',
+      'Did you lock ALL windows?',
+      'Did you adjust the heat stated previously? (not for B2Bs)',
+      'Did you turn ALL lights off? (not for B2Bs)',
+      'Did you set the alarm (if active)? (not for B2Bs)'
+    ]},
+    {title:'Supply Check', items:[
+      'Toilet Paper (Charmin preferred)',
+      'Paper Towels (Bounty preferred)',
+      'Kleenex (square box in cover)',
+      'Tall Kitchen garbage bags 13 gal (unscented)',
+      'Coffee Filters — confirm type, reusable present if applicable',
+      'Small Trash bags for bathrooms',
+      'Large Black contractor bags',
+      'Sponges — blue individually wrapped (no green)',
+      'Hand Soap refill (clear)',
+      'Dishwashing soap (Dawn preferred)',
+      'Dishwasher detergent',
+      'Laundry Soap — no Tide, fragrance free preferred',
+      'Dryer Sheets — fragrance free',
+      'Olive oil',
+      'Foil',
+      'Saran wrap',
+      'Ziploc Bags',
+      'Salt',
+      'Peppercorns for the grinder',
+      'Wand Lighters',
+      'Batteries: 9V, AA, AAA',
+      'TLUXP Soap / Shampoo / Conditioner',
+      'Light bulbs (assess what home uses)',
+      'Heater Air Filters (read current size)'
+    ]}
+  ];
+
+  /* ═══════════════════════════════════════════════════════════
+     CHECK OUT — WINTER
   ═══════════════════════════════════════════════════════════ */
   return [
     {title:'Exterior', items:[
-      'Bear Bin checked — pickup scheduled if full and guests arriving before trash day',
-      'Exterior walk completed',
-      'Dog waste removed from yard',
-      'Trash and debris removed from yard (cigarettes, bottles, etc.)',
-      'Umbrella down / closed',
-      'BBQ checked for condition and cleanliness',
-      'Propane tanks checked — filled if needed',
-      'BBQ gas confirmed off',
-      'BBQ cover in place (note if missing)',
-      'BBQ utensils — clean or replacement needed?',
-      'Hard gas line confirmed off',
-      'Propane tank level noted — needs shoveling?',
-      'Patio furniture and cushions checked for damage, reset in place',
-      'Hot tub checked — how did tenants leave it?',
-      'Hot tub — immediate service needed?',
-      'Hot tub temp set to 102\xb0F',
-      'Garage — no trash left by guests',
-      'Garage swept if needed'
+      'Bear Bin checked — pickup scheduled if full and guests arriving before next trash day',
+      'Are there any ice dams or snow concerns?',
+      'Does the roof need to be shoveled?',
+      'Remove trash / debris from yard — look for cigarettes especially by hot tub',
+      'Dog waste — walk yard and all decks and remove',
+      'Lockbox — is key there, does it open easily?',
+      'Does key tag need replacing?',
+      'Is the BBQ cover present?',
+      'Are there 2 full propane tanks for BBQ?',
+      'Do BBQ utensils need replacement?',
+      'Is BBQ propane tank or gas line turned OFF?',
+      'Does hot tub have any damage?',
+      'Does hot tub need dump & scrub?',
+      'Is hot tub temp set to 102\xb0F?',
+      'Is there trash in the garage?',
+      'Did you schedule a pickup (if applicable)?',
+      'How full is house propane tank (if applicable)?',
+      'Does propane tank need to be shoveled / cleared?'
     ]},
     {title:'Interior — General', items:[
-      'Guest Book area organized',
-      'HOA passes counted and confirmed with TLUXP lanyard',
-      'Garage openers counted',
-      'Key confirmed in lockbox',
-      'House walked up and down — new damage photos taken and noted',
-      'All doors and windows locked',
-      'Thermostat set correctly (Winter: Forced Air 55\xb0F / Radiant 65\xb0F — Summer: all at 55\xb0F, A/C 70\xb0F)',
-      'All TVs confirmed working',
-      'All stereos and SONOS confirmed working',
-      'Carpets — any new spots noted (compare to check-in record)',
-      'New carpet spots listed in notes',
-      'Scratches noted — floors, furniture, or doors',
-      'Pool Table / Ping Pong / Foosball — checked for damage',
-      'All game table parts present and in working order'
+      'If complete, send pic of guest eval to Mgt / Steph',
+      'How many HOA cards / passes? — write down pass numbers',
+      'Do passes have TLUXP lanyard (if applicable)?',
+      'How many garage openers are present?',
+      'Did you set heat temp to 55\xb0F for HVAC / 60\xb0F for radiant?',
+      'Firewood, kindling, lighter at each wood burning fireplace',
+      'Is extra wood storage accessible for guests?',
+      'Did you check under couches for lost & found?',
+      'Did you check ALL drawers for lost & found?',
+      'Are there still 2 shovels in the garage?',
+      'Do any shovels need to be replaced / bought?',
+      'Is there a full bucket of ice melt in the garage?',
+      'Is snowmelt system on? (if applicable)'
     ]},
-    {title:'Dogs (if dog on reservation)', items:[
-      'Scratches checked — floors, doors, trim',
-      'Furniture checked for soils, nibbles, or damage',
-      'Hair checked throughout property',
-      'Accidents, soils, or smells checked',
-      'Carpet stains checked and documented'
+    {title:'Damage — Dogs (if dog on reservation)', items:[
+      'Was there a dog on the reservation? (Y/N)',
+      'Is there excess pet hair requiring extra cleaning?',
+      'Are there any scratches on doors or floors? (note below)',
+      'Are there any stains in carpets or rugs? (note below)',
+      'Are there any stains or tears in upholstery? (note below)',
+      'Is there any damage to the inside of the fridge / freezer?',
+      'Are all parts present for pool table / ping pong / foosball?',
+      'Are any pieces missing for pool table / ping pong / foosball?',
+      'Are there any stress cracks from snowload on walls / ceiling / beams?',
+      'Are any doors difficult to open due to snowload on roof?'
     ]},
     {title:'Bedrooms', items:[
-      'Under beds and in closets checked for hidden damage',
-      'Closets and drawers checked for lost and found / garbage',
-      'Comforters and decorative pillows checked for stains / damage'
+      'Did you check under beds and dressers for lost & found?',
+      'Did you check closets and drawers for lost & found?',
+      'Are there any stains or damage to bedding or pillows?',
+      'Was power outage kit used / opened? Inventory it if so'
     ]},
-    {title:'Before You Leave — Confirm All', items:[
-      'All doors locked (each door tested, especially 3-point locks)',
-      'All windows shut and locked',
-      'Heat turned down to proper setting',
-      'All lights off',
-      'Alarm set (unless back-to-back or asked to keep off)'
+    {title:'Shut Down / Security', items:[
+      'Did you lock ALL doors and test to ensure they\'re locked?',
+      'Did you lock ALL windows?',
+      'Did you adjust the heat stated previously? (not for B2Bs)',
+      'Did you turn ALL lights off? (not for B2Bs)',
+      'Did you set the alarm (if active)? (not for B2Bs)'
+    ]},
+    {title:'Supply Check', items:[
+      'Toilet Paper (Charmin preferred)',
+      'Paper Towels (Bounty preferred)',
+      'Kleenex (square box in cover)',
+      'Tall Kitchen garbage bags 13 gal (unscented)',
+      'Coffee Filters — confirm type, reusable present if applicable',
+      'Small Trash bags for bathrooms',
+      'Large Black contractor bags',
+      'Sponges — blue individually wrapped (no green)',
+      'Hand Soap refill (clear)',
+      'Dishwashing soap (Dawn preferred)',
+      'Dishwasher detergent',
+      'Laundry Soap — no Tide, fragrance free preferred',
+      'Dryer Sheets — fragrance free',
+      'Olive oil',
+      'Foil',
+      'Saran wrap',
+      'Ziploc Bags',
+      'Salt',
+      'Peppercorns for the grinder',
+      'Wand Lighters',
+      'Ice Melt and scooper for the bucket',
+      'Batteries: 9V, AA, AAA',
+      'TLUXP Soap / Shampoo / Conditioner',
+      'Light bulbs (assess what home uses)',
+      'Heater Air Filters (read current size)'
     ]}
   ];
 }
 
 
 var state = {};
-function newState() { return {formType:null, selectedProp:null, info:{}, items:{}, draftId:Date.now(), overallStatus:null, _sections:null}; }
+function newState() { return {formType:null, selectedProp:null, info:{}, items:{}, draftId:Date.now(), overallStatus:null, _sections:null, maintenanceNotes:''}; }
 state = newState();
 
 var filteredProps = [];
@@ -1272,7 +1481,9 @@ var FORM_META = {
   fall:           {name:'Fall Inspection',     icon:'&#127810;'},
   checkin_summer: {name:'Check In — Summer', icon:'&#9728;'},
   checkin_winter: {name:'Check In — Winter', icon:'&#10052;'},
-  checkout:       {name:'Check Out',           icon:'&#128269;'}
+  checkout_summer:{name:'Check Out — Summer',  icon:'&#9728;'},
+  checkout_winter:{name:'Check Out — Winter',  icon:'&#10052;'},
+  qc_check:       {name:'Quality Control Check', icon:'&#128373;'}
 };
 
 function startForm(type, draftId) {
@@ -1290,8 +1501,8 @@ function startForm(type, draftId) {
   document.getElementById('fieldGuest').value = '';
   document.getElementById('propSearch').value = '';
   document.getElementById('propCard').classList.remove('show');
-  document.getElementById('guestNameField').style.display = (type === 'spring' || type === 'fall') ? 'none' : 'block';
-  document.getElementById('guestNameLabel').textContent = type === 'checkout' ? 'Guest Name (departing)' : 'Guest Name';
+  document.getElementById('guestNameField').style.display = (type === 'spring' || type === 'fall' || type === 'qc_check') ? 'none' : 'block';
+  document.getElementById('guestNameLabel').textContent = (type === 'checkout_summer' || type === 'checkout_winter') ? 'Guest Name (departing)' : 'Guest Name';
   if (draftId) loadDraft(draftId);
   setHeader(meta.name, '', true);
   showScreen('screenSetup');
@@ -1381,7 +1592,7 @@ function buildChecklist() {
       photoRow.appendChild(addBtn); photoRow.appendChild(fileInput);
       if (saved.photos) saved.photos.forEach(function(src,pi){addPhotoThumb(photoRow,src,key,pi);});
       extras.appendChild(photoRow);
-      if (state.formType === 'checkout') {
+      if (state.formType === 'checkout_summer' || state.formType === 'checkout_winter') {
         var cr = document.createElement('div'); cr.className = 'charge-row';
         cr.innerHTML = '<label>Damage Charge ($):</label>';
         var ci = document.createElement('input'); ci.type='number'; ci.className='charge-input'; ci.placeholder='0.00'; ci.value=saved.charge||'';
@@ -1393,6 +1604,28 @@ function buildChecklist() {
     });
     wrap.appendChild(block);
   });
+  // Maintenance Notes – shown for check-in and check-out forms
+  var _maintForms = ['checkin_summer','checkin_winter','checkout_summer','checkout_winter'];
+  if (_maintForms.indexOf(state.formType) !== -1) {
+    var mnBlock = document.createElement('div');
+    mnBlock.className = 'section-block';
+    var mnHead = document.createElement('div');
+    mnHead.className = 'section-head';
+    mnHead.innerHTML = '<span>&#128295; Maintenance Notes</span><span class="section-badge" style="background:rgba(255,255,255,0.2)">Optional</span>';
+    mnBlock.appendChild(mnHead);
+    var mnWrap = document.createElement('div');
+    mnWrap.style.cssText = 'padding:10px 14px 14px';
+    var mnArea = document.createElement('textarea');
+    mnArea.className = 'note-input';
+    mnArea.style.cssText = 'width:100%;min-height:90px;font-size:14px;';
+    mnArea.placeholder = 'Enter any maintenance issues, follow-up items, or repairs needed...';
+    mnArea.value = state.maintenanceNotes || '';
+    mnArea.oninput = function() { state.maintenanceNotes = mnArea.value; saveDraftSilent(); };
+    mnWrap.appendChild(mnArea);
+    mnBlock.appendChild(mnWrap);
+    wrap.appendChild(mnBlock);
+  }
+
 }
 
 function toggleExtras(key) {
@@ -1490,8 +1723,8 @@ function showSummary() {
   if (issueList.length===0) html += '<div class="no-issues">No issues found — property in great shape!</div>';
   else issueList.forEach(function(it){html+='<div class="issue-item"><div class="issue-item-section">'+esc(it.section)+'</div><div class="issue-item-name">'+esc(it.text)+'</div>'+(it.notes?'<div class="issue-item-note">"'+esc(it.notes)+'"</div>':'')+(it.charge>0?'<div class="issue-item-charge">Charge: $'+it.charge.toFixed(2)+'</div>':'')+'</div>';});
   html += '</div>';
-  if (state.formType==='checkout'&&totalCharge>0) html+='<div class="charge-total"><span class="charge-total-label">Total Damage Charges</span><span class="charge-total-amt">$'+totalCharge.toFixed(2)+'</span></div>';
-  if (state.formType==='checkin_summer'||state.formType==='checkin_winter') html+='<div><div class="small-label">Overall Status</div><div class="status-select-row"><div class="status-option ready" id="s-ready" onclick="selectStatus(\'ready\')">Ready</div><div class="status-option conditional" id="s-conditional" onclick="selectStatus(\'conditional\')">Conditional</div><div class="status-option not-ready" id="s-not-ready" onclick="selectStatus(\'not-ready\')">Not Ready</div></div></div>';
+  if ((state.formType==='checkout_summer'||state.formType==='checkout_winter')&&totalCharge>0) html+='<div class="charge-total"><span class="charge-total-label">Total Damage Charges</span><span class="charge-total-amt">$'+totalCharge.toFixed(2)+'</span></div>';
+  if (state.formType==='checkin_summer'||state.formType==='checkin_winter') html+='<div><div class="small-label">Overall Status <span style="color:var(--red);font-size:11px">&#9733; Required</span></div><div class="status-select-row"><div class="status-option ready" id="s-ready" onclick="selectStatus(\'ready\')">Ready</div><div class="status-option not-ready" id="s-not-ready" onclick="selectStatus(\'not-ready\')">Not Ready</div></div></div>';
   html += '<div style="background:white;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);font-size:13px;line-height:2;color:var(--dark-gray)"><strong style="color:var(--navy);font-size:14px">Inspection Details</strong><br>';
   html += '<strong>Property:</strong> '+esc(state.info.property)+'<br>';
   html += '<strong>Address:</strong> '+esc(state.info.address||'')+'<br>';
@@ -1501,7 +1734,8 @@ function showSummary() {
   if (prop&&prop.contact) html += '<strong>Ops Contact:</strong> '+esc(prop.contact)+'<br>';
   if (prop) html += '<strong>Stats:</strong> '+prop.bedrooms+' bed / '+prop.bathrooms+' bath &bull; Max '+prop.occupancy+(prop.size?' &bull; '+esc(prop.size):'')+(prop.pets?' &bull; Pets OK':' &bull; No pets')+'<br>';
   html += '<strong>Completion:</strong> '+pct+'% ('+(ok+issues+na)+'/'+total+' items)</div>';
-  html += '<div class="action-btns"><button class="btn-green" onclick="emailReport()">Email Report</button><button class="btn-outline" onclick="showScreen(\'screenChecklist\');document.getElementById(\'bottomNav\').style.display=\'flex\'">Back to Checklist</button><button class="btn-danger" onclick="confirmFinish()">Mark Complete &amp; Finish</button></div><div style="height:20px"></div>';
+  if (state.maintenanceNotes&&state.maintenanceNotes.trim()) { html+='<div style="background:white;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);margin-bottom:12px"><strong style="color:var(--navy);font-size:13px">&#128295; Maintenance Notes</strong><p style="font-size:13px;color:var(--dark-gray);margin-top:6px;white-space:pre-wrap">'+esc(state.maintenanceNotes)+'</p></div>'; }
+  html += '<div class="action-btns"><button class="btn-outline" onclick="showScreen(\'screenChecklist\');document.getElementById(\'bottomNav\').style.display=\'flex\'">Back to Checklist</button><button class="btn-green" onclick="submitReport()">Submit &amp; Send Email</button></div><div style="height:20px"></div>';
   document.getElementById('summaryWrap').innerHTML = html;
   if (state.overallStatus) selectStatus(state.overallStatus);
   setHeader('Summary', state.info.property, true);
@@ -1546,14 +1780,27 @@ function emailReport() {
       });
       if (lines.length>0) body+='\n'+sec.title.toUpperCase()+'\n'+lines.join('\n')+'\n';
     });
-    if (state.formType==='checkout'&&totalCharge>0) body+='\n'+div+'\nTOTAL ESTIMATED DAMAGE CHARGES: $'+totalCharge.toFixed(2)+'\n';
+    if ((state.formType==='checkout_summer'||state.formType==='checkout_winter')&&totalCharge>0) body+='\n'+div+'\nTOTAL ESTIMATED DAMAGE CHARGES: $'+totalCharge.toFixed(2)+'\n';
   }
+  if (state.maintenanceNotes&&state.maintenanceNotes.trim()) body+='\nMAINTENANCE NOTES\n'+state.maintenanceNotes+'\n';
   body+='\n--\nSent from TLP Inspection App';
   var subject=issues>0 ? (issues+' Item'+(issues!==1?'s':'')+' Need Attention - '+info.property+' - '+formatDate(info.date)) : ('All Clear - '+info.property+' - '+formatDate(info.date));
   var toEmail=(prop&&prop.email)?prop.email:'inspections@tluxp.com';
   var ccPart=(prop&&prop.email&&prop.email!=='inspections@tluxp.com')?'&cc=inspections%40tluxp.com':'';
   window.location.href='mailto:'+encodeURIComponent(toEmail)+'?subject='+encodeURIComponent(subject)+ccPart+'&body='+encodeURIComponent(body);
   showToast('Opening email...');
+}
+
+function submitReport() {
+  var needsStatus = (state.formType === 'checkin_summer' || state.formType === 'checkin_winter');
+  if (needsStatus && !state.overallStatus) {
+    showToast('Please select Ready or Not Ready before submitting');
+    var el = document.getElementById('s-ready');
+    if (el) { el.scrollIntoView({behavior:'smooth',block:'center'}); el.style.animation='pulse .4s 3'; }
+    return;
+  }
+  emailReport();
+  setTimeout(function() { confirmFinish(); }, 800);
 }
 
 function saveDraftSilent() {
