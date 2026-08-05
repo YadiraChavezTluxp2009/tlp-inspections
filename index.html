@@ -148,7 +148,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .modal-title{font-size:18px;font-weight:800;color:var(--navy);margin-bottom:12px}
 .modal-img{width:100%;border-radius:10px;margin-bottom:12px}
 .modal-close{width:100%;padding:14px;background:var(--gray);border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer}
-.inv-qty{width:64px;text-align:center;border:1.5px solid var(--mid-gray);border-radius:6px;padding:6px 4px;font-size:15px;height:38px;-moz-appearance:textfield;}.inv-qty::-webkit-outer-spin-button,.inv-qty::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}</style>
+.inv-qty{width:64px;text-align:center;border:1.5px solid var(--mid-gray);border-radius:6px;padding:6px 4px;font-size:15px;height:38px;-moz-appearance:textfield;}.inv-qty::-webkit-outer-spin-button,.inv-qty::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}.inv-two-col{display:flex;align-items:center;gap:8px;flex-shrink:0;padding-right:4px;}.inv-field-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;}.inv-field-lbl{font-size:10px;color:var(--dark-gray);font-weight:600;white-space:nowrap;}.inv-txt{width:90px;border:1.5px solid var(--mid-gray);border-radius:6px;padding:6px 8px;font-size:14px;height:38px;}</style>
 </head>
 <body>
 
@@ -209,6 +209,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
     </div>
     <div class="field"><label>Inspector Name</label><input type="text" id="fieldInspector" placeholder="Your name" autocomplete="off"></div>
     <div class="field" id="guestNameField"><label id="guestNameLabel">Guest Name</label><input type="text" id="fieldGuest" placeholder="Reservation guest" autocomplete="off"></div>
+    <div class="field" id="bedroomsField" style="display:none"><label>Number of Bedrooms</label><input type="number" id="fieldBedrooms" min="1" max="12" placeholder="e.g. 4"></div>
     <button class="btn-primary" onclick="startChecklist()">Start Inspection &#8594;</button>
   </div>
 </div>
@@ -432,7 +433,13 @@ function getSections(type, prop) {
     var linInv1 = {title:'Linen — Sheets & Pillowcases', items:['King Sheet Sets','Queen Sheet Sets','Full / Double Sheet Sets','Twin Sheet Sets','Extra Pillow Cases (King)','Extra Pillow Cases (Queen / Standard)','Mattress Pads / Protectors (King)','Mattress Pads / Protectors (Queen)','Mattress Pads / Protectors (Full)','Mattress Pads / Protectors (Twin)']};
     var linInv2 = {title:'Linen — Blankets & Towels', items:['King Comforters / Duvets','Queen Comforters / Duvets','Full Comforters / Duvets','Twin Comforters / Duvets','Extra Blankets / Throws','Bath Towels (large)','Hand Towels','Washcloths','Pool Towels (if applicable)','Beach Towels (if applicable)','Bath Mats','Dish Towels']};
     if (type === 'kitchen_inv') return [kitInv1, kitInv2, kitInv3, kitInv4, kitInv5];
-    return [linInv1, linInv2];
+    // Linen: one section per bedroom + shared section
+    var beds = parseInt((state && state.info && state.info.bedrooms) || 3);
+    var bedItems = ['Bed Size (King / Queen / Full / Twin)', 'Sheet Sets', 'Extra Pillow Cases', 'Mattress Pad / Protector', 'Comforter / Duvet', 'Extra Blanket / Throw'];
+    var linSecs = [];
+    for (var b = 1; b <= beds; b++) { linSecs.push({title:'Bedroom ' + b, items:bedItems.slice()}); }
+    linSecs.push({title:'Shared — Towels & Common Areas', items:['Bath Towels (large)','Hand Towels','Washcloths','Bath Mats','Pool Towels (if applicable)','Beach Towels (if applicable)','Dish Towels']});
+    return linSecs;
   }
 
   /* ── SHARED: Supply Inventory ── */
@@ -1511,6 +1518,8 @@ function startForm(type, draftId) {
   document.getElementById('propSearch').value = '';
   document.getElementById('propCard').classList.remove('show');
   document.getElementById('guestNameField').style.display = (type === 'spring' || type === 'fall' || type === 'qc_check' || type === 'kitchen_inv' || type === 'linen_inv') ? 'none' : 'block';
+  document.getElementById('bedroomsField').style.display = (type === 'linen_inv') ? 'block' : 'none';
+  document.getElementById('fieldBedrooms').value = '';
   document.getElementById('guestNameLabel').textContent = (type === 'checkout_summer' || type === 'checkout_winter') ? 'Guest Name (departing)' : 'Guest Name';
   if (draftId) loadDraft(draftId);
   setHeader(meta.name, '', true);
@@ -1527,7 +1536,8 @@ function startChecklist() {
     date: document.getElementById('fieldDate').value,
     time: document.getElementById('fieldTime').value,
     inspector: inspector,
-    guest: document.getElementById('fieldGuest').value.trim()
+    guest: document.getElementById('fieldGuest').value.trim(),
+    bedrooms: parseInt(document.getElementById('fieldBedrooms').value) || 3
   };
   localStorage.setItem('tlp_inspector', inspector);
   buildChecklist();
@@ -1553,17 +1563,45 @@ function buildChecklist() {
     section.items.forEach(function(itemText, ii) {
       var key = si + '_' + ii;
       var saved = state.items[key] || {};
-      if (state.formType === 'kitchen_inv' || state.formType === 'linen_inv') {
+      if (state.formType === 'kitchen_inv') {
+        // Kitchen: two fields — Current count + Needed
+        var row = document.createElement('div');
+        row.className = 'item-row'; row.id = 'row-' + key;
+        row.style.cssText = 'display:flex;align-items:center;min-height:52px;padding:0 14px;gap:8px;border-bottom:1px solid var(--gray);';
+        var lbl = document.createElement('div');
+        lbl.className = 'item-text'; lbl.style.flex = '1'; lbl.textContent = itemText;
+        var twoCol = document.createElement('div'); twoCol.className = 'inv-two-col';
+        function makeKitField(k, field, label, savedVal) {
+          var wrap = document.createElement('div'); wrap.className = 'inv-field-wrap';
+          var lbEl = document.createElement('div'); lbEl.className = 'inv-field-lbl'; lbEl.textContent = label;
+          var inp = document.createElement('input');
+          inp.type = 'number'; inp.className = 'inv-qty'; inp.min = '0'; inp.placeholder = '0';
+          inp.value = savedVal || '';
+          inp.oninput = (function(kk,ff,el){return function(){if(!state.items[kk])state.items[kk]={};state.items[kk][ff]=el.value;saveDraftSilent();};})(k,field,inp);
+          wrap.appendChild(lbEl); wrap.appendChild(inp); return wrap;
+        }
+        twoCol.appendChild(makeKitField(key,'value','Current',saved.value));
+        twoCol.appendChild(makeKitField(key,'needed','Needed',saved.needed));
+        row.appendChild(lbl); row.appendChild(twoCol);
+        block.appendChild(row);
+        return;
+      }
+      if (state.formType === 'linen_inv') {
+        // Linen: text input for bed size, number input for all other items
         var row = document.createElement('div');
         row.className = 'item-row'; row.id = 'row-' + key;
         row.style.cssText = 'display:flex;align-items:center;min-height:48px;padding:0 14px;gap:10px;border-bottom:1px solid var(--gray);';
         var lbl = document.createElement('div');
         lbl.className = 'item-text'; lbl.style.flex = '1'; lbl.textContent = itemText;
-        var qtyInp = document.createElement('input');
-        qtyInp.type = 'number'; qtyInp.className = 'inv-qty'; qtyInp.min = '0'; qtyInp.placeholder = '0';
-        qtyInp.value = (saved.value !== undefined ? saved.value : '');
-        qtyInp.oninput = (function(k,inp){return function(){if(!state.items[k])state.items[k]={};state.items[k].value=inp.value;saveDraftSilent();};})(key,qtyInp);
-        row.appendChild(lbl); row.appendChild(qtyInp);
+        var linInp = document.createElement('input');
+        var isBedSize = itemText.indexOf('Bed Size') !== -1;
+        linInp.type = isBedSize ? 'text' : 'number';
+        linInp.className = isBedSize ? 'inv-txt' : 'inv-qty';
+        if (!isBedSize) { linInp.min = '0'; linInp.placeholder = '0'; }
+        else { linInp.placeholder = 'King / Queen...'; linInp.style.width = '110px'; }
+        linInp.value = (saved.value !== undefined ? saved.value : '');
+        linInp.oninput = (function(k,inp){return function(){if(!state.items[k])state.items[k]={};state.items[k].value=inp.value;saveDraftSilent();};})(key,linInp);
+        row.appendChild(lbl); row.appendChild(linInp);
         block.appendChild(row);
         return;
       }
@@ -1741,8 +1779,16 @@ function showSummary() {
       html += '<div style="background:white;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);margin-bottom:10px"><strong style="color:var(--navy);font-size:13px">' + esc(sec.title) + '</strong><table style="width:100%;margin-top:8px;border-collapse:collapse">';
       sec.items.forEach(function(it, ii) {
         var k = si + '_' + ii;
-        var val = (state.items[k] && state.items[k].value !== undefined && state.items[k].value !== '') ? state.items[k].value : '<span style="color:#aaa">—</span>';
-        html += '<tr><td style="font-size:13px;padding:3px 0;color:var(--dark-gray)">' + esc(it) + '</td><td style="font-size:13px;text-align:right;font-weight:600;color:var(--navy)">' + val + '</td></tr>';
+        var itm = state.items[k] || {};
+        var valStr = '';
+        if (state.formType === 'kitchen_inv') {
+          var cur = (itm.value !== undefined && itm.value !== '') ? itm.value : '—';
+          var ned = (itm.needed !== undefined && itm.needed !== '') ? itm.needed : '—';
+          valStr = '<span style="color:var(--navy);font-weight:600">'+cur+'</span><span style="color:#888;font-size:11px"> &nbsp;/ need: '+ned+'</span>';
+        } else {
+          valStr = (itm.value !== undefined && itm.value !== '') ? '<span style="font-weight:600;color:var(--navy)">'+esc(String(itm.value))+'</span>' : '<span style="color:#aaa">—</span>';
+        }
+        html += '<tr><td style="font-size:13px;padding:3px 0;color:var(--dark-gray)">' + esc(it) + '</td><td style="font-size:13px;text-align:right">' + valStr + '</td></tr>';
       });
       html += '</table></div>';
     });
@@ -1811,8 +1857,14 @@ function emailReport() {
       body += sec.title.toUpperCase() + '\n';
       sec.items.forEach(function(it, ii) {
         var k = si + '_' + ii;
-        var val = (state.items[k] && state.items[k].value !== undefined && state.items[k].value !== '') ? state.items[k].value : '—';
-        body += '  ' + it + ': ' + val + '\n';
+        var itm2 = state.items[k] || {};
+        if (imeta2.name === 'Kitchen Inventory') {
+          var cur2 = (itm2.value !== undefined && itm2.value !== '') ? itm2.value : '—';
+          var ned2 = (itm2.needed !== undefined && itm2.needed !== '') ? itm2.needed : '—';
+          body += '  ' + it + ': ' + cur2 + ' (current)  /  ' + ned2 + ' (needed)\n';
+        } else {
+          body += '  ' + it + ': ' + ((itm2.value !== undefined && itm2.value !== '') ? itm2.value : '—') + '\n';
+        }
       });
       body += '\n';
     });
