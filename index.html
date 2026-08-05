@@ -1416,7 +1416,7 @@ function getSections(type, prop) {
 
 
 var state = {};
-function newState() { return {formType:null, selectedProp:null, info:{}, items:{}, draftId:Date.now(), overallStatus:null, _sections:null, maintenanceNotes:''}; }
+function newState() { return {formType:null, selectedProp:null, info:{}, items:{}, draftId:Date.now(), overallStatus:null, _sections:null, maintenanceNotes:'', managerNotes:''}; }
 state = newState();
 
 var filteredProps = [];
@@ -1456,6 +1456,9 @@ function selectProperty(p) {
     (p.size ? '<span class="prop-tag">&#9634; ' + esc(p.size) + '</span>' : '') +
     '<span class="prop-tag ' + (p.pets ? 'pets' : 'no-pets') + '">' + (p.pets ? 'Pets OK' : 'No pets') + '</span>' +
     (p.contact ? '<span class="prop-tag contact">Contact: ' + esc(p.contact) + '</span>' : '');
+  if (state.formType === 'linen_inv' && p.bedrooms) {
+    document.getElementById('fieldBedrooms').value = p.bedrooms;
+  }
   document.getElementById('propCard').classList.add('show');
 }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -1537,7 +1540,7 @@ function startChecklist() {
     time: document.getElementById('fieldTime').value,
     inspector: inspector,
     guest: document.getElementById('fieldGuest').value.trim(),
-    bedrooms: parseInt(document.getElementById('fieldBedrooms').value) || 3
+    bedrooms: parseInt(document.getElementById('fieldBedrooms').value) || (state.selectedProp && state.selectedProp.bedrooms) || 3
   };
   localStorage.setItem('tlp_inspector', inspector);
   buildChecklist();
@@ -1587,21 +1590,40 @@ function buildChecklist() {
         return;
       }
       if (state.formType === 'linen_inv') {
-        // Linen: text input for bed size, number input for all other items
+        var isSharedSec = section.title.indexOf('Shared') !== -1;
+        var isBedSize = itemText.indexOf('Bed Size') !== -1;
         var row = document.createElement('div');
         row.className = 'item-row'; row.id = 'row-' + key;
-        row.style.cssText = 'display:flex;align-items:center;min-height:48px;padding:0 14px;gap:10px;border-bottom:1px solid var(--gray);';
+        row.style.cssText = 'display:flex;align-items:center;min-height:' + (isSharedSec ? '52' : '48') + 'px;padding:0 14px;gap:8px;border-bottom:1px solid var(--gray);';
         var lbl = document.createElement('div');
         lbl.className = 'item-text'; lbl.style.flex = '1'; lbl.textContent = itemText;
-        var linInp = document.createElement('input');
-        var isBedSize = itemText.indexOf('Bed Size') !== -1;
-        linInp.type = isBedSize ? 'text' : 'number';
-        linInp.className = isBedSize ? 'inv-txt' : 'inv-qty';
-        if (!isBedSize) { linInp.min = '0'; linInp.placeholder = '0'; }
-        else { linInp.placeholder = 'King / Queen...'; linInp.style.width = '110px'; }
-        linInp.value = (saved.value !== undefined ? saved.value : '');
-        linInp.oninput = (function(k,inp){return function(){if(!state.items[k])state.items[k]={};state.items[k].value=inp.value;saveDraftSilent();};})(key,linInp);
-        row.appendChild(lbl); row.appendChild(linInp);
+        row.appendChild(lbl);
+        if (isSharedSec) {
+          // Shared section: two fields (Current + Needed) like kitchen
+          var twoCol2 = document.createElement('div'); twoCol2.className = 'inv-two-col';
+          function makeLinField(k, field, label, savedVal) {
+            var wrap = document.createElement('div'); wrap.className = 'inv-field-wrap';
+            var lbEl = document.createElement('div'); lbEl.className = 'inv-field-lbl'; lbEl.textContent = label;
+            var inp = document.createElement('input');
+            inp.type = 'number'; inp.className = 'inv-qty'; inp.min = '0'; inp.placeholder = '0';
+            inp.value = savedVal || '';
+            inp.oninput = (function(kk,ff,el){return function(){if(!state.items[kk])state.items[kk]={};state.items[kk][ff]=el.value;saveDraftSilent();};})(k,field,inp);
+            wrap.appendChild(lbEl); wrap.appendChild(inp); return wrap;
+          }
+          twoCol2.appendChild(makeLinField(key,'value','Current',saved.value));
+          twoCol2.appendChild(makeLinField(key,'needed','Needed',saved.needed));
+          row.appendChild(twoCol2);
+        } else {
+          // Bedroom section: text for Bed Size, number for rest
+          var linInp = document.createElement('input');
+          linInp.type = isBedSize ? 'text' : 'number';
+          linInp.className = isBedSize ? 'inv-txt' : 'inv-qty';
+          if (!isBedSize) { linInp.min = '0'; linInp.placeholder = '0'; }
+          else { linInp.placeholder = 'King / Queen...'; linInp.style.width = '110px'; }
+          linInp.value = (saved.value !== undefined ? saved.value : '');
+          linInp.oninput = (function(k,inp){return function(){if(!state.items[k])state.items[k]={};state.items[k].value=inp.value;saveDraftSilent();};})(key,linInp);
+          row.appendChild(linInp);
+        }
         block.appendChild(row);
         return;
       }
@@ -1666,6 +1688,26 @@ function buildChecklist() {
     wrap.appendChild(block);
   });
   // Maintenance Notes – shown for check-in and check-out forms
+  // Manager Notes – QC Check only
+  if (state.formType === 'qc_check') {
+    var mnqBlock = document.createElement('div');
+    mnqBlock.className = 'section-block';
+    var mnqHead = document.createElement('div');
+    mnqHead.className = 'section-head';
+    mnqHead.innerHTML = '<span>&#128221; Manager Notes</span><span class="section-badge" style="background:rgba(255,255,255,0.2)">Optional</span>';
+    mnqBlock.appendChild(mnqHead);
+    var mnqWrap = document.createElement('div');
+    mnqWrap.style.cssText = 'padding:10px 14px 14px';
+    var mnqArea = document.createElement('textarea');
+    mnqArea.className = 'note-input';
+    mnqArea.style.cssText = 'width:100%;min-height:90px;font-size:14px;';
+    mnqArea.placeholder = 'Add notes or instructions for staff reviewing this QC check...';
+    mnqArea.value = state.managerNotes || '';
+    mnqArea.oninput = function() { state.managerNotes = mnqArea.value; saveDraftSilent(); };
+    mnqWrap.appendChild(mnqArea);
+    mnqBlock.appendChild(mnqWrap);
+    wrap.appendChild(mnqBlock);
+  }
   var _maintForms = ['checkin_summer','checkin_winter','checkout_summer','checkout_winter'];
   if (_maintForms.indexOf(state.formType) !== -1) {
     var mnBlock = document.createElement('div');
@@ -1781,7 +1823,8 @@ function showSummary() {
         var k = si + '_' + ii;
         var itm = state.items[k] || {};
         var valStr = '';
-        if (state.formType === 'kitchen_inv') {
+        var isTwoCols = (state.formType === 'kitchen_inv') || (state.formType === 'linen_inv' && sec.title.indexOf('Shared') !== -1);
+        if (isTwoCols) {
           var cur = (itm.value !== undefined && itm.value !== '') ? itm.value : '—';
           var ned = (itm.needed !== undefined && itm.needed !== '') ? itm.needed : '—';
           valStr = '<span style="color:var(--navy);font-weight:600">'+cur+'</span><span style="color:#888;font-size:11px"> &nbsp;/ need: '+ned+'</span>';
@@ -1793,7 +1836,7 @@ function showSummary() {
       html += '</table></div>';
     });
     html += '<div class="action-btns"><button class="btn-outline" onclick="showScreen(\'screenChecklist\');document.getElementById(\'bottomNav\').style.display=\'flex\'">Back to Checklist</button><button class="btn-green" onclick="submitReport()">Submit &amp; Send Email</button></div><div style="height:20px"></div></div>';
-    document.getElementById('summaryContent').innerHTML = html;
+    document.getElementById('summaryWrap').innerHTML = html;
     showScreen('screenSummary');
     document.getElementById('bottomNav').style.display = 'none';
     return;
@@ -1827,6 +1870,7 @@ function showSummary() {
   if (prop&&prop.contact) html += '<strong>Ops Contact:</strong> '+esc(prop.contact)+'<br>';
   if (prop) html += '<strong>Stats:</strong> '+prop.bedrooms+' bed / '+prop.bathrooms+' bath &bull; Max '+prop.occupancy+(prop.size?' &bull; '+esc(prop.size):'')+(prop.pets?' &bull; Pets OK':' &bull; No pets')+'<br>';
   html += '<strong>Completion:</strong> '+pct+'% ('+(ok+issues+na)+'/'+total+' items)</div>';
+  if (state.managerNotes&&state.managerNotes.trim()) { html+='<div style="background:white;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);margin-bottom:12px"><strong style="color:#7B2D8B;font-size:13px">&#128221; Manager Notes</strong><p style="font-size:13px;color:var(--dark-gray);margin-top:6px;white-space:pre-wrap">'+esc(state.managerNotes)+'</p></div>'; }
   if (state.maintenanceNotes&&state.maintenanceNotes.trim()) { html+='<div style="background:white;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);margin-bottom:12px"><strong style="color:var(--navy);font-size:13px">&#128295; Maintenance Notes</strong><p style="font-size:13px;color:var(--dark-gray);margin-top:6px;white-space:pre-wrap">'+esc(state.maintenanceNotes)+'</p></div>'; }
   html += '<div class="action-btns"><button class="btn-outline" onclick="showScreen(\'screenChecklist\');document.getElementById(\'bottomNav\').style.display=\'flex\'">Back to Checklist</button><button class="btn-green" onclick="submitReport()">Submit &amp; Send Email</button></div><div style="height:20px"></div>';
   document.getElementById('summaryWrap').innerHTML = html;
@@ -1858,7 +1902,8 @@ function emailReport() {
       sec.items.forEach(function(it, ii) {
         var k = si + '_' + ii;
         var itm2 = state.items[k] || {};
-        if (imeta2.name === 'Kitchen Inventory') {
+        var isTwoCols2 = (imeta2.name === 'Kitchen Inventory') || (imeta2.name === 'Linen Inventory' && sec.title.indexOf('Shared') !== -1);
+        if (isTwoCols2) {
           var cur2 = (itm2.value !== undefined && itm2.value !== '') ? itm2.value : '—';
           var ned2 = (itm2.needed !== undefined && itm2.needed !== '') ? itm2.needed : '—';
           body += '  ' + it + ': ' + cur2 + ' (current)  /  ' + ned2 + ' (needed)\n';
@@ -1904,6 +1949,7 @@ function emailReport() {
     if ((state.formType==='checkout_summer'||state.formType==='checkout_winter')&&totalCharge>0) body+='\n'+div+'\nTOTAL ESTIMATED DAMAGE CHARGES: $'+totalCharge.toFixed(2)+'\n';
   }
   if (state.maintenanceNotes&&state.maintenanceNotes.trim()) body+='\nMAINTENANCE NOTES\n'+state.maintenanceNotes+'\n';
+  if (state.managerNotes&&state.managerNotes.trim()) body+='\nMANAGER NOTES\n'+state.managerNotes+'\n';
   body+='\n--\nSent from TLP Inspection App';
   var subject=issues>0 ? (issues+' Item'+(issues!==1?'s':'')+' Need Attention - '+info.property+' - '+formatDate(info.date)) : ('All Clear - '+info.property+' - '+formatDate(info.date));
   var toEmail=(prop&&prop.email)?prop.email:'inspections@tluxp.com';
