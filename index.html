@@ -1416,7 +1416,7 @@ function getSections(type, prop) {
 
 
 var state = {};
-function newState() { return {formType:null, selectedProp:null, info:{}, items:{}, draftId:Date.now(), overallStatus:null, _sections:null, maintenanceNotes:'', managerNotes:''}; }
+function newState() { return {formType:null, selectedProp:null, info:{}, items:{}, draftId:Date.now(), overallStatus:null, _sections:null, maintenanceNotes:'', managerNotes:'', invNotes:''}; }
 state = newState();
 
 var filteredProps = [];
@@ -1688,6 +1688,26 @@ function buildChecklist() {
     wrap.appendChild(block);
   });
   // Maintenance Notes – shown for check-in and check-out forms
+  // Additional Notes – Kitchen and Linen inventory
+  if (state.formType === 'kitchen_inv' || state.formType === 'linen_inv') {
+    var invNBlock = document.createElement('div');
+    invNBlock.className = 'section-block';
+    var invNHead = document.createElement('div');
+    invNHead.className = 'section-head';
+    invNHead.innerHTML = '<span>&#128203; Additional Notes</span><span class="section-badge" style="background:rgba(255,255,255,0.2)">Optional</span>';
+    invNBlock.appendChild(invNHead);
+    var invNWrap = document.createElement('div');
+    invNWrap.style.cssText = 'padding:10px 14px 14px';
+    var invNArea = document.createElement('textarea');
+    invNArea.className = 'note-input';
+    invNArea.style.cssText = 'width:100%;min-height:90px;font-size:14px;';
+    invNArea.placeholder = 'Note any damaged items, items on order, discrepancies, or anything else relevant...';
+    invNArea.value = state.invNotes || '';
+    invNArea.oninput = function() { state.invNotes = invNArea.value; saveDraftSilent(); };
+    invNWrap.appendChild(invNArea);
+    invNBlock.appendChild(invNWrap);
+    wrap.appendChild(invNBlock);
+  }
   // Manager Notes – QC Check only
   if (state.formType === 'qc_check') {
     var mnqBlock = document.createElement('div');
@@ -1835,6 +1855,7 @@ function showSummary() {
       });
       html += '</table></div>';
     });
+    if (state.invNotes&&state.invNotes.trim()) { html += '<div style="background:white;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);margin-bottom:10px"><strong style="color:var(--navy);font-size:13px">&#128203; Additional Notes</strong><p style="font-size:13px;color:var(--dark-gray);margin-top:6px;white-space:pre-wrap">'+esc(state.invNotes)+'</p></div>'; }
     html += '<div class="action-btns"><button class="btn-outline" onclick="showScreen(\'screenChecklist\');document.getElementById(\'bottomNav\').style.display=\'flex\'">Back to Checklist</button><button class="btn-green" onclick="submitReport()">Submit &amp; Send Email</button></div><div style="height:20px"></div></div>';
     document.getElementById('summaryWrap').innerHTML = html;
     showScreen('screenSummary');
@@ -1913,6 +1934,7 @@ function emailReport() {
       });
       body += '\n';
     });
+    if (state.invNotes&&state.invNotes.trim()) body += '\nADDITIONAL NOTES\n'+state.invNotes+'\n';
     body += '\n--\nSent from TLP Inspection App';
     window.location.href = 'mailto:inspections@tluxp.com?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
     return;
