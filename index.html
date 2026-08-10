@@ -1427,6 +1427,40 @@ var state = {};
 function newState() { return {formType:null, selectedProp:null, info:{}, items:{}, draftId:Date.now(), overallStatus:null, _sections:null, maintenanceNotes:'', managerNotes:'', invNotes:'', startTime:null, endTime:null, photos:{}, isVoided:false}; }
 state = newState();
 
+// ── Power Automate HTTP endpoint — paste your flow URL here after setup ──
+var HTTP_ENDPOINT = 'https://default5ac09ae0a11f4fc0a912cf7df682b7.ea.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/27/workflows/cea1d24a664c4f0fa28e735407a7e7bd/triggers/manual/paths/invoke?api-version=1';
+var INSPECTION_EMAIL = 'inspections@tluxp.com';
+
+function getPhotosPayload() {
+  var photos = []; var idx = 0;
+  Object.keys(state.photos || {}).forEach(function(k) {
+    var dataUrl = state.photos[k]; if (!dataUrl) return;
+    var comma = dataUrl.indexOf(','); if (comma < 0) return;
+    var base64 = dataUrl.substring(comma + 1);
+    var isJpg = dataUrl.toLowerCase().indexOf('image/jpeg') >= 0 || dataUrl.toLowerCase().indexOf('image/jpg') >= 0;
+    photos.push({name: 'photo_' + (++idx) + (isJpg ? '.jpg' : '.png'), contentBytes: base64});
+  });
+  return photos;
+}
+
+function sendViaHTTP(payload, mailtoFallback) {
+  var ov = document.createElement('div');
+  ov.id = 'sendingOverlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(6,52,97,.88);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;font-size:16px;font-weight:700;';
+  ov.innerHTML = '<div style="font-size:44px;margin-bottom:16px">&#128247;</div><div>Sending report + photos...</div><div style="font-size:13px;font-weight:400;margin-top:8px;opacity:.8">This may take a moment</div>';
+  document.body.appendChild(ov);
+  fetch(HTTP_ENDPOINT, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)})
+    .then(function(r) {
+      if (document.getElementById('sendingOverlay')) document.body.removeChild(ov);
+      if (r.ok || r.status === 202) { showToast('Report & photos sent!'); }
+      else { showToast('Error ' + r.status + ' — opening email'); window.location.href = mailtoFallback; }
+    }).catch(function() {
+      if (document.getElementById('sendingOverlay')) document.body.removeChild(ov);
+      showToast('Connection error — opening email');
+      window.location.href = mailtoFallback;
+    });
+}
+
 var filteredProps = [];
 function filterProperties() {
   var q = document.getElementById('propSearch').value.toLowerCase();
@@ -2019,9 +2053,27 @@ function emailReport() {
     if (state.formType === 'linen_inv') { var lnKeys=Object.keys(linNeedMap); if(lnKeys.length>0){ body+='LINEN NEEDED — SUMMARY\n'; lnKeys.forEach(function(nm){body+='  '+nm+': '+linNeedMap[nm]+' needed\n';}); body+='\n'; } }
     if (state.invNotes&&state.invNotes.trim()) body += '\nADDITIONAL NOTES\n'+state.invNotes+'\n';
     var pCntE = Object.keys(state.photos||{}).length;
-    if (pCntE>0) body += '\nPHOTOS: '+pCntE+' photo'+(pCntE>1?'s':'')+' captured (pending Power Automate attachment)\n';
+    if (pCntE>0 && !HTTP_ENDPOINT) body += '\nPHOTOS: '+pCntE+' photo'+(pCntE>1?'s':'')+' captured (will be attached via Power Automate)\n';
     body += '\n--\nSent from TLP Inspection App';
-    window.location.href = 'mailto:inspections@tluxp.com?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
+    var mailtoInv = 'mailto:' + INSPECTION_EMAIL + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
+    if (HTTP_ENDPOINT) {
+      sendViaHTTP({
+        formType: state.formType,
+        subject: subj,
+        body: body,
+        to: INSPECTION_EMAIL,
+        property: (iprop2 ? iprop2.name : ''),
+        inspector: state.info.inspector || '',
+        date: state.info.date || '',
+        startTime: state.startTime || '',
+        endTime: state.endTime || '',
+        itemsOk: 0, issuesFound: 0, naCount: 0, totalCharge: 0,
+        overallStatus: '',
+        photos: getPhotosPayload()
+      }, mailtoInv);
+    } else {
+      window.location.href = mailtoInv;
+    }
     return;
   }
   var sections=state._sections, info=state.info, prop=state.selectedProp;
@@ -2063,8 +2115,33 @@ function emailReport() {
   var subject=issues>0 ? (issues+' Item'+(issues!==1?'s':'')+' Need Attention - '+info.property+' - '+formatDate(info.date)) : ('All Clear - '+info.property+' - '+formatDate(info.date));
   var toEmail=(prop&&prop.email)?prop.email:'inspections@tluxp.com';
   var ccPart=(prop&&prop.email&&prop.email!=='inspections@tluxp.com')?'&cc=inspections%40tluxp.com':'';
-  window.location.href='mailto:'+encodeURIComponent(toEmail)+'?subject='+encodeURIComponent(subject)+ccPart+'&body='+encodeURIComponent(body);
-  showToast('Opening email...');
+  var mailtoReg = 'mailto:'+encodeURIComponent(toEmail)+'?subject='+encodeURIComponent(subject)+ccPart+'&body='+encodeURIComponent(body);
+  if (HTTP_ENDPOINT) {
+    var regStats = {ok:0,issues:0,na:0,charge:0};
+    (state._sections||[]).forEach(function(sec,si){sec.items.forEach(function(_,ii){var it=state.items[si+'_'+ii]||{};if(it.status==='ok')regStats.ok++;else if(it.status==='issue'){regStats.issues++;regStats.charge+=it.charge||0;}else if(it.status==='na')regStats.na++;});});
+    var ccEmail = (prop&&prop.email&&prop.email!==INSPECTION_EMAIL) ? INSPECTION_EMAIL : '';
+    sendViaHTTP({
+      formType: state.formType,
+      subject: subject,
+      body: body,
+      to: toEmail,
+      cc: ccEmail,
+      property: info.property || '',
+      inspector: info.inspector || '',
+      date: info.date || '',
+      startTime: state.startTime || '',
+      endTime: state.endTime || '',
+      overallStatus: state.overallStatus || '',
+      itemsOk: regStats.ok,
+      issuesFound: regStats.issues,
+      naCount: regStats.na,
+      totalCharge: regStats.charge,
+      photos: getPhotosPayload()
+    }, mailtoReg);
+  } else {
+    window.location.href = mailtoReg;
+    showToast('Opening email...');
+  }
 }
 
 function submitReport() {
@@ -2100,7 +2177,26 @@ function voidInspection() {
   body += 'Voided At: ' + state.endTime + '\n';
   body += '\nNOTE: This check-in inspection was voided because guests were found to still be checked in at time of inspection. Please reschedule once the property is vacant.\n';
   body += '\n--\nSent from TLP Inspection App';
-  window.location.href = 'mailto:inspections@tluxp.com?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
+  var mailtoVoid = 'mailto:' + INSPECTION_EMAIL + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
+  if (HTTP_ENDPOINT) {
+    sendViaHTTP({
+      formType: state.formType,
+      subject: subj,
+      body: body,
+      to: INSPECTION_EMAIL,
+      property: info.property || '',
+      inspector: info.inspector || '',
+      date: info.date || '',
+      startTime: state.startTime || '',
+      endTime: state.endTime || '',
+      overallStatus: 'VOID',
+      itemsOk: 0, issuesFound: 0, naCount: 0, totalCharge: 0,
+      isVoided: true,
+      photos: []
+    }, mailtoVoid);
+  } else {
+    window.location.href = mailtoVoid;
+  }
   setTimeout(function() { confirmFinish(); }, 800);
 }
 function saveDraftSilent() {
