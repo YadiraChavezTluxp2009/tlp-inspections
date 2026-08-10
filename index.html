@@ -1915,7 +1915,7 @@ function showSummary() {
     }
     var pCnt = Object.keys(state.photos||{}).length;
     if (pCnt > 0) { html += '<div style="background:#E8F5E9;border-radius:var(--radius);padding:10px 14px;margin-bottom:10px;font-size:13px;color:#2E7D32"><strong>&#128247; '+pCnt+' photo'+(pCnt>1?'s':'')+' captured</strong> — will be attached via Power Automate when Premium is configured.</div>'; }
-    html += '<div class="action-btns"><button class="btn-outline" onclick="showScreen('screenChecklist');document.getElementById('bottomNav').style.display='flex'">Back to Checklist</button><button class="btn-green" onclick="submitReport()">Submit &amp; Send Email</button></div><div style="height:20px"></div></div>';
+    html += '<div class="action-btns"><button class="btn-outline" onclick="showScreen(\'screenChecklist\');document.getElementById(\'bottomNav\').style.display=\'flex\'">Back to Checklist</button><button class="btn-green" onclick="submitReport()">Submit &amp; Send Email</button></div><div style="height:20px"></div></div>';
     document.getElementById('summaryWrap').innerHTML = html;
     showScreen('screenSummary');
     document.getElementById('bottomNav').style.display = 'none';
