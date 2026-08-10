@@ -1443,7 +1443,7 @@ function getPhotosPayload() {
   return photos;
 }
 
-function sendViaHTTP(payload, mailtoFallback) {
+function sendViaHTTP(payload, mailtoFallback, onSuccess) {
   var ov = document.createElement('div');
   ov.id = 'sendingOverlay';
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(6,52,97,.88);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;font-size:16px;font-weight:700;';
@@ -1452,11 +1452,18 @@ function sendViaHTTP(payload, mailtoFallback) {
   fetch(HTTP_ENDPOINT, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)})
     .then(function(r) {
       if (document.getElementById('sendingOverlay')) document.body.removeChild(ov);
-      if (r.ok || r.status === 202) { showToast('Report & photos sent!'); }
-      else { showToast('Error ' + r.status + ' — opening email'); window.location.href = mailtoFallback; }
-    }).catch(function() {
+      if (r.ok || r.status === 202) {
+        showToast('Report & photos sent!');
+        if (onSuccess) setTimeout(onSuccess, 600);
+      } else {
+        var msg = 'Power Automate returned error ' + r.status + '.\n\nCheck that your flow is saved and turned ON in Power Automate.\n\nFalling back to email app.';
+        alert(msg);
+        window.location.href = mailtoFallback;
+      }
+    }).catch(function(err) {
       if (document.getElementById('sendingOverlay')) document.body.removeChild(ov);
-      showToast('Connection error — opening email');
+      var msg = 'Could not reach Power Automate.\n\nThis usually means:\n1. The flow is not saved/enabled, OR\n2. A CORS or network error.\n\nCheck your flow in Power Automate, then try again.\n\nFalling back to email app.';
+      alert(msg);
       window.location.href = mailtoFallback;
     });
 }
@@ -2018,7 +2025,7 @@ function selectStatus(s) {
   saveDraftSilent();
 }
 
-function emailReport() {
+function emailReport(onSuccess) {
   // ── Inventory email ──
   if (state.formType === 'kitchen_inv' || state.formType === 'linen_inv') {
     var imeta2 = FORM_META[state.formType];
@@ -2070,7 +2077,7 @@ function emailReport() {
         itemsOk: 0, issuesFound: 0, naCount: 0, totalCharge: 0,
         overallStatus: '',
         photos: getPhotosPayload()
-      }, mailtoInv);
+      }, mailtoInv, onSuccess);
     } else {
       window.location.href = mailtoInv;
     }
@@ -2137,7 +2144,7 @@ function emailReport() {
       naCount: regStats.na,
       totalCharge: regStats.charge,
       photos: getPhotosPayload()
-    }, mailtoReg);
+    }, mailtoReg, onSuccess);
   } else {
     window.location.href = mailtoReg;
     showToast('Opening email...');
@@ -2153,8 +2160,7 @@ function submitReport() {
     return;
   }
   state.endTime = new Date().toLocaleString();
-  emailReport();
-  setTimeout(function() { confirmFinish(); }, 800);
+  emailReport(confirmFinish);
 }
 
 function voidInspection() {
