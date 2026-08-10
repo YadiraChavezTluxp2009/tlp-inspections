@@ -625,9 +625,7 @@ function getSections(type, prop) {
       'HOA pass numbers documented before heading out',
       'Hidden key location confirmed',
       'Next check-in date noted',
-      'Kitchen inventory printed and ready',
       'Supply inventory printed and ready',
-      'Linen inventory printed and ready',
       'Batteries and needed supplies packed'
     ]},
     {title:'Front Exterior', items:[
@@ -792,7 +790,6 @@ function getSections(type, prop) {
       'HOA pass numbers documented before heading out',
       'Hidden key location confirmed',
       'Next check-in date noted',
-      'Kitchen inventory printed and ready',
       'Supply inventory printed and ready'
     ]},
     {title:'Front Exterior', items:[
@@ -919,6 +916,12 @@ function getSections(type, prop) {
      CHECK IN — SUMMER
   ═══════════════════════════════════════════════════════════ */
   if (type === 'checkin_summer') return [
+    {title:'Before You Start — Office Pre-Check', items:[
+      'Check the house folder',
+      'Check the reservation notes',
+      'Check the website amenities',
+      'Check the photos'
+    ]},
     {title:'Exterior', items:[
       'Driveway and walkway clear of debris',
       'Dinghy clean inside (if applicable)',
@@ -1041,6 +1044,12 @@ function getSections(type, prop) {
      CHECK IN — WINTER
   ═══════════════════════════════════════════════════════════ */
   if (type === 'checkin_winter') return [
+    {title:'Before You Start — Office Pre-Check', items:[
+      'Check the house folder',
+      'Check the reservation notes',
+      'Check the website amenities',
+      'Check the photos'
+    ]},
     {title:'Exterior', items:[
       'Driveway and walkway clear of debris',
       'Driveway plowed and shoveling completed',
@@ -1269,14 +1278,25 @@ function getSections(type, prop) {
       'Did you check under furniture for lost & found?',
       'Did you check ALL drawers for lost & found?'
     ]},
-    {title:'Damage — Dogs (if dog on reservation)', items:[
-      'Was there a dog on the reservation? (Y/N)',
+    {title:'Damage Assessment (if pet on reservation)', items:[
+      'Was there a pet on the reservation? (Y/N)',
       'Is there excess pet hair requiring extra cleaning?',
       'Are there any scratches on doors or floors? (note below)',
       'Are there any stains in carpets or rugs? (note below)',
       'Are there any stains or tears in upholstery? (note below)',
       'Is there any damage to the inside of the fridge / freezer?',
       'Are any pieces missing for pool table / ping pong / foosball?'
+    ]},
+    {title:'Damage Assessment (if pet on reservation)', items:[
+      'Was there a pet on the reservation? (Y/N)',
+      'Is there excess pet hair requiring extra cleaning?',
+      'Are there any scratches on doors or floors? (note below)',
+      'Are there any stains in carpets or rugs? (note below)',
+      'Are there any stains or tears in upholstery? (note below)',
+      'Is there any damage to the inside of the fridge / freezer?',
+      'Are any pieces missing for pool table / ping pong / foosball?',
+      'Are there any stress cracks from snowload on walls / ceiling / beams?',
+      'Are any doors difficult to open due to snowload on roof?'
     ]},
     {title:'Bedrooms', items:[
       'Did you check under beds and dressers for lost & found?',
@@ -1794,7 +1814,7 @@ function buildChecklist() {
     mnqBlock.appendChild(mnqWrap);
     wrap.appendChild(mnqBlock);
   }
-  var _maintForms = ['checkin_summer','checkin_winter','checkout_summer','checkout_winter'];
+  var _maintForms = ['spring','fall','checkin_summer','checkin_winter','checkout_summer','checkout_winter'];
   if (_maintForms.indexOf(state.formType) !== -1) {
     var mnBlock = document.createElement('div');
     mnBlock.className = 'section-block';
