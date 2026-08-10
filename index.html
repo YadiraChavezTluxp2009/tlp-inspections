@@ -233,6 +233,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 <div class="bottom-nav" id="bottomNav" style="display:none">
   <button class="nav-btn" onclick="showScreen('screenChecklist')"><span class="nav-icon">&#9989;</span>Checklist</button>
   <button class="nav-btn" onclick="saveAndHome()"><span class="nav-icon">&#128190;</span>Save Draft</button>
+  <button class="nav-btn" id="voidNavBtn" style="display:none;color:#B8860B;font-weight:800" onclick="voidInspection()"><span class="nav-icon">&#9888;&#65039;</span>Void</button>
   <button class="nav-btn" onclick="showSummary()"><span class="nav-icon">&#128202;</span>Summary</button>
 </div>
 
@@ -426,20 +427,20 @@ function getBathroomItems(n, type, pets) {
 function getSections(type, prop) {
   /* ═══ KITCHEN / LINEN INVENTORY ═══ */
   if (type === 'kitchen_inv' || type === 'linen_inv') {
-    var kitInv1 = {title:'Kitchen — Dishes & Glassware', items:['Dinner Plates','Salad / Appetizer Plates','Bowls / Soup Bowls','Mugs / Coffee Cups','Wine Glasses','Water / Juice Glasses','Champagne Flutes','Cocktail Glasses','Ramekins / Prep Bowls']};
-    var kitInv2 = {title:'Kitchen — Silverware & Knives', items:['Dinner Forks','Salad Forks','Dinner Spoons','Teaspoons','Soup Spoons','Steak Knives','Dinner Knives','Serving Spoons']};
-    var kitInv3 = {title:'Kitchen — Pots, Pans & Bakeware', items:['Stock Pot','Saute Pan','Frying Pan / Skillets','Sauce Pan','Dutch Oven','Baking Sheet / Cookie Sheet','Roasting Pan','Muffin Tin / Baking Pans','Casserole Dish']};
-    var kitInv4 = {title:'Kitchen — Utensils & Misc', items:['Serving Spoons','Ladle','Whisk','Spatula','Tongs','Peeler','Can Opener','Corkscrew','Cheese Grater','Cutting Boards (note count & sizes)','Mixing Bowls (note count)','Colander / Strainer']};
-    var kitInv5 = {title:'Kitchen — Small Appliances', items:['Coffee Maker (note type)','Blender','Toaster','Toaster Oven','Stand Mixer','Hand Mixer','Waffle Iron','Electric Griddle','Food Processor','Instant Pot / Slow Cooker','Air Fryer','Rice Cooker','Wine Fridge (note capacity)','Espresso Machine (note type)']};
+    var kitInv1 = {title:'Kitchen — Dishes & Glassware', items:['Bowls: Large / Soup (min. 1.5x occupancy)','Bowls: Small / Ice Cream','Dinner Plates (min. 1.5x occupancy)','Salad Plates (min. 1.5x occupancy)','Serving Bowls — 3 large sizes','Serving Plates — 3 (one large platter)','Coffee Mugs (min. 1.5x occupancy, matching)','Drinking Glasses — Large (min. 1.5x occupancy)','Drinking Glasses — Small (min. 1.5x occupancy)','Drinking Glasses — Plastic for Hot Tub','Pitcher — Large Water (glass or ceramic)','Wine Glasses (min. 1x occupancy, matching)','Champagne Flutes (optional, check present)']};
+    var kitInv2 = {title:'Kitchen — Silverware & Knives', items:['Spoons — Large (min. 1.5x occupancy)','Spoons — Small (min. 1.5x occupancy)','Forks — Dinner (min. 1.5x occupancy)','Forks — Salad / Dessert (min. 1.5x occupancy)','Knives — Dinner / Butter (min. 1.5x occupancy)','Knives — Steak (min. 1.5x occupancy)','Salad Servers','Serving Fork (flatware)','Serving Spoons (flatware) — min. 3','Paring Knife: 3.5"','Serrated Knife: 5"',"Chef's Knife: 8\"",'Bread Knife: 10"','Shears / Scissors','Knife Sharpener (optional)','Knife Block (optional)']};
+    var kitInv3 = {title:'Kitchen — Pots, Pans & Bakeware', items:['Stock Pot — large, for pasta','Saucepans with lids: 3 sizes (S, M, L)','Skillet / Frying Pan: 12" with lid','Skillet / Frying Pan: 8"','Skillet / Frying Pan: 6"','Colander — Large (metal or plastic)','Colander — Small mesh for straining','Broiler Pan','Baking Sheets — min. 3','Casserole Dishes (Pyrex ideally) — 3 sizes','Cooling Racks — min. 2','Loaf Pan','Measuring Cup — 2-cup glass','Measuring Cups — full set up to 1 cup','Measuring Spoons — full set up to 1 tbsp','Mixing Bowls — 3 varying sizes','Muffin Tin','Pie Pan','Roasting Pan — large','Tupperware Set — glass ideally, 6 sizes']};
+    var kitInv4 = {title:'Kitchen — Utensils & Misc', items:['BBQ Utensils (spatula, fork, tong, brush)','Bottle Opener','Can Opener (electric or manual)','Cooking Fork (14", 2 or 3 prong)','Cutting Boards — min. 2 (in great shape)','Grater — Large (cheese)','Ice Cream Scooper','Meat Thermometer','Pasta Spoon','Rolling Pin','Soup Ladle','Slotted Spoon','Spatula — for baking / scraping bowl','Spatula — for pancake flipping','Tongs (utility or scissor type)','Trivets — min. 2','Turkey Baster','Vegetable Peeler','Vegetable Steamer Basket','Wine Opener','Whisk','Wooden Spoons — min. 3 varying types','Cloth / Wood Placemats (min. 1.5x occupancy)','Cloth Napkins (min. 1.5x occupancy)','Dish Towels — min. 10 matching','Pot Holders — 2 glove & 2 flat','Salt and Pepper Shakers','Sink Drain Stopper']};
+    var kitInv5 = {title:'Kitchen — Small Appliances', items:['Blender','Microwave','Mixer (Hand or Stand)','Pancake Griddle','Toaster / Toaster Oven','Waffle Maker — 4-piece (not 2)','Coffee Maker (note type)','Espresso Machine (note type, if present)','Air Fryer (if present)','Instant Pot / Slow Cooker (if present)','Rice Cooker (if present)','Wine Fridge (note capacity, if present)']};
     var linInv1 = {title:'Linen — Sheets & Pillowcases', items:['King Sheet Sets','Queen Sheet Sets','Full / Double Sheet Sets','Twin Sheet Sets','Extra Pillow Cases (King)','Extra Pillow Cases (Queen / Standard)','Mattress Pads / Protectors (King)','Mattress Pads / Protectors (Queen)','Mattress Pads / Protectors (Full)','Mattress Pads / Protectors (Twin)']};
     var linInv2 = {title:'Linen — Blankets & Towels', items:['King Comforters / Duvets','Queen Comforters / Duvets','Full Comforters / Duvets','Twin Comforters / Duvets','Extra Blankets / Throws','Bath Towels (large)','Hand Towels','Washcloths','Pool Towels (if applicable)','Beach Towels (if applicable)','Bath Mats','Dish Towels']};
     if (type === 'kitchen_inv') return [kitInv1, kitInv2, kitInv3, kitInv4, kitInv5];
     // Linen: one section per bedroom + shared section
     var beds = parseInt((state && state.info && state.info.bedrooms) || 3);
-    var bedItems = ['Bed Size (King / Queen / Full / Twin)', 'Sheet Sets', 'Extra Pillow Cases', 'Mattress Pad / Protector', 'Comforter / Duvet', 'Extra Blanket / Throw'];
+    var bedItems = ['Bed Size (King / Queen / Full / Twin)', 'Sheet Sets (need: 2 per bed)', 'Extra Pillow Cases (need: 2 extra per bed in closet)', 'Mattress Pad / Protector (need: 1 per bed)', 'Comforter / Duvet (need: 1 per bed minimum)', 'Extra Blanket / Throw (need: 1 per bed minimum)'];
     var linSecs = [];
     for (var b = 1; b <= beds; b++) { linSecs.push({title:'Bedroom ' + b, items:bedItems.slice()}); }
-    linSecs.push({title:'Shared — Towels & Common Areas', items:['Bath Towels (large)','Hand Towels','Washcloths','Bath Mats','Pool Towels (if applicable)','Beach Towels (if applicable)','Dish Towels']});
+    linSecs.push({title:'Shared — Towels & Common Areas', items:['Bath Towels (need: 2 per person)','Hand Towels (need: 2 per person)','Washcloths (need: 2 per person)','Bath Mats (need: 1 per sink + 1 per shower/tub)','Pool / Beach Towels (need: 1 per person, matching)','Dish Towels (need: min. 10 matching)','Spare Blanket (need: 1 per bedroom closet minimum)','Throw Blankets (sufficient quantity)','Decorative Pillows (need: min. 2 per bed)','Pillow Shams (need: min. 2 per bed)']});
     return linSecs;
   }
 
@@ -1565,6 +1566,8 @@ function startChecklist() {
   setHeader(FORM_META[state.formType].name, state.selectedProp.name, true);
   document.getElementById('bottomNav').style.display = 'flex';
   document.getElementById('globalProg').style.display = 'block';
+  var voidBtn = document.getElementById('voidNavBtn');
+  if (voidBtn) voidBtn.style.display = (state.formType === 'checkin_summer' || state.formType === 'checkin_winter') ? 'flex' : 'none';
   showScreen('screenChecklist');
   updateProgress();
 }
