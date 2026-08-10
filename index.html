@@ -770,16 +770,7 @@ function getSections(type, prop) {
       'Large appliance annual check-up scheduled'
     ]},
     supplyInv,
-    kitchenDishes,
-    kitchenSilver,
-    kitchenPots,
-    kitchenUtensils,
-    kitchenAppliances,
-    linenSheets,
-    linenBlankets,
     {title:'Before You Leave', items:[
-      'Kitchen inventory form complete and filed',
-      'Linen inventory form complete and filed',
       'Supply inventory form complete and filed',
       'All windows closed and locked',
       'All doors locked',
@@ -1367,18 +1358,6 @@ function getSections(type, prop) {
       'Is there a full bucket of ice melt in the garage?',
       'Is snowmelt system on? (if applicable)'
     ]},
-    {title:'Damage — Dogs (if dog on reservation)', items:[
-      'Was there a dog on the reservation? (Y/N)',
-      'Is there excess pet hair requiring extra cleaning?',
-      'Are there any scratches on doors or floors? (note below)',
-      'Are there any stains in carpets or rugs? (note below)',
-      'Are there any stains or tears in upholstery? (note below)',
-      'Is there any damage to the inside of the fridge / freezer?',
-      'Are all parts present for pool table / ping pong / foosball?',
-      'Are any pieces missing for pool table / ping pong / foosball?',
-      'Are there any stress cracks from snowload on walls / ceiling / beams?',
-      'Are any doors difficult to open due to snowload on roof?'
-    ]},
     {title:'Bedrooms', items:[
       'Did you check under beds and dressers for lost & found?',
       'Did you check closets and drawers for lost & found?',
@@ -1769,13 +1748,6 @@ function buildChecklist() {
       photoRow.appendChild(addBtn); photoRow.appendChild(fileInput);
       if (saved.photos) saved.photos.forEach(function(src,pi){addPhotoThumb(photoRow,src,key,pi);});
       extras.appendChild(photoRow);
-      if (state.formType === 'checkout_summer' || state.formType === 'checkout_winter') {
-        var cr = document.createElement('div'); cr.className = 'charge-row';
-        cr.innerHTML = '<label>Damage Charge ($):</label>';
-        var ci = document.createElement('input'); ci.type='number'; ci.className='charge-input'; ci.placeholder='0.00'; ci.value=saved.charge||'';
-        ci.onchange=(function(k,inp){return function(){updateItem(k,'charge',parseFloat(inp.value)||0);};})(key,ci);
-        cr.appendChild(ci); extras.appendChild(cr);
-      }
       row.appendChild(extras);
       block.appendChild(row);
     });
