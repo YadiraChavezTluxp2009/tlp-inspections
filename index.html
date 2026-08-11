@@ -2068,6 +2068,11 @@ function emailReport(onSuccess) {
         endTime: state.endTime || '',
         itemsOk: 0, issuesFound: 0, naCount: 0, totalCharge: 0,
         overallStatus: '',
+        kitchenInventory: state.formType === 'kitchen_inv' ? body : '',
+        linenInventory: state.formType === 'linen_inv' ? body : '',
+        outdoorFurniture: '',
+        supplyInventory: '',
+        tlpTodoItems: '',
         photos: getPhotosPayload()
       }, mailtoInv, onSuccess);
     } else {
@@ -2117,8 +2122,22 @@ function emailReport(onSuccess) {
   var mailtoReg = 'mailto:'+encodeURIComponent(toEmail)+'?subject='+encodeURIComponent(subject)+ccPart+'&body='+encodeURIComponent(body);
   if (HTTP_ENDPOINT) {
     var regStats = {ok:0,issues:0,na:0,charge:0};
-    (state._sections||[]).forEach(function(sec,si){sec.items.forEach(function(_,ii){var it=state.items[si+'_'+ii]||{};if(it.status==='ok')regStats.ok++;else if(it.status==='issue'){regStats.issues++;regStats.charge+=it.charge||0;}else if(it.status==='na')regStats.na++;});});
+    var _secs = state._sections||[];
+    _secs.forEach(function(sec,si){sec.items.forEach(function(_,ii){var it=state.items[si+'_'+ii]||{};if(it.status==='ok')regStats.ok++;else if(it.status==='issue'){regStats.issues++;regStats.charge+=it.charge||0;}else if(it.status==='na')regStats.na++;});});
     var ccEmail = (prop&&prop.email&&prop.email!==INSPECTION_EMAIL) ? INSPECTION_EMAIL : '';
+    function _secText(keywords) {
+      var lines=[];
+      _secs.forEach(function(sec,si){
+        var tl=sec.title.toLowerCase();
+        if(keywords.some(function(k){return tl.indexOf(k)!==-1;})){
+          sec.items.forEach(function(itTxt,ii){
+            var it=state.items[si+'_'+ii]||{};
+            if(it.status){var ln=itTxt+': '+it.status.toUpperCase();if(it.notes)ln+=' — '+it.notes;lines.push(ln);}
+          });
+        }
+      });
+      return lines.join('\n');
+    }
     sendViaHTTP({
       formType: state.formType,
       subject: subject,
@@ -2135,6 +2154,11 @@ function emailReport(onSuccess) {
       issuesFound: regStats.issues,
       naCount: regStats.na,
       totalCharge: regStats.charge,
+      outdoorFurniture: _secText(['outdoor','decks']),
+      supplyInventory: _secText(['supply inventory','supply inv','supply check']),
+      kitchenInventory: '',
+      linenInventory: '',
+      tlpTodoItems: state.maintenanceNotes||'',
       photos: getPhotosPayload()
     }, mailtoReg, onSuccess);
   } else {
