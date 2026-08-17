@@ -1432,12 +1432,24 @@ var INSPECTION_EMAIL = 'inspections@tluxp.com';
 
 function getPhotosPayload() {
   var photos = []; var idx = 0;
+  // Kitchen/Linen inventory photos (state.photos[key] = single dataUrl)
   Object.keys(state.photos || {}).forEach(function(k) {
     var dataUrl = state.photos[k]; if (!dataUrl) return;
     var comma = dataUrl.indexOf(','); if (comma < 0) return;
     var base64 = dataUrl.substring(comma + 1);
     var isJpg = dataUrl.toLowerCase().indexOf('image/jpeg') >= 0 || dataUrl.toLowerCase().indexOf('image/jpg') >= 0;
-    photos.push({name: 'photo_' + (++idx) + (isJpg ? '.jpg' : '.png'), contentBytes: base64});
+    photos.push({name: 'photo_' + (++idx) + (isJpg ? '.jpg' : '.png'), data: base64, type: isJpg ? 'image/jpeg' : 'image/png'});
+  });
+  // Regular form photos (state.items[key].photos = array of dataUrls)
+  Object.keys(state.items || {}).forEach(function(k) {
+    var item = state.items[k]; if (!item || !item.photos) return;
+    item.photos.forEach(function(dataUrl) {
+      if (!dataUrl) return;
+      var comma = dataUrl.indexOf(','); if (comma < 0) return;
+      var base64 = dataUrl.substring(comma + 1);
+      var isJpg = dataUrl.toLowerCase().indexOf('image/jpeg') >= 0 || dataUrl.toLowerCase().indexOf('image/jpg') >= 0;
+      photos.push({name: 'photo_' + (++idx) + (isJpg ? '.jpg' : '.png'), data: base64, type: isJpg ? 'image/jpeg' : 'image/png'});
+    });
   });
   return photos;
 }
@@ -2056,7 +2068,8 @@ function emailReport(onSuccess) {
     body += '\n--\nSent from TLP Inspection App';
     var mailtoInv = 'mailto:' + INSPECTION_EMAIL + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
     if (HTTP_ENDPOINT) {
-      var _invDataBlock = '\n\n[DATA]'+JSON.stringify({
+      var _invHtmlBody = body.replace(/\n/g, '<br>');
+      var _invDataBlock = '<br><span style="display:none;font-size:0">[DATA]'+JSON.stringify({
         formType: state.formType,
         property: (iprop2 ? iprop2.name : ''),
         inspector: state.info.inspector||'',
@@ -2067,11 +2080,11 @@ function emailReport(onSuccess) {
         itemsOk: 0, issuesFound: 0, naCount: 0, totalCharge: 0,
         kitchenInventory: state.formType === 'kitchen_inv' ? 'yes' : '',
         linenInventory: state.formType === 'linen_inv' ? 'yes' : ''
-      })+'[/DATA]';
+      })+'[/DATA]</span>';
       sendViaHTTP({
         formType: state.formType,
         subject: subj,
-        body: body + _invDataBlock,
+        body: _invHtmlBody + _invDataBlock,
         to: INSPECTION_EMAIL,
         property: (iprop2 ? iprop2.name : ''),
         inspector: state.info.inspector || '',
@@ -2150,7 +2163,8 @@ function emailReport(onSuccess) {
       });
       return lines.join('\n');
     }
-    var _dataBlock = '\n\n[DATA]'+JSON.stringify({
+    var _htmlBody = body.replace(/\n/g, '<br>');
+    var _dataBlock = '<br><span style="display:none;font-size:0">[DATA]'+JSON.stringify({
       formType: state.formType,
       property: info.property||'',
       inspector: info.inspector||'',
@@ -2165,11 +2179,11 @@ function emailReport(onSuccess) {
       outdoorFurniture: _secText(['outdoor','decks']),
       supplyInventory: _secText(['supply inventory','supply inv','supply check']),
       tlpTodoItems: state.maintenanceNotes||''
-    })+'[/DATA]';
+    })+'[/DATA]</span>';
     sendViaHTTP({
       formType: state.formType,
       subject: subject,
-      body: body + _dataBlock,
+      body: _htmlBody + _dataBlock,
       to: toEmail,
       cc: ccEmail,
       property: info.property || '',
