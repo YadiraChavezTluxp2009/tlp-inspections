@@ -2056,10 +2056,22 @@ function emailReport(onSuccess) {
     body += '\n--\nSent from TLP Inspection App';
     var mailtoInv = 'mailto:' + INSPECTION_EMAIL + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
     if (HTTP_ENDPOINT) {
+      var _invDataBlock = '\n\n[DATA]'+JSON.stringify({
+        formType: state.formType,
+        property: (iprop2 ? iprop2.name : ''),
+        inspector: state.info.inspector||'',
+        date: state.info.date||'',
+        startTime: state.startTime||'',
+        endTime: state.endTime||'',
+        overallStatus: '',
+        itemsOk: 0, issuesFound: 0, naCount: 0, totalCharge: 0,
+        kitchenInventory: state.formType === 'kitchen_inv' ? 'yes' : '',
+        linenInventory: state.formType === 'linen_inv' ? 'yes' : ''
+      })+'[/DATA]';
       sendViaHTTP({
         formType: state.formType,
         subject: subj,
-        body: body,
+        body: body + _invDataBlock,
         to: INSPECTION_EMAIL,
         property: (iprop2 ? iprop2.name : ''),
         inspector: state.info.inspector || '',
@@ -2138,10 +2150,26 @@ function emailReport(onSuccess) {
       });
       return lines.join('\n');
     }
+    var _dataBlock = '\n\n[DATA]'+JSON.stringify({
+      formType: state.formType,
+      property: info.property||'',
+      inspector: info.inspector||'',
+      date: info.date||'',
+      startTime: state.startTime||'',
+      endTime: state.endTime||'',
+      overallStatus: state.overallStatus||'',
+      itemsOk: regStats.ok,
+      issuesFound: regStats.issues,
+      naCount: regStats.na,
+      totalCharge: regStats.charge,
+      outdoorFurniture: _secText(['outdoor','decks']),
+      supplyInventory: _secText(['supply inventory','supply inv','supply check']),
+      tlpTodoItems: state.maintenanceNotes||''
+    })+'[/DATA]';
     sendViaHTTP({
       formType: state.formType,
       subject: subject,
-      body: body,
+      body: body + _dataBlock,
       to: toEmail,
       cc: ccEmail,
       property: info.property || '',
