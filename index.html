@@ -1438,7 +1438,7 @@ function getPhotosPayload() {
     var comma = dataUrl.indexOf(','); if (comma < 0) return;
     var base64 = dataUrl.substring(comma + 1);
     var isJpg = dataUrl.toLowerCase().indexOf('image/jpeg') >= 0 || dataUrl.toLowerCase().indexOf('image/jpg') >= 0;
-    photos.push({name: 'photo_' + (++idx) + (isJpg ? '.jpg' : '.png'), data: base64, type: isJpg ? 'image/jpeg' : 'image/png'});
+    photos.push({filename: 'photo_' + (++idx) + (isJpg ? '.jpg' : '.png'), data: base64, mimeType: isJpg ? 'image/jpeg' : 'image/png'});
   });
   // Regular form photos (state.items[key].photos = array of dataUrls)
   Object.keys(state.items || {}).forEach(function(k) {
@@ -1448,7 +1448,7 @@ function getPhotosPayload() {
       var comma = dataUrl.indexOf(','); if (comma < 0) return;
       var base64 = dataUrl.substring(comma + 1);
       var isJpg = dataUrl.toLowerCase().indexOf('image/jpeg') >= 0 || dataUrl.toLowerCase().indexOf('image/jpg') >= 0;
-      photos.push({name: 'photo_' + (++idx) + (isJpg ? '.jpg' : '.png'), data: base64, type: isJpg ? 'image/jpeg' : 'image/png'});
+      photos.push({filename: 'photo_' + (++idx) + (isJpg ? '.jpg' : '.png'), data: base64, mimeType: isJpg ? 'image/jpeg' : 'image/png'});
     });
   });
   return photos;
