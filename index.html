@@ -1969,7 +1969,8 @@ function showSummary() {
     document.getElementById('bottomNav').style.display = 'none';
     return;
   }
-  var sections = state._sections;
+  var sections = state._sections || getSections(state.formType, state.selectedProp);
+  if (!sections || !sections.length) { showSummaryFinal(); return; }
   var unchecked = 0; var missedList = [];
   sections.forEach(function(sec,si){sec.items.forEach(function(itemTxt,ii){var item=state.items[si+'_'+ii];if(!item||!item.status){unchecked++;missedList.push({section:sec.title,text:itemTxt});}});});
   if (unchecked > 0) {
@@ -1988,7 +1989,7 @@ function showSummary() {
 }
 function showSummaryFinal() {
   saveDraft();
-  var sections = state._sections;
+  var sections = state._sections || getSections(state.formType, state.selectedProp);
   var total=0, ok=0, issues=0, na=0, totalCharge=0, issueList=[];
   sections.forEach(function(sec,si){sec.items.forEach(function(itemText,ii){total++;var item=state.items[si+'_'+ii]||{};if(item.status==='ok')ok++;else if(item.status==='issue'){issues++;issueList.push({section:sec.title,text:itemText,notes:item.notes||'',charge:item.charge||0});totalCharge+=item.charge||0;}else if(item.status==='na')na++;});});
   var pct = total>0 ? Math.round(((ok+issues+na)/total)*100) : 0;
