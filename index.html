@@ -220,7 +220,10 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
     <div class="form-card linen-inv" onclick="startForm('linen_inv')"><span class="icon">&#128719;</span><div class="label">Linen Inventory</div><div class="count">Sheets, blankets &amp; towels</div></div>
     <div class="form-card qc" style="grid-column:span 2" onclick="startForm('qc_check')"><span class="icon">&#128373;</span><div class="label">QC Check</div><div class="count">Manager spot-check</div></div>
   </div>
-  <div id="managerNavBtns" style="display:none;padding:0 16px 8px;display:none;flex-direction:column;gap:8px">
+  <div id="allUserNavBtns" style="display:none;padding:0 16px 4px;flex-direction:column;gap:8px">
+    <button class="btn-primary" style="background:linear-gradient(135deg,#1A7A3F,#2E8B57)" onclick="loadMyInspections()">&#128203; My Inspections</button>
+  </div>
+  <div id="managerNavBtns" style="display:none;padding:0 16px 8px;flex-direction:column;gap:8px">
     <button class="btn-primary" style="background:linear-gradient(135deg,var(--navy),var(--blue))" onclick="loadDashboard()">&#128202; View Inspection Dashboard</button>
     <button class="btn-primary" style="background:linear-gradient(135deg,#7B2D8B,#5B1A6B)" onclick="loadUsers()">&#128101; Manage Users</button>
   </div>
@@ -308,6 +311,19 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
   </div>
 </div>
 
+<!-- MY INSPECTIONS -->
+<div class="screen dash-screen" id="screenMyInspections">
+  <div style="background:linear-gradient(135deg,#1A7A3F,#2E8B57);padding:20px 16px 16px;color:white">
+    <div style="font-size:20px;font-weight:800">&#128203; My Inspections</div>
+    <div style="font-size:13px;opacity:.8;margin-top:2px">Your submitted inspection history</div>
+  </div>
+  <div class="dash-filter">
+    <select id="myFilterType" onchange="applyMyFilter()"><option value="">All Types</option><option value="checkin_summer">Check In Summer</option><option value="checkin_winter">Check In Winter</option><option value="checkout_summer">Check Out Summer</option><option value="checkout_winter">Check Out Winter</option><option value="spring">Spring</option><option value="fall">Fall</option><option value="qc_check">QC Check</option><option value="kitchen_inv">Kitchen Inv</option><option value="linen_inv">Linen Inv</option></select>
+    <select id="myFilterDays" onchange="applyMyFilter()"><option value="0">All Time</option><option value="7">Last 7 Days</option><option value="30">Last 30 Days</option><option value="90">Last 90 Days</option></select>
+  </div>
+  <div id="myInspectionsList" style="padding-top:4px"></div>
+</div>
+
 <div class="bottom-nav" id="bottomNav" style="display:none">
   <button class="nav-btn" onclick="showScreen('screenChecklist')"><span class="nav-icon">&#9989;</span>Checklist</button>
   <button class="nav-btn" onclick="saveAndHome()"><span class="nav-icon">&#128190;</span>Save Draft</button>
@@ -378,13 +394,17 @@ function showApp() {
   var inspEl = document.getElementById('fieldInspector');
   if (inspEl && currentUser.name) inspEl.value = currentUser.name;
   renderDrafts();
+  loadCloudDrafts();
   showScreen('screenHome');
+  document.getElementById('allUserNavBtns').style.display = 'flex';
   if (currentUser.role === 'manager' || currentUser.role === 'admin') {
     document.getElementById('managerNavBtns').style.display = 'flex';
   }
 }
 function doLogout() {
   if (!confirm('Log out?')) return;
+  document.getElementById('allUserNavBtns').style.display='none';
+  document.getElementById('managerNavBtns').style.display='none';
   clearSession(); window.location.reload();
 }
 
@@ -407,6 +427,65 @@ function saveInspectionToFirebase() {
     managerNotes:state.managerNotes||'', maintenanceNotes:state.maintenanceNotes||'',
     submittedAt:new Date().toISOString()
   }).catch(function(e){console.warn('Firebase save error',e);});
+}
+
+// ── My Inspections ──
+var _myInspections = [];
+function loadMyInspections() {
+  if (!db) { showToast('Firebase not configured'); return; }
+  showScreen('screenMyInspections');
+  setHeader('My Inspections','Your history',false);
+  document.getElementById('bottomNav').style.display='none';
+  document.getElementById('myInspectionsList').innerHTML='<div style="text-align:center;padding:40px;color:var(--dark-gray)">Loading...</div>';
+  db.collection('inspections').where('inspectorId','==',currentUser.id).orderBy('submittedAt','desc').limit(100).get().then(function(snap){
+    _myInspections = snap.docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
+    applyMyFilter();
+  }).catch(function(e){ document.getElementById('myInspectionsList').innerHTML='<div style="text-align:center;padding:40px;color:var(--red)">Error loading.</div>'; });
+}
+function applyMyFilter() {
+  var type = document.getElementById('myFilterType').value;
+  var days = parseInt(document.getElementById('myFilterDays').value)||0;
+  var list = _myInspections.filter(function(i){
+    if (type && i.formType !== type) return false;
+    if (days > 0) { var d=new Date(i.submittedAt); if((Date.now()-d)>days*24*60*60*1000) return false; }
+    return true;
+  });
+  renderMyInspections(list);
+}
+function renderMyInspections(inspections) {
+  var el = document.getElementById('myInspectionsList');
+  if (!inspections.length) { el.innerHTML='<div style="text-align:center;padding:40px;color:var(--dark-gray)">No inspections found</div>'; return; }
+  var totalIssues=inspections.reduce(function(s,i){return s+(i.issuesFound||0);},0);
+  var html='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 16px">';
+  html+='<div class="stat-card"><div class="stat-num" style="color:var(--navy)">'+inspections.length+'</div><div class="stat-label">Total</div></div>';
+  html+='<div class="stat-card"><div class="stat-num" style="color:var(--red)">'+totalIssues+'</div><div class="stat-label">Issues</div></div>';
+  var recent=inspections.filter(function(i){return (Date.now()-new Date(i.submittedAt))<7*24*60*60*1000;}).length;
+  html+='<div class="stat-card"><div class="stat-num" style="color:var(--green)">'+recent+'</div><div class="stat-label">This Week</div></div></div>';
+  inspections.forEach(function(insp){
+    var meta=FORM_META[insp.formType]||{icon:'📋',name:insp.formType||''};
+    var hasIssues=(insp.issuesFound||0)>0;
+    var statusLabels={'ready':'✅ Ready','not-ready':'❌ Not Ready','conditional':'⚠️ Conditional','VOID':'🚫 VOID'};
+    var statusLbl=statusLabels[insp.overallStatus]||'';
+    html+='<div class="dash-card" style="border-left:4px solid '+(hasIssues?'var(--red)':'var(--green)')+'">';
+    html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">';
+    html+='<div style="flex:1"><div style="font-size:15px;font-weight:700;color:var(--navy)">'+esc(insp.property||'')+'</div>';
+    html+='<div style="font-size:12px;color:var(--dark-gray);margin-top:2px">'+meta.icon+' '+esc(meta.name)+'</div></div>';
+    html+='<div style="text-align:right;flex-shrink:0;margin-left:8px"><div style="font-size:13px;font-weight:700;color:'+(hasIssues?'var(--red)':'var(--green)')+'">'+(hasIssues?insp.issuesFound+' issue'+(insp.issuesFound!==1?'s':''):'All clear')+'</div>';
+    if(statusLbl) html+='<div style="font-size:11px;color:var(--dark-gray)">'+statusLbl+'</div>';
+    html+='</div></div>';
+    html+='<div style="font-size:11px;color:var(--dark-gray)">'+formatDate(insp.date)+(insp.startTime?' &bull; '+insp.startTime.split(',').pop().trim():'');
+    if(insp.totalCharge>0) html+=' &bull; <span style="color:var(--red);font-weight:700">$'+Number(insp.totalCharge).toFixed(2)+' charges</span>';
+    if(insp.photoCount>0) html+=' &bull; &#128247; '+insp.photoCount;
+    html+='</div>';
+    if(insp.issues&&insp.issues.length>0){
+      html+='<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--mid-gray)">';
+      insp.issues.slice(0,3).forEach(function(is){ html+='<div style="font-size:12px;color:var(--text);margin-bottom:2px">&#8226; '+esc(is.text)+(is.notes?' — <em>'+esc(is.notes)+'</em>':'')+'</div>'; });
+      if(insp.issues.length>3) html+='<div style="font-size:11px;color:var(--dark-gray)">+'+(insp.issues.length-3)+' more</div>';
+      html+='</div>';
+    }
+    html+='</div>';
+  });
+  el.innerHTML=html;
 }
 
 // ── Dashboard ──
@@ -2534,11 +2613,30 @@ function voidInspection() {
 }
 function saveDraftSilent() {
   if (!state.formType) return;
+  var draftData={id:state.draftId,formType:state.formType,selectedProp:state.selectedProp,info:state.info,items:state.items,overallStatus:state.overallStatus,savedAt:Date.now(),userId:currentUser?currentUser.id:null};
   var drafts=getDrafts();
-  drafts[state.draftId]={id:state.draftId,formType:state.formType,selectedProp:state.selectedProp,info:state.info,items:state.items,overallStatus:state.overallStatus,savedAt:Date.now()};
+  drafts[state.draftId]=draftData;
   localStorage.setItem('tlp_drafts',JSON.stringify(drafts));
+  if (db && currentUser) {
+    db.collection('drafts').doc(currentUser.id+'_'+state.draftId).set(draftData).catch(function(){});
+  }
 }
 function saveDraft() { saveDraftSilent(); showToast('Draft saved'); }
+function loadCloudDrafts() {
+  if (!db || !currentUser) return;
+  db.collection('drafts').where('userId','==',currentUser.id).orderBy('savedAt','desc').limit(10).get().then(function(snap){
+    if (snap.empty) return;
+    var local=getDrafts();
+    snap.docs.forEach(function(d){
+      var data=d.data();
+      if (!local[data.id] || local[data.id].savedAt < data.savedAt) {
+        local[data.id]=data;
+      }
+    });
+    localStorage.setItem('tlp_drafts',JSON.stringify(local));
+    renderDrafts();
+  }).catch(function(){});
+}
 function loadDraft(id) {
   var drafts=getDrafts(), d=drafts[id]; if (!d) return;
   state.items=d.items||{}; state.info=d.info||{}; state.overallStatus=d.overallStatus; state.selectedProp=d.selectedProp;
@@ -2571,6 +2669,7 @@ function deleteDraft(e, id) {
   var drafts=getDrafts();
   delete drafts[id];
   localStorage.setItem('tlp_drafts',JSON.stringify(drafts));
+  if (db && currentUser) { db.collection('drafts').doc(currentUser.id+'_'+id).delete().catch(function(){}); }
   renderDrafts();
 }
 function confirmFinish() {
@@ -2578,6 +2677,7 @@ function confirmFinish() {
   var drafts=getDrafts();
   delete drafts[state.draftId];
   localStorage.setItem('tlp_drafts',JSON.stringify(drafts));
+  if (db && currentUser) { db.collection('drafts').doc(currentUser.id+'_'+state.draftId).delete().catch(function(){}); }
   saveInspectionToFirebase();
   showToast('Inspection marked complete!');
   resetToHome();
