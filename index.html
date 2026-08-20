@@ -10,6 +10,7 @@
 <title>TLP Inspections</title>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <style>
 :root{--navy:#063461;--blue:#2E75B6;--light-blue:#D6E4F0;--green:#1A7A3F;--green-light:#E8F5EE;--red:#CC0000;--red-light:#FDECEA;--orange:#CC6600;--orange-light:#FFF3E0;--gray:#F5F5F5;--mid-gray:#E0E0E0;--dark-gray:#555;--text:#1A1A2E;--white:#FFFFFF;--radius:14px;--shadow:0 2px 12px rgba(6,52,97,.10);--shadow-md:0 4px 24px rgba(6,52,97,.15)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -353,11 +354,12 @@ var FIREBASE_CONFIG = {
   messagingSenderId: "814526642685",
   appId: "1:814526642685:web:d47f5b6bf47e8dd44f8194"
 };
-var db = null;
+var db = null, storage = null;
 try {
   if (FIREBASE_CONFIG.apiKey !== "PASTE_YOUR_API_KEY") {
     firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.firestore();
+    storage = firebase.storage();
   }
 } catch(e) { console.warn('Firebase not configured:', e); }
 
@@ -408,25 +410,75 @@ function doLogout() {
   clearSession(); window.location.reload();
 }
 
+// ── Firebase: Photo upload ──
+function collectAllPhotos() {
+  var photos = [];
+  Object.keys(state.photos || {}).forEach(function(k) {
+    if (state.photos[k]) photos.push(state.photos[k]);
+  });
+  Object.keys(state.items || {}).forEach(function(k) {
+    var item = state.items[k];
+    if (item && item.photos) {
+      item.photos.forEach(function(dataUrl) { if (dataUrl) photos.push(dataUrl); });
+    }
+  });
+  return photos;
+}
+function uploadPhotosToStorage(inspectionId) {
+  if (!storage) return Promise.resolve([]);
+  var photos = collectAllPhotos();
+  if (!photos.length) return Promise.resolve([]);
+  var uploads = photos.map(function(dataUrl, i) {
+    var isJpg = dataUrl.indexOf('image/jpeg') >= 0 || dataUrl.indexOf('image/jpg') >= 0;
+    var ext = isJpg ? 'jpg' : 'png';
+    var ref = storage.ref('inspections/' + inspectionId + '/photo_' + i + '.' + ext);
+    return ref.putString(dataUrl, 'data_url').then(function() { return ref.getDownloadURL(); });
+  });
+  return Promise.all(uploads).catch(function(e) { console.warn('Photo upload error:', e); return []; });
+}
+
 // ── Firebase: Save inspection ──
-function saveInspectionToFirebase() {
+function saveInspectionToFirebase(photoUrls, inspectionId) {
   if (!db || !state.formType) return;
   var sections = state._sections || [];
   var issueList = [];
   sections.forEach(function(sec,si){ sec.items.forEach(function(txt,ii){ var it=state.items[si+'_'+ii]||{}; if(it.status==='issue') issueList.push({section:sec.title,text:txt,notes:it.notes||'',charge:it.charge||0}); }); });
   var ok=0,issues=0,na=0,charge=0;
   sections.forEach(function(sec,si){ sec.items.forEach(function(_,ii){ var it=state.items[si+'_'+ii]||{}; if(it.status==='ok')ok++; else if(it.status==='issue'){issues++;charge+=it.charge||0;} else if(it.status==='na')na++; }); });
-  var info=state.info, prop=state.selectedProp;
-  db.collection('inspections').add({
+  var info=state.info;
+  var docData = {
     formType:state.formType, property:info.property||'', address:info.address||'',
     inspector:info.inspector||'', inspectorId:currentUser?currentUser.id:'',
     date:info.date||'', startTime:state.startTime||'', endTime:state.endTime||'',
     overallStatus:state.overallStatus||'', itemsOk:ok, issuesFound:issues,
     naCount:na, totalCharge:charge, issues:issueList,
-    photoCount:Object.keys(state.photos||{}).length,
+    photoUrls:photoUrls||[], photoCount:(photoUrls||[]).length,
     managerNotes:state.managerNotes||'', maintenanceNotes:state.maintenanceNotes||'',
     submittedAt:new Date().toISOString()
-  }).catch(function(e){console.warn('Firebase save error',e);});
+  };
+  if (inspectionId) {
+    db.collection('inspections').doc(inspectionId).set(docData).catch(function(e){console.warn('Firebase save error',e);});
+  } else {
+    db.collection('inspections').add(docData).catch(function(e){console.warn('Firebase save error',e);});
+  }
+}
+
+// ── Photo download ──
+function downloadAllPhotos(photoUrls, propertyName) {
+  if (!photoUrls || !photoUrls.length) { showToast('No photos to download'); return; }
+  showToast('Downloading ' + photoUrls.length + ' photo' + (photoUrls.length!==1?'s':'') + '...');
+  photoUrls.forEach(function(url, i) {
+    setTimeout(function() {
+      fetch(url).then(function(r){ return r.blob(); }).then(function(blob) {
+        var blobUrl = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = (propertyName||'inspection').replace(/[^a-z0-9]/gi,'_') + '_photo_' + (i+1) + '.jpg';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(function(){ URL.revokeObjectURL(blobUrl); }, 1000);
+      }).catch(function(){ window.open(url, '_blank'); });
+    }, i * 600);
+  });
 }
 
 // ── My Inspections ──
@@ -481,6 +533,14 @@ function renderMyInspections(inspections) {
       html+='<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--mid-gray)">';
       insp.issues.slice(0,3).forEach(function(is){ html+='<div style="font-size:12px;color:var(--text);margin-bottom:2px">&#8226; '+esc(is.text)+(is.notes?' — <em>'+esc(is.notes)+'</em>':'')+'</div>'; });
       if(insp.issues.length>3) html+='<div style="font-size:11px;color:var(--dark-gray)">+'+(insp.issues.length-3)+' more</div>';
+      html+='</div>';
+    }
+    if(insp.photoUrls&&insp.photoUrls.length>0){
+      html+='<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--mid-gray)">';
+      html+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">';
+      insp.photoUrls.forEach(function(url){ html+='<img src="'+url+'" style="width:56px;height:56px;border-radius:8px;object-fit:cover;cursor:pointer;border:1.5px solid var(--mid-gray)" onclick="window.open(\''+url+'\',\'_blank\')">'; });
+      html+='</div>';
+      html+='<button onclick="downloadAllPhotos('+JSON.stringify(insp.photoUrls)+',\''+esc(insp.property)+'\')" style="background:var(--navy);color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;width:100%">&#11015; Download All Photos ('+insp.photoUrls.length+')</button>';
       html+='</div>';
     }
     html+='</div>';
@@ -539,7 +599,15 @@ function renderDashboard(inspections) {
     if(insp.issues&&insp.issues.length>0){
       html+='<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--mid-gray)">';
       insp.issues.slice(0,3).forEach(function(is){ html+='<div style="font-size:12px;color:var(--text);margin-bottom:2px">&#8226; '+esc(is.text)+(is.notes?' — <em>'+esc(is.notes)+'</em>':'')+'</div>'; });
-      if(insp.issues.length>3) html+='<div style="font-size:11px;color:var(--dark-gray)">+'+( insp.issues.length-3)+' more</div>';
+      if(insp.issues.length>3) html+='<div style="font-size:11px;color:var(--dark-gray)">+'+(insp.issues.length-3)+' more</div>';
+      html+='</div>';
+    }
+    if(insp.photoUrls&&insp.photoUrls.length>0){
+      html+='<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--mid-gray)">';
+      html+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">';
+      insp.photoUrls.forEach(function(url){ html+='<img src="'+url+'" style="width:56px;height:56px;border-radius:8px;object-fit:cover;cursor:pointer;border:1.5px solid var(--mid-gray)" onclick="window.open(\''+url+'\',\'_blank\')">'; });
+      html+='</div>';
+      html+='<button onclick="downloadAllPhotos('+JSON.stringify(insp.photoUrls)+',\''+esc(insp.property)+'\')" style="background:var(--navy);color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;width:100%">&#11015; Download All Photos ('+insp.photoUrls.length+')</button>';
       html+='</div>';
     }
     html+='</div>';
@@ -2674,13 +2742,19 @@ function deleteDraft(e, id) {
 }
 function confirmFinish() {
   if (!confirm('Mark this inspection complete and clear the draft?')) return;
-  var drafts=getDrafts();
-  delete drafts[state.draftId];
-  localStorage.setItem('tlp_drafts',JSON.stringify(drafts));
-  if (db && currentUser) { db.collection('drafts').doc(currentUser.id+'_'+state.draftId).delete().catch(function(){}); }
-  saveInspectionToFirebase();
-  showToast('Inspection marked complete!');
-  resetToHome();
+  var draftId = state.draftId;
+  var inspectionId = 'insp_' + draftId;
+  var photoCount = collectAllPhotos().length;
+  showToast(photoCount > 0 ? 'Uploading ' + photoCount + ' photo' + (photoCount!==1?'s':'') + '...' : 'Saving inspection...');
+  uploadPhotosToStorage(inspectionId).then(function(photoUrls) {
+    var drafts = getDrafts();
+    delete drafts[draftId];
+    localStorage.setItem('tlp_drafts', JSON.stringify(drafts));
+    if (db && currentUser) { db.collection('drafts').doc(currentUser.id+'_'+draftId).delete().catch(function(){}); }
+    saveInspectionToFirebase(photoUrls, inspectionId);
+    showToast('Inspection submitted!');
+    resetToHome();
+  });
 }
 function saveAndHome() { saveDraftSilent(); showToast('Draft saved'); resetToHome(); }
 function openModal(title, src) {
