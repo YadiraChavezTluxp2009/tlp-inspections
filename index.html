@@ -8,6 +8,8 @@
 <meta name="apple-mobile-web-app-title" content="TLP Inspect">
 <meta name="theme-color" content="#063461">
 <title>TLP Inspections</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <style>
 :root{--navy:#063461;--blue:#2E75B6;--light-blue:#D6E4F0;--green:#1A7A3F;--green-light:#E8F5EE;--red:#CC0000;--red-light:#FDECEA;--orange:#CC6600;--orange-light:#FFF3E0;--gray:#F5F5F5;--mid-gray:#E0E0E0;--dark-gray:#555;--text:#1A1A2E;--white:#FFFFFF;--radius:14px;--shadow:0 2px 12px rgba(6,52,97,.10);--shadow-md:0 4px 24px rgba(6,52,97,.15)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -148,16 +150,53 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .modal-title{font-size:18px;font-weight:800;color:var(--navy);margin-bottom:12px}
 .modal-img{width:100%;border-radius:10px;margin-bottom:12px}
 .modal-close{width:100%;padding:14px;background:var(--gray);border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer}
-.inv-qty{width:64px;text-align:center;border:1.5px solid var(--mid-gray);border-radius:6px;padding:6px 4px;font-size:15px;height:38px;-moz-appearance:textfield;}.inv-qty::-webkit-outer-spin-button,.inv-qty::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}.inv-two-col{display:flex;align-items:center;gap:8px;flex-shrink:0;padding-right:4px;}.inv-field-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;}.inv-field-lbl{font-size:10px;color:var(--dark-gray);font-weight:600;white-space:nowrap;}.inv-txt{width:90px;border:1.5px solid var(--mid-gray);border-radius:6px;padding:6px 8px;font-size:14px;height:38px;}</style>
+.inv-qty{width:64px;text-align:center;border:1.5px solid var(--mid-gray);border-radius:6px;padding:6px 4px;font-size:15px;height:38px;-moz-appearance:textfield;}.inv-qty::-webkit-outer-spin-button,.inv-qty::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}.inv-two-col{display:flex;align-items:center;gap:8px;flex-shrink:0;padding-right:4px;}.inv-field-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;}.inv-field-lbl{font-size:10px;color:var(--dark-gray);font-weight:600;white-space:nowrap;}.inv-txt{width:90px;border:1.5px solid var(--mid-gray);border-radius:6px;padding:6px 8px;font-size:14px;height:38px;}
+/* Login */
+#screenLogin{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(160deg,var(--navy) 0%,var(--blue) 100%);padding:32px 24px;position:fixed;inset:0;z-index:999}
+.login-logo{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.7);margin-bottom:8px;text-align:center}
+.login-title{font-size:28px;font-weight:800;color:white;margin-bottom:4px;text-align:center}
+.login-sub{font-size:14px;color:rgba(255,255,255,.7);margin-bottom:32px;text-align:center}
+.login-card{background:white;border-radius:20px;padding:28px 24px;width:100%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.login-card .field{margin-bottom:16px}
+.login-card .field label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--dark-gray);margin-bottom:6px}
+.login-card .field input{width:100%;border:2px solid var(--mid-gray);border-radius:10px;padding:14px;font-size:16px;transition:border-color .2s;-webkit-appearance:none}
+.login-card .field input:focus{outline:none;border-color:var(--navy)}
+.login-error{color:var(--red);font-size:13px;font-weight:600;margin-bottom:12px;display:none;text-align:center}
+/* Logout button */
+.logout-btn{background:none;border:1px solid rgba(255,255,255,.4);color:white;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;display:none;align-items:center;gap:4px;white-space:nowrap}
+.logout-btn:active{background:rgba(255,255,255,.15)}
+/* User badge */
+.user-badge{font-size:11px;color:rgba(255,255,255,.7);margin-top:1px}
+/* Dashboard */
+.dash-screen{padding-bottom:80px}
+.dash-filter{display:flex;gap:8px;padding:12px 16px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.dash-filter select{border:2px solid var(--mid-gray);border-radius:8px;padding:7px 10px;font-size:13px;background:white;-webkit-appearance:none;flex-shrink:0}
+.dash-card{background:white;border-radius:var(--radius);padding:14px 16px;margin:0 16px 10px;box-shadow:var(--shadow)}
+/* Manager bottom nav button */
+#managerNavBtns{display:none}</style>
 </head>
 <body>
 
-<div class="header" id="appHeader">
+<!-- LOGIN -->
+<div id="screenLogin">
+  <div class="login-logo">Tahoe Luxury Properties</div>
+  <div class="login-title">TLP Inspections</div>
+  <div class="login-sub">Sign in to continue</div>
+  <div class="login-card">
+    <div class="field"><label>Username</label><input type="text" id="loginUsername" placeholder="Enter username" autocomplete="username" autocapitalize="none" onkeydown="if(event.key==='Enter')document.getElementById('loginPin').focus()"></div>
+    <div class="field"><label>PIN</label><input type="password" id="loginPin" placeholder="4-digit PIN" inputmode="numeric" maxlength="4" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="login-error" id="loginError"></div>
+    <button class="btn-primary" id="loginBtn" onclick="doLogin()">Log In</button>
+  </div>
+</div>
+
+<div class="header" id="appHeader" style="display:none">
   <button class="header-back" id="backBtn" onclick="goBack()" style="display:none">&#8249;</button>
   <div style="flex:1">
     <div class="header-title" id="headerTitle">TLP Inspections</div>
     <div class="header-sub" id="headerSub">Tahoe Luxury Properties</div>
   </div>
+  <button class="logout-btn" id="logoutBtn" onclick="doLogout()">&#x23|&nbsp;<span id="headerUserName"></span></button>
 </div>
 <div class="progress-bar-wrap" id="globalProg" style="display:none">
   <div class="progress-bar-fill" id="globalProgFill" style="width:0%"></div>
@@ -180,6 +219,10 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
     <div class="form-card kitchen-inv" onclick="startForm('kitchen_inv')"><span class="icon">&#127869;</span><div class="label">Kitchen Inventory</div><div class="count">Dishes, flatware &amp; appliances</div></div>
     <div class="form-card linen-inv" onclick="startForm('linen_inv')"><span class="icon">&#128719;</span><div class="label">Linen Inventory</div><div class="count">Sheets, blankets &amp; towels</div></div>
     <div class="form-card qc" style="grid-column:span 2" onclick="startForm('qc_check')"><span class="icon">&#128373;</span><div class="label">QC Check</div><div class="count">Manager spot-check</div></div>
+  </div>
+  <div id="managerNavBtns" style="display:none;padding:0 16px 8px;display:none;flex-direction:column;gap:8px">
+    <button class="btn-primary" style="background:linear-gradient(135deg,var(--navy),var(--blue))" onclick="loadDashboard()">&#128202; View Inspection Dashboard</button>
+    <button class="btn-primary" style="background:linear-gradient(135deg,#7B2D8B,#5B1A6B)" onclick="loadUsers()">&#128101; Manage Users</button>
   </div>
   <div id="draftsSection" style="display:none">
     <div class="section-label">Saved Drafts</div>
@@ -230,6 +273,41 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
   <div class="summary-wrap" id="summaryWrap"></div>
 </div>
 
+<!-- MANAGER DASHBOARD -->
+<div class="screen dash-screen" id="screenDashboard">
+  <div style="background:linear-gradient(135deg,var(--navy),var(--blue));padding:20px 16px 16px;color:white">
+    <div style="font-size:20px;font-weight:800">&#128202; Inspection Dashboard</div>
+    <div style="font-size:13px;opacity:.8;margin-top:2px">All submitted inspections</div>
+  </div>
+  <div class="dash-filter">
+    <select id="dashFilterType" onchange="applyDashFilter()"><option value="">All Types</option><option value="checkin_summer">Check In Summer</option><option value="checkin_winter">Check In Winter</option><option value="checkout_summer">Check Out Summer</option><option value="checkout_winter">Check Out Winter</option><option value="spring">Spring</option><option value="fall">Fall</option><option value="qc_check">QC Check</option><option value="kitchen_inv">Kitchen Inv</option><option value="linen_inv">Linen Inv</option></select>
+    <select id="dashFilterDays" onchange="applyDashFilter()"><option value="0">All Time</option><option value="7">Last 7 Days</option><option value="30">Last 30 Days</option><option value="90">Last 90 Days</option></select>
+  </div>
+  <div id="dashboardList" style="padding-top:4px"></div>
+</div>
+
+<!-- USER MANAGEMENT -->
+<div class="screen dash-screen" id="screenUsers">
+  <div style="background:linear-gradient(135deg,#7B2D8B,#5B1A6B);padding:20px 16px 16px;color:white">
+    <div style="font-size:20px;font-weight:800">&#128101; Manage Users</div>
+    <div style="font-size:13px;opacity:.8;margin-top:2px">Add and manage team access</div>
+  </div>
+  <div style="padding:16px">
+    <div style="background:white;border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:16px">
+      <div style="font-weight:700;color:var(--navy);font-size:14px;margin-bottom:12px">&#10010; Add New User</div>
+      <div class="field" style="margin-bottom:10px"><label>Full Name</label><input type="text" id="newUserName" placeholder="e.g. Maria Garcia" autocomplete="off"></div>
+      <div class="field" style="margin-bottom:10px"><label>Username</label><input type="text" id="newUserUsername" placeholder="e.g. mariaG" autocomplete="off" autocapitalize="none"></div>
+      <div class="field-row" style="margin-bottom:10px">
+        <div class="field"><label>PIN (4 digits)</label><input type="password" id="newUserPin" placeholder="e.g. 1234" inputmode="numeric" maxlength="4"></div>
+        <div class="field"><label>Role</label><select id="newUserRole"><option value="inspector">Inspector</option><option value="manager">Manager</option><option value="admin">Admin</option></select></div>
+      </div>
+      <button class="btn-primary" onclick="addUser()" style="margin-top:4px">Add User</button>
+    </div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--dark-gray);margin-bottom:8px">Current Users</div>
+    <div id="usersList"></div>
+  </div>
+</div>
+
 <div class="bottom-nav" id="bottomNav" style="display:none">
   <button class="nav-btn" onclick="showScreen('screenChecklist')"><span class="nav-icon">&#9989;</span>Checklist</button>
   <button class="nav-btn" onclick="saveAndHome()"><span class="nav-icon">&#128190;</span>Save Draft</button>
@@ -248,6 +326,190 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 <div class="toast" id="toast"></div>
 
 <script>
+// ── Firebase Configuration ──
+// SETUP: Go to console.firebase.google.com → create project → add web app → copy config here
+// Also enable Firestore Database (start in test mode)
+var FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBNR7trmAOrTtu-uDoU7v_kuxbiVWwqFgQ",
+  authDomain: "tlp-inspections.firebaseapp.com",
+  projectId: "tlp-inspections",
+  storageBucket: "tlp-inspections.firebasestorage.app",
+  messagingSenderId: "814526642685",
+  appId: "1:814526642685:web:d47f5b6bf47e8dd44f8194"
+};
+var db = null;
+try {
+  if (FIREBASE_CONFIG.apiKey !== "PASTE_YOUR_API_KEY") {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+  }
+} catch(e) { console.warn('Firebase not configured:', e); }
+
+// ── Session / Auth ──
+var currentUser = null;
+function getSession() { try { return JSON.parse(localStorage.getItem('tlp_session')||'null'); } catch(e) { return null; } }
+function setSession(u) { localStorage.setItem('tlp_session', JSON.stringify(u)); currentUser = u; }
+function clearSession() { localStorage.removeItem('tlp_session'); currentUser = null; }
+
+function doLogin() {
+  var username = (document.getElementById('loginUsername').value||'').trim().toLowerCase();
+  var pin = (document.getElementById('loginPin').value||'').trim();
+  if (!username || !pin) { showLoginError('Please enter username and PIN'); return; }
+  if (!db) { showLoginError('App not configured yet. Contact your admin.'); return; }
+  var btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'Logging in...';
+  db.collection('users').where('username','==',username).get().then(function(snap) {
+    if (snap.empty) { showLoginError('Invalid username or PIN'); resetLoginBtn(); return; }
+    var doc = snap.docs[0], u = doc.data();
+    if (!u.active) { showLoginError('Account inactive. Contact your manager.'); resetLoginBtn(); return; }
+    if (String(u.pin) !== String(pin)) { showLoginError('Invalid username or PIN'); resetLoginBtn(); return; }
+    setSession({id:doc.id, username:u.username, name:u.name, role:u.role});
+    showApp();
+  }).catch(function(e) { showLoginError('Connection error — try again'); resetLoginBtn(); });
+}
+function showLoginError(msg) { var el=document.getElementById('loginError'); el.textContent=msg; el.style.display='block'; }
+function resetLoginBtn() { var b=document.getElementById('loginBtn'); b.disabled=false; b.textContent='Log In'; }
+
+function showApp() {
+  document.getElementById('screenLogin').style.display = 'none';
+  document.getElementById('appHeader').style.display = 'flex';
+  document.getElementById('logoutBtn').style.display = 'flex';
+  document.getElementById('headerUserName').textContent = currentUser.name || currentUser.username;
+  var inspEl = document.getElementById('fieldInspector');
+  if (inspEl && currentUser.name) inspEl.value = currentUser.name;
+  renderDrafts();
+  showScreen('screenHome');
+  if (currentUser.role === 'manager' || currentUser.role === 'admin') {
+    document.getElementById('managerNavBtns').style.display = 'flex';
+  }
+}
+function doLogout() {
+  if (!confirm('Log out?')) return;
+  clearSession(); window.location.reload();
+}
+
+// ── Firebase: Save inspection ──
+function saveInspectionToFirebase() {
+  if (!db || !state.formType) return;
+  var sections = state._sections || [];
+  var issueList = [];
+  sections.forEach(function(sec,si){ sec.items.forEach(function(txt,ii){ var it=state.items[si+'_'+ii]||{}; if(it.status==='issue') issueList.push({section:sec.title,text:txt,notes:it.notes||'',charge:it.charge||0}); }); });
+  var ok=0,issues=0,na=0,charge=0;
+  sections.forEach(function(sec,si){ sec.items.forEach(function(_,ii){ var it=state.items[si+'_'+ii]||{}; if(it.status==='ok')ok++; else if(it.status==='issue'){issues++;charge+=it.charge||0;} else if(it.status==='na')na++; }); });
+  var info=state.info, prop=state.selectedProp;
+  db.collection('inspections').add({
+    formType:state.formType, property:info.property||'', address:info.address||'',
+    inspector:info.inspector||'', inspectorId:currentUser?currentUser.id:'',
+    date:info.date||'', startTime:state.startTime||'', endTime:state.endTime||'',
+    overallStatus:state.overallStatus||'', itemsOk:ok, issuesFound:issues,
+    naCount:na, totalCharge:charge, issues:issueList,
+    photoCount:Object.keys(state.photos||{}).length,
+    managerNotes:state.managerNotes||'', maintenanceNotes:state.maintenanceNotes||'',
+    submittedAt:new Date().toISOString()
+  }).catch(function(e){console.warn('Firebase save error',e);});
+}
+
+// ── Dashboard ──
+var _allInspections = [];
+function loadDashboard() {
+  if (!db) { showToast('Firebase not configured'); return; }
+  showScreen('screenDashboard');
+  setHeader('Dashboard','All Inspections',false);
+  document.getElementById('bottomNav').style.display='none';
+  document.getElementById('dashboardList').innerHTML='<div style="text-align:center;padding:40px;color:var(--dark-gray)">Loading...</div>';
+  db.collection('inspections').orderBy('submittedAt','desc').limit(200).get().then(function(snap) {
+    _allInspections = snap.docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
+    applyDashFilter();
+  }).catch(function(e){ document.getElementById('dashboardList').innerHTML='<div style="text-align:center;padding:40px;color:var(--red)">Error loading. Check Firebase config.</div>'; });
+}
+function applyDashFilter() {
+  var type = document.getElementById('dashFilterType').value;
+  var days = parseInt(document.getElementById('dashFilterDays').value)||0;
+  var list = _allInspections.filter(function(i){
+    if (type && i.formType !== type) return false;
+    if (days > 0) { var d=new Date(i.submittedAt); if((Date.now()-d)>days*24*60*60*1000) return false; }
+    return true;
+  });
+  renderDashboard(list);
+}
+function renderDashboard(inspections) {
+  var el = document.getElementById('dashboardList');
+  if (!inspections.length) { el.innerHTML='<div style="text-align:center;padding:40px;color:var(--dark-gray)">No inspections found</div>'; return; }
+  var totalIssues=inspections.reduce(function(s,i){return s+(i.issuesFound||0);},0);
+  var recent=inspections.filter(function(i){return (Date.now()-new Date(i.submittedAt))<7*24*60*60*1000;}).length;
+  var html='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 16px">';
+  html+='<div class="stat-card"><div class="stat-num" style="color:var(--navy)">'+inspections.length+'</div><div class="stat-label">Total</div></div>';
+  html+='<div class="stat-card"><div class="stat-num" style="color:var(--red)">'+totalIssues+'</div><div class="stat-label">Issues</div></div>';
+  html+='<div class="stat-card"><div class="stat-num" style="color:var(--green)">'+recent+'</div><div class="stat-label">This Week</div></div></div>';
+  inspections.forEach(function(insp){
+    var meta=FORM_META[insp.formType]||{icon:'📋',name:insp.formType||''};
+    var hasIssues=(insp.issuesFound||0)>0;
+    var statusLabels={'ready':'✅ Ready','not-ready':'❌ Not Ready','conditional':'⚠️ Conditional','VOID':'🚫 VOID'};
+    var statusLbl=statusLabels[insp.overallStatus]||'';
+    html+='<div class="dash-card" style="border-left:4px solid '+(hasIssues?'var(--red)':'var(--green)')+'">';
+    html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">';
+    html+='<div style="flex:1"><div style="font-size:15px;font-weight:700;color:var(--navy)">'+esc(insp.property||'')+'</div>';
+    html+='<div style="font-size:12px;color:var(--dark-gray);margin-top:2px">'+meta.icon+' '+esc(meta.name)+' &bull; '+esc(insp.inspector||'')+'</div></div>';
+    html+='<div style="text-align:right;flex-shrink:0;margin-left:8px"><div style="font-size:13px;font-weight:700;color:'+(hasIssues?'var(--red)':'var(--green)')+'">'+(hasIssues?insp.issuesFound+' issue'+(insp.issuesFound!==1?'s':''):'All clear')+'</div>';
+    if(statusLbl) html+='<div style="font-size:11px;color:var(--dark-gray)">'+statusLbl+'</div>';
+    html+='</div></div>';
+    html+='<div style="font-size:11px;color:var(--dark-gray)">'+formatDate(insp.date)+(insp.startTime?' &bull; started '+insp.startTime.split(',').pop().trim():'');
+    if(insp.totalCharge>0) html+=' &bull; <span style="color:var(--red);font-weight:700">$'+Number(insp.totalCharge).toFixed(2)+' charges</span>';
+    if(insp.photoCount>0) html+=' &bull; &#128247; '+insp.photoCount+' photo'+(insp.photoCount!==1?'s':'');
+    html+='</div>';
+    if(insp.issues&&insp.issues.length>0){
+      html+='<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--mid-gray)">';
+      insp.issues.slice(0,3).forEach(function(is){ html+='<div style="font-size:12px;color:var(--text);margin-bottom:2px">&#8226; '+esc(is.text)+(is.notes?' — <em>'+esc(is.notes)+'</em>':'')+'</div>'; });
+      if(insp.issues.length>3) html+='<div style="font-size:11px;color:var(--dark-gray)">+'+( insp.issues.length-3)+' more</div>';
+      html+='</div>';
+    }
+    html+='</div>';
+  });
+  el.innerHTML=html;
+}
+
+// ── User management ──
+function loadUsers() {
+  if (!db) { showToast('Firebase not configured'); return; }
+  if (currentUser.role !== 'admin') { showToast('Admin access required'); return; }
+  showScreen('screenUsers');
+  setHeader('Users','Manage Team',false);
+  document.getElementById('bottomNav').style.display='none';
+  refreshUsersList();
+}
+function refreshUsersList() {
+  db.collection('users').orderBy('name').get().then(function(snap){
+    var html='';
+    snap.docs.forEach(function(d){
+      var u=d.data();
+      var roleColors={admin:'#7B2D8B',manager:'#063461',inspector:'#1A7A3F'};
+      html+='<div style="background:white;border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px">';
+      html+='<div style="width:40px;height:40px;border-radius:50%;background:var(--light-blue);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:var(--navy)">'+esc((u.name||'?').charAt(0).toUpperCase())+'</div>';
+      html+='<div style="flex:1"><div style="font-weight:700;color:var(--navy)">'+esc(u.name||'')+'</div><div style="font-size:12px;color:var(--dark-gray)">@'+esc(u.username||'')+' &bull; <span style="font-weight:700">'+u.role+'</span>'+(u.active?'':' &bull; <span style="color:var(--red)">inactive</span>')+'</div></div>';
+      html+='<button onclick="toggleUser(\''+d.id+'\','+(u.active?'false':'true')+')" style="padding:6px 12px;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;background:'+(u.active?'#FDECEA':'#E8F5EE')+';color:'+(u.active?'var(--red)':'var(--green)')+'">'+( u.active?'Deactivate':'Activate')+'</button>';
+      html+='</div>';
+    });
+    document.getElementById('usersList').innerHTML=html||'<div style="text-align:center;padding:20px;color:var(--dark-gray)">No users yet — add one above</div>';
+  });
+}
+function toggleUser(id,active) {
+  db.collection('users').doc(id).update({active:active==='true'||active===true}).then(refreshUsersList);
+}
+function addUser() {
+  var name=(document.getElementById('newUserName').value||'').trim();
+  var username=(document.getElementById('newUserUsername').value||'').trim().toLowerCase();
+  var pin=(document.getElementById('newUserPin').value||'').trim();
+  var role=document.getElementById('newUserRole').value;
+  if(!name||!username||pin.length!==4||isNaN(pin)){showToast('Fill all fields — PIN must be 4 digits');return;}
+  db.collection('users').add({name:name,username:username,pin:pin,role:role,active:true,createdAt:new Date().toISOString()}).then(function(){
+    showToast('User added!');
+    document.getElementById('newUserName').value='';
+    document.getElementById('newUserUsername').value='';
+    document.getElementById('newUserPin').value='';
+    refreshUsersList();
+  }).catch(function(e){showToast('Error: '+e.message);});
+}
+
 var PROPERTIES = [
 {"name": "12th Tee At Northstar", "address": "125 Basque Drive  - Truckee, CA 96161 US", "occupancy": 10, "bedrooms": 4, "bathrooms": "4 + 1 half", "size": "3440 sq. ft.", "pets": true, "contact": "Caitlin McDonough", "bear": "No", "checkinNotes": "Please double check that lights are off and blinds are drawn and temp is turned down to 55*F after each departure clean (unless it is a B2B or a CO/CI reservation).", "email": "12thtee@tluxp.com"},
 {"name": "A Walk In The Woods", "address": "6597 Wildwood Road  - Tahoe Vista, CA 96148 US", "occupancy": 10, "bedrooms": 4, "bathrooms": "3 + 1 half", "size": "3000 sq. ft.", "pets": true, "contact": "Annie Stryker", "bear": "No", "checkinNotes": "Please never turn outdoor lights on at check in. Turn inside chandelier on day of check in. Please turn light on over concierge table (tablet and flyers) and in the lower living room. If the porch light needs to be turned on, set it on a timer. DO NOT SET TO STAY ON\n\nPlease keep the BBQ cover on at all times. \nCheck dining room table legs for sturdiness.\nPlease do not toss out any towels, dishes, pots, etc. without\ntaking a photo first and confirming that it is not useable. Put all damaged items in supply closet for owners to see.\nPlease consult with operations before restocking supplies. \nFor owner arrival, check bathroom floor mats to make sure they are in the correct location and are clean.\nCheck the Ping Pong table during every check in/out. It's pretty old and needs to be inspected for the HO every visit.", "email": "awalkinthewoods@tluxp.com"},
@@ -1539,6 +1801,12 @@ function showScreen(id) {
   window.scrollTo(0, 0);
 }
 function goBack() {
+  if (document.getElementById('screenDashboard').classList.contains('active') ||
+      document.getElementById('screenUsers').classList.contains('active')) {
+    showScreen('screenHome'); setHeader('TLP Inspections','Tahoe Luxury Properties',false);
+    document.getElementById('bottomNav').style.display='none';
+    return;
+  }
   if (document.getElementById('screenSummary').classList.contains('active')) {
     showScreen('screenChecklist');
     document.getElementById('bottomNav').style.display = 'flex';
@@ -2310,6 +2578,7 @@ function confirmFinish() {
   var drafts=getDrafts();
   delete drafts[state.draftId];
   localStorage.setItem('tlp_drafts',JSON.stringify(drafts));
+  saveInspectionToFirebase();
   showToast('Inspection marked complete!');
   resetToHome();
 }
@@ -2331,7 +2600,14 @@ function formatDate(d) {
   if (!d) return '';
   var p=d.split('-'); if (p.length!==3) return d;
   return p[1]+'/'+p[2]+'/'+p[0]}
-window.addEventListener('load',function(){renderDrafts();});
+window.addEventListener('load',function(){
+  var session = getSession();
+  if (session) {
+    currentUser = session;
+    showApp();
+  }
+  // If no session, login screen is already visible (default display)
+});
 </script>
 </body>
 </html>
