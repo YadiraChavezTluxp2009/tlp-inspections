@@ -6,6 +6,7 @@
 <title>TLP Manager Dashboard</title>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
 :root{--navy:#063461;--blue:#2E75B6;--light-blue:#D6E4F0;--red:#CC0000;--red-light:#FDECEA;--orange:#CC6600;--orange-light:#FFF3E0;--gray:#F0F4F8;--mid-gray:#E0E0E0;--dark-gray:#555;--text:#1A1A2E;--shadow:0 2px 12px rgba(6,52,97,.10);--shadow-md:0 4px 24px rgba(6,52,97,.15);--radius:10px}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -82,6 +83,41 @@ tr:hover td{background:#fafbfe}
 .res-check{width:16px;height:16px;cursor:pointer;accent-color:var(--navy)}
 /* TOAST */
 #toast{position:fixed;bottom:20px;right:20px;background:var(--navy);color:white;padding:11px 22px;border-radius:9px;font-size:13px;font-weight:600;display:none;z-index:9999;box-shadow:var(--shadow-md)}
+/* COMPLAINTS */
+.complaint-form-wrap{background:#f8fafd;border:1.5px solid var(--light-blue);border-radius:12px;padding:20px;margin-bottom:20px;display:none}
+.complaint-form-wrap.open{display:block}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.form-row.full{grid-template-columns:1fr}
+.form-row.three{grid-template-columns:1fr 1fr 1fr}
+.flabel{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--dark-gray);margin-bottom:5px;display:block}
+.finput{width:100%;border:1.5px solid var(--mid-gray);border-radius:8px;padding:9px 12px;font-size:13px;background:white;outline:none;font-family:inherit}
+.finput:focus{border-color:var(--blue)}
+.finput[readonly]{background:var(--gray);color:var(--dark-gray)}
+.form-btns{display:flex;gap:10px;margin-top:16px}
+.btn-notify{background:linear-gradient(135deg,var(--navy),var(--blue));color:white;border:none;border-radius:9px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer}
+.btn-notify:hover{opacity:.9}
+.btn-save-only{background:white;color:var(--navy);border:2px solid var(--blue);border-radius:9px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer}
+.btn-cancel{background:none;color:var(--dark-gray);border:none;padding:10px 14px;font-size:13px;cursor:pointer}
+.complaint-row{background:white;border-radius:10px;box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden}
+.complaint-row-hdr{padding:14px 18px;display:flex;align-items:center;gap:12px;cursor:pointer}
+.complaint-row-hdr:hover{background:#fafbfe}
+.c-prop{font-weight:800;font-size:14px;color:var(--navy)}
+.c-meta{font-size:12px;color:var(--dark-gray);margin-top:2px}
+.c-body{padding:16px 18px;border-top:1px solid var(--mid-gray);display:none}
+.c-body.open{display:block}
+.c-complaint-text{background:var(--gray);border-radius:8px;padding:12px;font-size:13px;margin-bottom:14px;line-height:1.6}
+.updates-log{margin-bottom:14px}
+.update-item{border-left:3px solid var(--blue);padding:8px 12px;margin-bottom:8px;background:#f8fafd;border-radius:0 8px 8px 0;font-size:12px}
+.update-item .u-date{font-size:11px;color:var(--dark-gray);margin-top:3px}
+.add-update-row{display:flex;gap:8px;margin-bottom:14px}
+.add-update-row input{flex:1;border:1.5px solid var(--mid-gray);border-radius:8px;padding:8px 12px;font-size:13px;outline:none}
+.add-update-row input:focus{border-color:var(--blue)}
+.add-update-row button{background:var(--blue);color:white;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer}
+.resolved-row{display:flex;align-items:center;gap:16px;padding-top:12px;border-top:1px solid var(--mid-gray)}
+.notified-badge{background:#D6E4F0;color:var(--navy);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700}
+.btn-email{background:#E8F5EE;color:#1A7A3F;border:1.5px solid #A5D6A7;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer}
+.btn-email:hover{background:#C8E6C9}
+.open-complaint-btn{background:linear-gradient(135deg,var(--navy),var(--blue));color:white;border:none;border-radius:10px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:16px}
 /* EMPTY */
 .empty{text-align:center;padding:48px;color:var(--dark-gray);font-size:14px}
 .loading{text-align:center;padding:48px;color:var(--dark-gray)}
@@ -143,6 +179,7 @@ tr:hover td{background:#fafbfe}
     <button class="tab-btn" onclick="switchTab('qcdash',this)">🔍 QC Dashboard</button>
     <button class="tab-btn" onclick="switchTab('qclog',this)">📝 QC Log</button>
     <button class="tab-btn" onclick="switchTab('training',this)">🎓 Trainings</button>
+    <button class="tab-btn" onclick="switchTab('complaints',this)">🚨 Complaints</button>
   </div>
   <div class="content">
 
@@ -249,6 +286,70 @@ tr:hover td{background:#fafbfe}
       </div>
     </div>
 
+    <!-- COMPLAINTS -->
+    <div class="tab-panel" id="tab-complaints">
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-num" id="cp-total">—</div><div class="stat-lbl">Total Complaints</div></div>
+        <div class="stat-card red"><div class="stat-num" id="cp-open">—</div><div class="stat-lbl">Open</div></div>
+        <div class="stat-card"><div class="stat-num" id="cp-resolved">—</div><div class="stat-lbl">Resolved</div></div>
+        <div class="stat-card navy"><div class="stat-num" id="cp-week">—</div><div class="stat-lbl">This Week</div></div>
+      </div>
+
+      <button class="open-complaint-btn" onclick="toggleComplaintForm()">＋ Log New Complaint</button>
+
+      <!-- NEW COMPLAINT FORM -->
+      <div class="complaint-form-wrap" id="complaintForm">
+        <div style="font-size:15px;font-weight:800;color:var(--navy);margin-bottom:14px">🚨 New Complaint</div>
+        <div class="form-row">
+          <div>
+            <label class="flabel">Property *</label>
+            <select class="finput" id="cf-prop" onchange="complaintPropChange()">
+              <option value="">— Select Property —</option>
+            </select>
+          </div>
+          <div>
+            <label class="flabel">Manager (auto-filled)</label>
+            <input class="finput" id="cf-mgr" type="text" readonly placeholder="Auto-filled on property select">
+          </div>
+        </div>
+        <div class="form-row three">
+          <div>
+            <label class="flabel">Date</label>
+            <input class="finput" id="cf-date" type="text" readonly>
+          </div>
+          <div>
+            <label class="flabel">Category</label>
+            <select class="finput" id="cf-cat">
+              <option value="Guest Behavior">Guest Behavior</option>
+              <option value="Maintenance Issue">Maintenance Issue</option>
+              <option value="Cleanliness">Cleanliness</option>
+              <option value="Noise Complaint">Noise Complaint</option>
+              <option value="Damage">Damage</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label class="flabel">Owner Email</label>
+            <input class="finput" id="cf-email" type="email" placeholder="owner@email.com">
+          </div>
+        </div>
+        <div class="form-row full">
+          <div>
+            <label class="flabel">Complaint Details *</label>
+            <textarea class="finput" id="cf-complaint" rows="4" placeholder="Describe the complaint in detail…" style="resize:vertical"></textarea>
+          </div>
+        </div>
+        <div class="form-btns">
+          <button class="btn-notify" onclick="submitComplaint(true)">📧 Submit &amp; Notify Owner</button>
+          <button class="btn-save-only" onclick="submitComplaint(false)">💾 Submit Only</button>
+          <button class="btn-cancel" onclick="toggleComplaintForm()">Cancel</button>
+        </div>
+      </div>
+
+      <!-- COMPLAINTS LIST -->
+      <div id="complaintsList"><div class="loading">Loading…</div></div>
+    </div>
+
   </div>
 </div>
 <!-- PHOTO LIGHTBOX -->
@@ -319,6 +420,7 @@ function showApp(){
     MANAGERS.forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m;el.appendChild(o);});
   });
   loadData();
+  loadComplaints();
 }
 
 // ── LOAD DATA ─────────────────────────────────────────────────────────────────
@@ -616,6 +718,141 @@ function downloadAllPhotos(){
   if(!_lbPhotos.length)return;
   _lbPhotos.forEach(function(url,i){setTimeout(function(){dlPhoto(url,i+1);},i*400);});
   showToast('Downloading all '+_lbPhotos.length+' photos…');
+}
+
+// ── EMAILJS ───────────────────────────────────────────────────────────────────
+var EJS_SERVICE='service_6y0iagt';
+var EJS_TEMPLATE='lz85fco';
+var EJS_KEY='Tzh2b9SuxvmSJIcNj';
+emailjs.init(EJS_KEY);
+
+// ── COMPLAINTS ────────────────────────────────────────────────────────────────
+var VERIFIED_BY=['Stephanie Hoffman','Pat Hall','Trevor Simons','Tina Geilenfeldt','Kelly Dietz','Jennifer Suter','Christina Cifelli'];
+var _complaints=[];
+
+function initComplaintForm(){
+  var sel=document.getElementById('cf-prop');
+  PROPERTIES.forEach(function(p){var o=document.createElement('option');o.value=p.name;o.textContent=p.name;sel.appendChild(o);});
+  document.getElementById('cf-date').value=new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+}
+
+function toggleComplaintForm(){
+  var f=document.getElementById('complaintForm');
+  f.classList.toggle('open');
+  if(f.classList.contains('open'))initComplaintForm();
+}
+
+function complaintPropChange(){
+  var prop=document.getElementById('cf-prop').value;
+  var p=PROPERTIES.find(function(x){return x.name===prop;});
+  document.getElementById('cf-mgr').value=p?p.manager:'';
+}
+
+function submitComplaint(sendEmail){
+  var prop=document.getElementById('cf-prop').value;
+  var mgr=document.getElementById('cf-mgr').value;
+  var cat=document.getElementById('cf-cat').value;
+  var email=document.getElementById('cf-email').value.trim();
+  var complaint=document.getElementById('cf-complaint').value.trim();
+  if(!prop){showToast('Please select a property');return;}
+  if(!complaint){showToast('Please enter complaint details');return;}
+  if(sendEmail&&!email){showToast('Please enter an owner email to send notification');return;}
+  var now=new Date();
+  var dateStr=now.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+  var data={property:prop,manager:mgr,category:cat,complaint:complaint,toEmail:email||'',submittedBy:currentUser.name,submittedAt:now.toISOString(),date:dateStr,updates:[],resolved:false,verifiedBy:'',notified:false};
+  db.collection('complaints').add(data).then(function(ref){
+    if(sendEmail&&email){
+      emailjs.send(EJS_SERVICE,EJS_TEMPLATE,{to_email:email,property_name:prop,date:dateStr,manager:mgr,complaint:complaint}).then(function(){
+        db.collection('complaints').doc(ref.id).update({notified:true});
+        showToast('Complaint logged & owner notified ✓');
+      }).catch(function(){showToast('Complaint saved — email failed. Check EmailJS settings.');});
+    } else {
+      showToast('Complaint logged ✓');
+    }
+    document.getElementById('complaintForm').classList.remove('open');
+    document.getElementById('cf-complaint').value='';
+    document.getElementById('cf-prop').value='';
+    document.getElementById('cf-mgr').value='';
+    document.getElementById('cf-email').value='';
+    loadComplaints();
+  }).catch(function(){showToast('Error saving complaint');});
+}
+
+function loadComplaints(){
+  db.collection('complaints').orderBy('submittedAt','desc').limit(200).get().then(function(snap){
+    _complaints=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    renderComplaints();
+  });
+}
+
+function renderComplaints(){
+  var open=_complaints.filter(function(c){return !c.resolved;}).length;
+  var resolved=_complaints.filter(function(c){return c.resolved;}).length;
+  var week=_complaints.filter(function(c){return (Date.now()-new Date(c.submittedAt))<7*86400000;}).length;
+  document.getElementById('cp-total').textContent=_complaints.length;
+  document.getElementById('cp-open').textContent=open;
+  document.getElementById('cp-resolved').textContent=resolved;
+  document.getElementById('cp-week').textContent=week;
+  if(!_complaints.length){document.getElementById('complaintsList').innerHTML='<div class="empty">No complaints logged yet.</div>';return;}
+  var html='';
+  _complaints.forEach(function(c,idx){
+    var resolvedBadge=c.resolved?'<span class="badge b-clear" style="margin-left:8px">Resolved ✓</span>':'<span class="badge b-issue" style="margin-left:8px">Open</span>';
+    var notifiedBadge=c.notified?'<span class="notified-badge" style="margin-left:6px">Owner Notified 📧</span>':'';
+    var vbOpts='<option value="">— Select —</option>';
+    VERIFIED_BY.forEach(function(v){vbOpts+='<option value="'+esc(v)+'"'+(c.verifiedBy===v?' selected':'')+'>'+esc(v)+'</option>';});
+    var updates=c.updates||[];
+    var updHtml='';
+    updates.forEach(function(u){updHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' · '+esc(u.date)+'</div></div>';});
+    html+='<div class="complaint-row">';
+    html+='<div class="complaint-row-hdr" onclick="toggleCRow(\'cr-'+idx+'\')">';
+    html+='<div style="flex:1"><div class="c-prop">'+esc(c.property)+'</div><div class="c-meta">'+esc(c.date)+' · '+esc(c.category)+' · Submitted by '+esc(c.submittedBy)+'</div></div>';
+    html+=resolvedBadge+notifiedBadge;
+    html+='<span style="margin-left:10px;color:var(--dark-gray);font-size:18px">›</span>';
+    html+='</div>';
+    html+='<div class="c-body" id="cr-'+idx+'">';
+    html+='<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--dark-gray);margin-bottom:6px;letter-spacing:.5px">Manager: '+esc(c.manager)+'</div>';
+    html+='<div class="c-complaint-text">'+esc(c.complaint)+'</div>';
+    html+='<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">Updates</div>';
+    html+='<div class="updates-log" id="ul-'+idx+'">'+(updHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
+    html+='<div class="add-update-row"><input type="text" id="ui-'+idx+'" placeholder="Add an update…"><button onclick="addUpdate(\''+c.id+'\','+idx+')">+ Add</button></div>';
+    html+='<div class="resolved-row">';
+    html+='<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer"><input type="checkbox" class="res-check" '+(c.resolved?'checked':'')+' onchange="toggleResolved(\''+c.id+'\',this.checked,'+idx+')"> Mark Resolved</label>';
+    html+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:700;color:var(--dark-gray)">Verified by:</span><select style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px" onchange="saveVerified(\''+c.id+'\',this.value)">'+vbOpts+'</select></div>';
+    if(c.toEmail){html+='<button class="btn-email" onclick="resendEmail(\''+c.id+'\','+idx+')">📧 Resend Notify</button>';}
+    html+='</div>';
+    html+='</div></div>';
+  });
+  document.getElementById('complaintsList').innerHTML=html;
+}
+
+function toggleCRow(id){var el=document.getElementById(id);el.classList.toggle('open');}
+
+function addUpdate(docId,idx){
+  var input=document.getElementById('ui-'+idx);
+  var text=(input.value||'').trim();
+  if(!text)return;
+  var now=new Date();
+  var entry={text:text,by:currentUser.name,date:now.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
+  db.collection('complaints').doc(docId).update({updates:firebase.firestore.FieldValue.arrayUnion(entry)}).then(function(){
+    input.value=''; showToast('Update added'); loadComplaints();
+  });
+}
+
+function toggleResolved(docId,checked,idx){
+  db.collection('complaints').doc(docId).update({resolved:checked}).then(function(){showToast(checked?'Marked resolved ✓':'Reopened');loadComplaints();});
+}
+
+function saveVerified(docId,val){
+  db.collection('complaints').doc(docId).update({verifiedBy:val}).then(function(){showToast('Verified by saved');});
+}
+
+function resendEmail(docId,idx){
+  var c=_complaints.find(function(x){return x.id===docId;});
+  if(!c||!c.toEmail){showToast('No email on file');return;}
+  emailjs.send(EJS_SERVICE,EJS_TEMPLATE,{to_email:c.toEmail,property_name:c.property,date:c.date,manager:c.manager,complaint:c.complaint}).then(function(){
+    db.collection('complaints').doc(docId).update({notified:true});
+    showToast('Owner notified ✓'); loadComplaints();
+  }).catch(function(){showToast('Email failed — check EmailJS settings');});
 }
 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
