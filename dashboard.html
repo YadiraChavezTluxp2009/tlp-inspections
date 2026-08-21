@@ -117,6 +117,8 @@ tr:hover td{background:#fafbfe}
 .notified-badge{background:#D6E4F0;color:var(--navy);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700}
 .btn-email{background:#E8F5EE;color:#1A7A3F;border:1.5px solid #A5D6A7;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer}
 .btn-email:hover{background:#C8E6C9}
+.btn-delete{background:#FDECEA;color:var(--red);border:1.5px solid #F5C6CB;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer}
+.btn-delete:hover{background:#F9D4D0}
 .open-complaint-btn{background:linear-gradient(135deg,var(--navy),var(--blue));color:white;border:none;border-radius:10px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:16px}
 /* EMPTY */
 .empty{text-align:center;padding:48px;color:var(--dark-gray);font-size:14px}
@@ -329,8 +331,8 @@ tr:hover td{background:#fafbfe}
             </select>
           </div>
           <div>
-            <label class="flabel">Owner Email</label>
-            <input class="finput" id="cf-email" type="email" placeholder="owner@email.com">
+            <label class="flabel">House Manager Email</label>
+            <input class="finput" id="cf-email" type="email" placeholder="housemanager@email.com">
           </div>
         </div>
         <div class="form-row full">
@@ -340,7 +342,7 @@ tr:hover td{background:#fafbfe}
           </div>
         </div>
         <div class="form-btns">
-          <button class="btn-notify" onclick="submitComplaint(true)">📧 Submit &amp; Notify Owner</button>
+          <button class="btn-notify" onclick="submitComplaint(true)">📧 Submit &amp; Notify House Manager</button>
           <button class="btn-save-only" onclick="submitComplaint(false)">💾 Submit Only</button>
           <button class="btn-cancel" onclick="toggleComplaintForm()">Cancel</button>
         </div>
@@ -769,7 +771,7 @@ function submitComplaint(sendEmail){
   var complaint=document.getElementById('cf-complaint').value.trim();
   if(!prop){showToast('Please select a property');return;}
   if(!complaint){showToast('Please enter complaint details');return;}
-  if(sendEmail&&!email){showToast('Please enter an owner email to send notification');return;}
+  if(sendEmail&&!email){showToast('Please enter a house manager email to send notification');return;}
   var now=new Date();
   var dateStr=now.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
   var data={property:prop,manager:mgr,category:cat,complaint:complaint,toEmail:email||'',submittedBy:currentUser.name,submittedAt:now.toISOString(),date:dateStr,updates:[],resolved:false,verifiedBy:'',notified:false};
@@ -777,7 +779,7 @@ function submitComplaint(sendEmail){
     if(sendEmail&&email){
       emailjs.send(EJS_SERVICE,EJS_TEMPLATE,{to_email:email,property_name:prop,date:dateStr,manager:mgr,complaint:complaint}).then(function(){
         db.collection('complaints').doc(ref.id).update({notified:true});
-        showToast('Complaint logged & owner notified ✓');
+        showToast('Complaint logged & house manager notified ✓');
       }).catch(function(){showToast('Complaint saved — email failed. Check EmailJS settings.');});
     } else {
       showToast('Complaint logged ✓');
@@ -816,7 +818,7 @@ function renderComplaints(){
   var html='';
   list.forEach(function(c,idx){
     var resolvedBadge=c.resolved?'<span class="badge b-clear" style="margin-left:8px">Resolved ✓</span>':'<span class="badge b-issue" style="margin-left:8px">Open</span>';
-    var notifiedBadge=c.notified?'<span class="notified-badge" style="margin-left:6px">Owner Notified 📧</span>':'';
+    var notifiedBadge=c.notified?'<span class="notified-badge" style="margin-left:6px">House Manager Notified 📧</span>':'';
     var vbOpts='<option value="">— Select —</option>';
     VERIFIED_BY.forEach(function(v){vbOpts+='<option value="'+esc(v)+'"'+(c.verifiedBy===v?' selected':'')+'>'+esc(v)+'</option>';});
     var updates=c.updates||[];
@@ -838,6 +840,7 @@ function renderComplaints(){
     html+='<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer"><input type="checkbox" class="res-check" '+(c.resolved?'checked':'')+' onchange="toggleResolved(\''+c.id+'\',this.checked,'+idx+')"> Mark Resolved</label>';
     html+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:700;color:var(--dark-gray)">Verified by:</span><select style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px" onchange="saveVerified(\''+c.id+'\',this.value)">'+vbOpts+'</select></div>';
     if(c.toEmail){html+='<button class="btn-email" onclick="resendEmail(\''+c.id+'\','+idx+')">📧 Resend Notify</button>';}
+    html+='<button class="btn-delete" onclick="deleteComplaint(\''+c.id+'\')">🗑 Delete</button>';
     html+='</div>';
     html+='</div></div>';
   });
@@ -870,8 +873,16 @@ function resendEmail(docId,idx){
   if(!c||!c.toEmail){showToast('No email on file');return;}
   emailjs.send(EJS_SERVICE,EJS_TEMPLATE,{to_email:c.toEmail,property_name:c.property,date:c.date,manager:c.manager,complaint:c.complaint}).then(function(){
     db.collection('complaints').doc(docId).update({notified:true});
-    showToast('Owner notified ✓'); loadComplaints();
+    showToast('House manager notified ✓'); loadComplaints();
   }).catch(function(){showToast('Email failed — check EmailJS settings');});
+}
+
+function deleteComplaint(docId){
+  if(!confirm('Delete this complaint? This cannot be undone.'))return;
+  db.collection('complaints').doc(docId).delete().then(function(){
+    showToast('Complaint deleted');
+    loadComplaints();
+  }).catch(function(){showToast('Error deleting complaint');});
 }
 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
