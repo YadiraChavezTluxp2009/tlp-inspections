@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TLP Manager Dashboard</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+:root{--navy:#063461;--blue:#2E75B6;--light-blue:#D6E4F0;--red:#CC0000;--red-light:#FDECEA;--orange:#CC6600;--orange-light:#FFF3E0;--gray:#F0F4F8;--mid-gray:#E0E0E0;--dark-gray:#555;--text:#1A1A2E;--shadow:0 2px 12px rgba(6,52,97,.10);--shadow-md:0 4px 24px rgba(6,52,97,.15);--radius:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:var(--gray);color:var(--text);min-height:100vh}
+/* LOGIN */
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(160deg,var(--navy) 0%,var(--blue) 100%)}
+.login-card{background:white;border-radius:16px;padding:40px;width:100%;max-width:400px;box-shadow:var(--shadow-md)}
+.login-logo{text-align:center;margin-bottom:24px}
+.login-logo .key{font-size:40px;margin-bottom:8px}
+.login-logo h1{font-size:22px;font-weight:800;color:var(--navy)}
+.login-logo p{font-size:13px;color:var(--dark-gray);margin-top:4px}
+.lfield{margin-bottom:16px}
+.lfield label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--dark-gray);margin-bottom:6px}
+.lfield input{width:100%;border:2px solid var(--mid-gray);border-radius:10px;padding:13px 14px;font-size:16px;outline:none;transition:border-color .2s}
+.lfield input:focus{border-color:var(--blue)}
+.login-btn{width:100%;background:linear-gradient(135deg,var(--navy),var(--blue));color:white;border:none;border-radius:12px;padding:16px;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px}
+.login-err{color:var(--red);font-size:13px;margin-top:10px;text-align:center;display:none}
+/* LAYOUT */
+#app{display:none;flex-direction:column;min-height:100vh}
+.top-bar{background:linear-gradient(135deg,var(--navy),var(--blue));color:white;padding:14px 28px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow-md)}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-name{font-size:17px;font-weight:800}
+.brand-sub{font-size:11px;opacity:.7;font-weight:400}
+.spacer{flex:1}
+.user-pill{background:rgba(255,255,255,.15);border-radius:8px;padding:6px 14px;font-size:13px;font-weight:700}
+.logout-btn{background:none;border:1px solid rgba(255,255,255,.4);color:white;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:600}
+.tab-nav{background:white;border-bottom:2px solid var(--mid-gray);padding:0 24px;display:flex;gap:0;position:sticky;top:54px;z-index:90;box-shadow:0 2px 6px rgba(0,0,0,.05);overflow-x:auto}
+.tab-btn{padding:15px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--dark-gray);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:color .15s}
+.tab-btn:hover{color:var(--navy)}
+.tab-btn.active{color:var(--navy);border-bottom-color:var(--navy);font-weight:800}
+.content{padding:24px;flex:1}
+.tab-panel{display:none}.tab-panel.active{display:block}
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.stat-card{background:white;border-radius:var(--radius);padding:18px 22px;box-shadow:var(--shadow);border-left:4px solid var(--blue)}
+.stat-card.red{border-left-color:var(--red)}.stat-card.orange{border-left-color:var(--orange)}.stat-card.navy{border-left-color:var(--navy)}
+.stat-num{font-size:30px;font-weight:800;color:var(--navy)}.stat-card.red .stat-num{color:var(--red)}.stat-card.orange .stat-num{color:var(--orange)}
+.stat-lbl{font-size:11px;color:var(--dark-gray);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.6px}
+/* TABLE CARD */
+.card{background:white;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:20px}
+.card-hdr{padding:14px 20px;border-bottom:1px solid var(--mid-gray);display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:white;position:sticky;top:108px;z-index:80}
+.card-title{font-size:15px;font-weight:800;color:var(--navy)}
+.card-sub{font-size:11px;color:var(--dark-gray)}
+.tbl-wrap{overflow-x:auto;max-height:calc(100vh - 280px);overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--gray);padding:9px 12px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--dark-gray);border-bottom:2px solid var(--mid-gray);white-space:nowrap;position:sticky;top:0;z-index:10}
+td{padding:9px 12px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+tr:hover td{background:#fafbfe}
+/* BADGES */
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.b-ok{background:#D6E4F0;color:var(--navy)}
+.b-done{background:#D6E4F0;color:var(--navy)}
+.b-recent{background:#D6E4F0;color:var(--navy)}
+.b-pending{background:#FFF3E0;color:var(--orange)}
+.b-due{background:#FFF3E0;color:var(--orange)}
+.b-overdue{background:#FDECEA;color:var(--red)}
+.b-never{background:var(--mid-gray);color:var(--dark-gray)}
+.b-issue{background:#FDECEA;color:var(--red)}
+.b-clear{background:#D6E4F0;color:var(--navy)}
+/* FILTERS */
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.filters select,.filters input{border:1.5px solid var(--mid-gray);border-radius:7px;padding:6px 10px;font-size:12px;background:white;outline:none}
+.filters select:focus,.filters input:focus{border-color:var(--blue)}
+/* TRAINING */
+.training-wrap{overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 280px)}
+.training-table thead th{white-space:normal;text-align:center;min-width:90px;max-width:120px;font-size:10px;line-height:1.3}
+.training-table thead th:first-child{text-align:left;min-width:160px;max-width:180px}
+.training-table td:first-child{font-weight:600;position:sticky;left:0;background:white;z-index:5}
+.training-table thead th:first-child{position:sticky;left:0;background:var(--gray);z-index:11}
+.train-check{width:17px;height:17px;cursor:pointer;accent-color:var(--navy)}
+.train-date{font-size:10px;color:var(--dark-gray);margin-top:2px;text-align:center}
+.pct-pill{display:inline-block;background:var(--light-blue);color:var(--navy);border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700}
+/* RESOLVED CHECKBOX */
+.res-check{width:16px;height:16px;cursor:pointer;accent-color:var(--navy)}
+/* TOAST */
+#toast{position:fixed;bottom:20px;right:20px;background:var(--navy);color:white;padding:11px 22px;border-radius:9px;font-size:13px;font-weight:600;display:none;z-index:9999;box-shadow:var(--shadow-md)}
+/* EMPTY */
+.empty{text-align:center;padding:48px;color:var(--dark-gray);font-size:14px}
+.loading{text-align:center;padding:48px;color:var(--dark-gray)}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="key">🔑</div>
+      <h1>TLP Manager Dashboard</h1>
+      <p>Tahoe Luxury Properties — Manager &amp; Admin Access</p>
+    </div>
+    <div class="lfield"><label>Username</label><input id="lu" type="text" placeholder="Enter username" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="lfield"><label>PIN</label><input id="lp" type="password" placeholder="4-digit PIN" inputmode="numeric" maxlength="4" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Log In</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="top-bar">
+    <div class="brand">
+      <span style="font-size:22px">🔑</span>
+      <div><div class="brand-name">TLP Manager Dashboard</div><div class="brand-sub">Tahoe Luxury Properties</div></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="user-pill" id="userPill"></div>
+    <button class="logout-btn" onclick="doLogout()">Log Out</button>
+  </div>
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('insplog',this)">📋 Inspection Log</button>
+    <button class="tab-btn" onclick="switchTab('seasonal',this)">🌿 Seasonal Inspections</button>
+    <button class="tab-btn" onclick="switchTab('seadash',this)">📊 Seasonal Dashboard</button>
+    <button class="tab-btn" onclick="switchTab('qcdash',this)">🔍 QC Dashboard</button>
+    <button class="tab-btn" onclick="switchTab('qclog',this)">📝 QC Log</button>
+    <button class="tab-btn" onclick="switchTab('training',this)">🎓 Trainings</button>
+  </div>
+  <div class="content">
+
+    <!-- INSPECTION LOG -->
+    <div class="tab-panel active" id="tab-insplog">
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-num" id="sl-total">—</div><div class="stat-lbl">Total Inspections</div></div>
+        <div class="stat-card red"><div class="stat-num" id="sl-issues">—</div><div class="stat-lbl">Total Issues Found</div></div>
+        <div class="stat-card navy"><div class="stat-num" id="sl-week">—</div><div class="stat-lbl">This Week</div></div>
+        <div class="stat-card orange"><div class="stat-num" id="sl-props">—</div><div class="stat-lbl">Properties Inspected</div></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr">
+          <div><div class="card-title">Inspection Log</div><div class="card-sub">All submitted inspections — auto-populated from the app</div></div>
+          <div class="spacer"></div>
+          <div class="filters">
+            <select id="il-type" onchange="renderInspLog()"><option value="">All Types</option><option value="checkin_summer">Check In Summer</option><option value="checkin_winter">Check In Winter</option><option value="checkout_summer">Check Out Summer</option><option value="checkout_winter">Check Out Winter</option><option value="spring">Spring</option><option value="fall">Fall</option><option value="kitchen_inv">Kitchen Inv</option><option value="linen_inv">Linen Inv</option><option value="qc_check">QC Check</option></select>
+            <select id="il-days" onchange="renderInspLog()"><option value="0">All Time</option><option value="7">Last 7 Days</option><option value="30">Last 30 Days</option><option value="90">Last 90 Days</option></select>
+            <input id="il-prop" oninput="renderInspLog()" placeholder="🔍 Property…" style="width:170px">
+            <select id="il-insp" onchange="renderInspLog()"><option value="">All Inspectors</option></select>
+          </div>
+        </div>
+        <div class="tbl-wrap"><div id="inspLogTable"><div class="loading">Loading…</div></div></div>
+      </div>
+    </div>
+
+    <!-- SEASONAL INSPECTIONS -->
+    <div class="tab-panel" id="tab-seasonal">
+      <div class="card">
+        <div class="card-hdr">
+          <div><div class="card-title">🌿 Seasonal Inspections</div><div class="card-sub">Spring · Fall · Kitchen Inventory · Linen Inventory records</div></div>
+          <div class="spacer"></div>
+          <div class="filters">
+            <select id="si-season" onchange="renderSeasonal()"><option value="">All Seasons</option><option value="spring">Spring</option><option value="fall">Fall</option><option value="kitchen_inv">Kitchen Inv</option><option value="linen_inv">Linen Inv</option></select>
+            <select id="si-days" onchange="renderSeasonal()"><option value="0">All Time</option><option value="7">Last 7 Days</option><option value="30">Last 30 Days</option><option value="90">Last 90 Days</option></select>
+            <input id="si-prop" oninput="renderSeasonal()" placeholder="🔍 Property…" style="width:170px">
+          </div>
+        </div>
+        <div class="tbl-wrap"><div id="seasonalTable"><div class="loading">Loading…</div></div></div>
+      </div>
+    </div>
+
+    <!-- SEASONAL DASHBOARD -->
+    <div class="tab-panel" id="tab-seadash">
+      <div class="card">
+        <div class="card-hdr">
+          <div><div class="card-title">📊 Seasonal Dashboard</div><div class="card-sub">Spring · Fall · Kitchen · Linen completion status per property</div></div>
+          <div class="spacer"></div>
+          <div class="filters">
+            <select id="sd-mgr" onchange="renderSeaDash()"><option value="">All Managers</option></select>
+            <select id="sd-status" onchange="renderSeaDash()"><option value="">All Statuses</option><option value="Complete">Complete</option><option value="In Progress">In Progress</option><option value="All Pending">All Pending</option></select>
+            <input id="sd-prop" oninput="renderSeaDash()" placeholder="🔍 Property…" style="width:170px">
+          </div>
+        </div>
+        <div class="tbl-wrap"><div id="seaDashTable"><div class="loading">Loading…</div></div></div>
+      </div>
+    </div>
+
+    <!-- QC DASHBOARD -->
+    <div class="tab-panel" id="tab-qcdash">
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-num" id="qd-recent" style="color:var(--blue)">—</div><div class="stat-lbl">Recent ✓ (≤30 days)</div></div>
+        <div class="stat-card orange"><div class="stat-num" id="qd-due">—</div><div class="stat-lbl">Due Soon (31–60 days)</div></div>
+        <div class="stat-card red"><div class="stat-num" id="qd-over">—</div><div class="stat-lbl">Overdue (60+ days)</div></div>
+        <div class="stat-card navy"><div class="stat-num" id="qd-never">—</div><div class="stat-lbl">Never Checked</div></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr">
+          <div><div class="card-title">🔍 QC Dashboard</div><div class="card-sub">Last QC check per property — auto-populated from QC Check form submissions</div></div>
+          <div class="spacer"></div>
+          <div class="filters">
+            <select id="qd-status" onchange="renderQCDash()"><option value="">All Statuses</option><option value="Recent">Recent ✓</option><option value="Due Soon">Due Soon</option><option value="Overdue">Overdue</option><option value="Never Checked">Never Checked</option></select>
+            <select id="qd-mgr" onchange="renderQCDash()"><option value="">All Managers</option></select>
+            <input id="qd-prop" oninput="renderQCDash()" placeholder="🔍 Property…" style="width:170px">
+          </div>
+        </div>
+        <div class="tbl-wrap"><div id="qcDashTable"><div class="loading">Loading…</div></div></div>
+      </div>
+    </div>
+
+    <!-- QC LOG -->
+    <div class="tab-panel" id="tab-qclog">
+      <div class="card">
+        <div class="card-hdr">
+          <div><div class="card-title">📝 QC Log</div><div class="card-sub">All QC Check inspection records</div></div>
+          <div class="spacer"></div>
+          <div class="filters">
+            <select id="ql-days" onchange="renderQCLog()"><option value="0">All Time</option><option value="7">Last 7 Days</option><option value="30">Last 30 Days</option><option value="90">Last 90 Days</option></select>
+            <input id="ql-prop" oninput="renderQCLog()" placeholder="🔍 Property…" style="width:170px">
+            <select id="ql-mgr" onchange="renderQCLog()"><option value="">All Managers</option></select>
+          </div>
+        </div>
+        <div class="tbl-wrap"><div id="qcLogTable"><div class="loading">Loading…</div></div></div>
+      </div>
+    </div>
+
+    <!-- TRAININGS -->
+    <div class="tab-panel" id="tab-training">
+      <div class="card">
+        <div class="card-hdr">
+          <div><div class="card-title">🎓 Manager Training Tracker</div><div class="card-sub">Check a box to mark complete — saves automatically with today's date</div></div>
+        </div>
+        <div class="training-wrap"><div id="trainingTable"><div class="loading">Loading…</div></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+// ── FIREBASE ──────────────────────────────────────────────────────────────────
+var FIREBASE_CONFIG={apiKey:"AIzaSyBNR7trmAOrTtu-uDoU7v_kuxbiVWwqFgQ",authDomain:"tlp-inspections.firebaseapp.com",projectId:"tlp-inspections",storageBucket:"tlp-inspections.firebasestorage.app",messagingSenderId:"814526642685",appId:"1:814526642685:web:d47f5b6bf47e8dd44f8194"};
+var db=null;
+try{firebase.initializeApp(FIREBASE_CONFIG);db=firebase.firestore();}catch(e){}
+
+// ── STATIC DATA ───────────────────────────────────────────────────────────────
+var PROPERTIES=[{"name":"12th Tee At Northstar","manager":"Caitlin McDonough"},{"name":"A Walk In The Woods","manager":"Annie Stryker"},{"name":"Above & Beyond - Lakeview","manager":"Andrea Degliantoni"},{"name":"Adventure Awaits","manager":"Caitlin McDonough"},{"name":"Alpen Glow At Northstar","manager":"Scott McBeth"},{"name":"Alpine Perfection","manager":"Christian Cuneo"},{"name":"Anchors Aweigh - Lakefront","manager":"Kobe Robbin"},{"name":"Aspen Paradise","manager":"Kayla Cox"},{"name":"Backside 180 at Northstar","manager":"Caitlin McDonough"},{"name":"Bella Vista Sul Lago - Lakeview","manager":"Caitlin McDonough"},{"name":"Belleview's Beauty - Lakefront","manager":"Kayla Cox"},{"name":"Bellissimo Lago - Lakefront","manager":"Pat Hall"},{"name":"Big Sky - Lakeview","manager":"Michael Ballew"},{"name":"Black Bear Cottage - Lakefront","manager":"Annie Stryker"},{"name":"Blackwood Creek Chalet","manager":"Kobe Robbin"},{"name":"Blissful Days - Lakefront","manager":"Kayla Cox"},{"name":"Bluebird Days At Palisades","manager":"Christian Cuneo"},{"name":"Boulder Place Lookout At Northstar","manager":"Scott McBeth"},{"name":"Bradley's Bungalow","manager":"Michael Ballew"},{"name":"California Sunshine - Lakeview","manager":"Annie Stryker"},{"name":"Candlelight Lodge","manager":"Annie Stryker"},{"name":"Carnelian Charm - Lakefront","manager":"Caitlin McDonough"},{"name":"Carnelian Haus - Lakefront","manager":"Michael Ballew"},{"name":"Charlie's Den - Lakefront","manager":"Pat Hall"},{"name":"Cherry Lodge","manager":"Christian Cuneo"},{"name":"Constellation #404 Ski-In & Out At Northstar","manager":"Scott McBeth"},{"name":"Constellation #407 Ski-In & Out At Northstar","manager":"Scott McBeth"},{"name":"Creekview","manager":"Charli Martin"},{"name":"Donner Lake Dreams - Lakefront","manager":"Michael Ballew"},{"name":"Enchanted Ridge","manager":"Annie Stryker"},{"name":"Fairest Picture - Lakeview","manager":"Charli Martin"},{"name":"First Chair @ Palisades (The Bronson)","manager":"Christian Cuneo"},{"name":"Fleur du Lac #1 - Lakefront","manager":"Charli Martin"},{"name":"Forever Edgewood - Lakeview","manager":"Christian Cuneo"},{"name":"Fresh Tracks at Northstar","manager":"Trevor Simons"},{"name":"Front and Center","manager":"Annie Stryker"},{"name":"Gerry G. - Lakefront","manager":"Michael Ballew"},{"name":"Gonowabie Lodge - Lakefront","manager":"Andrea Degliantoni"},{"name":"Granite Chief Lodge At Palisades","manager":"Christian Cuneo"},{"name":"Heavenly View - Lakefront","manager":"Kayla Cox"},{"name":"Hidden Ridge at Northstar","manager":"Caitlin McDonough"},{"name":"Highlands Holiday","manager":"Kobe Robbin"},{"name":"Holly Hideaway","manager":"Charli Martin"},{"name":"Home Run at Northstar","manager":"Caitlin McDonough"},{"name":"Homewood Trifecta - Lakefront","manager":"Kobe Robbin"},{"name":"In the Wild Woods","manager":"Annie Stryker"},{"name":"Incline Oasis - Lakeview","manager":"Andrea Degliantoni"},{"name":"Just Grand","manager":"Kayla Cox"},{"name":"King's View Lodge - Lakeview","manager":"Andrea Degliantoni"},{"name":"La Dolce Vita - Lakefront","manager":"Kobe Robbin"},{"name":"Lake Escape - Lakefront","manager":"Tina Geilenfeldt"},{"name":"Lake Of The Sky - Lakeview","manager":"Charli Martin"},{"name":"Lakeside Cedars","manager":"Kobe Robbin"},{"name":"Lakeside Grove - Lakefront","manager":"Trevor Simons"},{"name":"Laughing Waters - Lakefront","manager":"Trevor Simons"},{"name":"Laura's Overlook Lodge at Northstar","manager":"Natalie Garnett"},{"name":"Lift and Tee Retreat at Schaffer's Mill","manager":"Trevor Simons"},{"name":"Luxury River Retreat","manager":"Christian Cuneo"},{"name":"Majestic Waters - Lakefront","manager":"Caitlin McDonough"},{"name":"Making Memories - Lakeview","manager":"Andrea Degliantoni"},{"name":"Manzanita House - Lakeview","manager":"Caitlin McDonough"},{"name":"Maybach Lake House - Lakefront","manager":"Kayla Cox"},{"name":"McKinney Bay Retreat","manager":"Kobe Robbin"},{"name":"Mill Creek Retreat - Incline Village","manager":"Andrea Degliantoni"},{"name":"Moana Mountain Shack - Lakeview","manager":"Kobe Robbin"},{"name":"Modern Marvel - Incline Village","manager":"Natalie Garnett"},{"name":"Modern Mountain at Palisades","manager":"Christian Cuneo"},{"name":"Moondance At Tahoe Park","manager":"Charli Martin"},{"name":"Mountain Bear Lodge At Northstar","manager":"Trevor Simons"},{"name":"Mountain Retreat - Lakeview","manager":"Andrea Degliantoni"},{"name":"Palatial Pines - Lakefront","manager":"Tina Geilenfeldt"},{"name":"Peace of Tahoe - Lakefront","manager":"Christina Cifelli"},{"name":"Pier Pleasure - Lakefront","manager":"Trevor Simons"},{"name":"Pineland Retreat","manager":"Natalie Garnett"},{"name":"Ramblin' Rose - Lakeview","manager":"Michael Ballew"},{"name":"Reflections - Lakeview","manager":"Charli Martin"},{"name":"Rise and Shine - Lakefront","manager":"Christina Cifelli"},{"name":"Rising Sun","manager":"Charli Martin"},{"name":"Riverfront Lodge","manager":"Christian Cuneo"},{"name":"Rubicon Shores - Lakefront","manager":"Kayla Cox"},{"name":"Sail Away - Lakefront","manager":"Annie Stryker"},{"name":"Sandy Shores - Lakefront","manager":"Andrea Degliantoni"},{"name":"Seek No Further - Lakefront","manager":"Pat Hall"},{"name":"Serendipity - Lakeview","manager":"Andrea Degliantoni"},{"name":"Shimmering Shores - Lakefront","manager":"Caitlin McDonough"},{"name":"Shoshone Chalet at Palisades","manager":"Christian Cuneo"},{"name":"Sierra Sunset Estate - Lakefront","manager":"Tina Geilenfeldt"},{"name":"Sierra Vista - Lakeview","manager":"Charli Martin"},{"name":"Signature Retreat on the 18th","manager":"Michael Ballew"},{"name":"Silverfell Lodge at Northstar","manager":"Caitlin McDonough"},{"name":"Sittin' on the Dock - Lakefront","manager":"Kayla Cox"},{"name":"Skippin' Stones - Lakefront","manager":"Andrea Degliantoni"},{"name":"Slopeside At Northstar","manager":"Scott McBeth"},{"name":"Solitude","manager":"Kayla Cox"},{"name":"Spirit of the Mountain","manager":"Christian Cuneo"},{"name":"Stanford Rock Retreat","manager":"Kobe Robbin"},{"name":"Starry Nights - Lakefront","manager":"Kobe Robbin"},{"name":"Steeple Cove - Lakefront","manager":"Trevor Simons"},{"name":"Stone Crest Estate - Lakefront","manager":"Pat Hall"},{"name":"Streams and Dreams","manager":"Michael Ballew"},{"name":"Sugar Pine Chalet - Lakefront","manager":"Trevor Simons"},{"name":"Summer Breeze - Lakefront","manager":"Kayla Cox"},{"name":"Summerhouse - Lakefront","manager":"Tina Geilenfeldt"},{"name":"Summit Splendor at Martis Camp","manager":"Trevor Simons"},{"name":"Sundance","manager":"Charli Martin"},{"name":"Sunny Days","manager":"Michael Ballew"},{"name":"Sunrise by Sunnyside - Lakefront","manager":"Tina Geilenfeldt"},{"name":"Sunset Blue - Lakefront","manager":"Annie Stryker"},{"name":"Tahoe City Serenity","manager":"Scott McBeth"},{"name":"Tahoe Treehouse","manager":"Kobe Robbin"},{"name":"Tahoe's Ahwahnee - Lakeview","manager":"Pat Hall"},{"name":"Tahoe's Tranquility - Lakeview","manager":"Stephanie Hoffman"},{"name":"Tall Pines Ski Shack","manager":"Tina Geilenfeldt"},{"name":"Tewesi Manor - Lakefront","manager":"Tina Geilenfeldt"},{"name":"The Duck House","manager":"Andrea Degliantoni"},{"name":"The Frontier","manager":"Andrea Degliantoni"},{"name":"The Lodge at Swiss Lane","manager":"Michael Ballew"},{"name":"The View at Big Pine - Lakeview","manager":"Charli Martin"},{"name":"Treetop Lodge","manager":"Annie Stryker"},{"name":"Twilight Ridge","manager":"Charli Martin"},{"name":"Twin Tips At Northstar","manager":"Scott McBeth"},{"name":"Village Walk Skyline At Northstar","manager":"Caitlin McDonough"},{"name":"Water's Edge - Lakefront","manager":"Andrea Degliantoni"},{"name":"Wendy's Wish - Lakefront","manager":"Kayla Cox"},{"name":"Whispering Winds","manager":"Christian Cuneo"},{"name":"Wildwood at Dollar Point - Lakeview","manager":"Kobe Robbin"},{"name":"Wolf Ridge","manager":"Kobe Robbin"},{"name":"Zoe's North Star at Northstar","manager":"Caitlin McDonough"}];
+
+var MANAGERS=['Andrea Degliantoni','Annie Stryker','Caitlin McDonough','Charli Martin','Christian Cuneo','Christina Cifelli','Jennifer Suter','Kayla Cox','Kelly Dietz','Kobe Robbin','Michael Ballew','Natalie Garnett','Pat Hall','Scott McBeth','Stephanie Hoffman','Tina Geilenfeldt','Trevor Simons'];
+
+var TRAINING_MODULES=['Check In Procedure','Check Out Procedure','Communication w/ Guests & Owners','TLUXP Standards & Branding','Damages Procedure / Claims','Spring / Fall Walkthroughs','Dresscode','Maintenance'];
+
+var TYPE_LABELS={spring:'Spring',fall:'Fall',checkin_summer:'Check In Summer',checkin_winter:'Check In Winter',checkout_summer:'Check Out Summer',checkout_winter:'Check Out Winter',kitchen_inv:'Kitchen Inventory',linen_inv:'Linen Inventory',qc_check:'QC Check'};
+
+// ── SESSION ───────────────────────────────────────────────────────────────────
+var currentUser=null;
+function getSession(){try{return JSON.parse(localStorage.getItem('tlp_dash_v2')||'null');}catch(e){return null;}}
+function setSession(u){localStorage.setItem('tlp_dash_v2',JSON.stringify(u));}
+function clearSession(){localStorage.removeItem('tlp_dash_v2');}
+
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+function doLogin(){
+  var username=(document.getElementById('lu').value||'').trim().toLowerCase();
+  var pin=(document.getElementById('lp').value||'').trim();
+  var err=document.getElementById('loginErr'); err.style.display='none';
+  if(!username||!pin){err.textContent='Enter username and PIN';err.style.display='block';return;}
+  var btn=document.getElementById('loginBtn'); btn.disabled=true; btn.textContent='Logging in…';
+  db.collection('users').where('username','==',username).get().then(function(snap){
+    if(snap.empty){err.textContent='Invalid username or PIN';err.style.display='block';btn.disabled=false;btn.textContent='Log In';return;}
+    var u=snap.docs[0].data();
+    if(!u.active){err.textContent='Account inactive';err.style.display='block';btn.disabled=false;btn.textContent='Log In';return;}
+    if(String(u.pin)!==String(pin)){err.textContent='Invalid username or PIN';err.style.display='block';btn.disabled=false;btn.textContent='Log In';return;}
+    if(u.role!=='manager'&&u.role!=='admin'){err.textContent='Manager or Admin access required';err.style.display='block';btn.disabled=false;btn.textContent='Log In';return;}
+    currentUser={id:snap.docs[0].id,name:u.name,username:u.username,role:u.role};
+    setSession(currentUser); showApp();
+  }).catch(function(){err.textContent='Connection error';err.style.display='block';btn.disabled=false;btn.textContent='Log In';});
+}
+function doLogout(){clearSession();location.reload();}
+
+// ── SHOW APP ──────────────────────────────────────────────────────────────────
+var _insp=[], _trainings={};
+function showApp(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  document.getElementById('userPill').textContent=(currentUser.role==='admin'?'⭐ ':'')+currentUser.name;
+  // Populate manager dropdowns
+  ['sd-mgr','qd-mgr','ql-mgr'].forEach(function(id){
+    var el=document.getElementById(id);
+    MANAGERS.forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m;el.appendChild(o);});
+  });
+  loadData();
+}
+
+// ── LOAD DATA ─────────────────────────────────────────────────────────────────
+function loadData(){
+  db.collection('inspections').orderBy('submittedAt','desc').limit(500).get().then(function(snap){
+    _insp=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    // Populate inspector dropdown
+    var seen={}, opts='<option value="">All Inspectors</option>';
+    _insp.forEach(function(i){if(i.inspector&&!seen[i.inspector]){seen[i.inspector]=1;opts+='<option value="'+esc(i.inspector)+'">'+esc(i.inspector)+'</option>';}});
+    document.getElementById('il-insp').innerHTML=opts;
+    renderAll();
+  }).catch(function(e){console.error(e);});
+  db.collection('trainings').get().then(function(snap){
+    snap.docs.forEach(function(d){_trainings[d.id]=d.data();});
+    renderTraining();
+  }).catch(function(){renderTraining();});
+}
+function renderAll(){renderInspLog();renderSeasonal();renderSeaDash();renderQCDash();renderQCLog();}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function showToast(m){var t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(function(){t.style.display='none';},2500);}
+function filterDays(insp,days){if(!days)return insp;var cut=Date.now()-days*86400000;return insp.filter(function(i){return new Date(i.submittedAt)>=cut;});}
+function switchTab(name,btn){
+  document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── INSPECTION LOG ────────────────────────────────────────────────────────────
+function renderInspLog(){
+  var type=document.getElementById('il-type').value;
+  var days=parseInt(document.getElementById('il-days').value)||0;
+  var prop=(document.getElementById('il-prop').value||'').toLowerCase();
+  var insp=document.getElementById('il-insp').value;
+  var list=filterDays(_insp,days).filter(function(i){
+    if(type&&i.formType!==type)return false;
+    if(prop&&!(i.property||'').toLowerCase().includes(prop))return false;
+    if(insp&&i.inspector!==insp)return false;
+    return true;
+  });
+  // Stats
+  var issues=list.reduce(function(s,i){return s+(i.issuesFound||0);},0);
+  var week=list.filter(function(i){return (Date.now()-new Date(i.submittedAt))<7*86400000;}).length;
+  var props=new Set(list.map(function(i){return i.property;})).size;
+  document.getElementById('sl-total').textContent=list.length;
+  document.getElementById('sl-issues').textContent=issues;
+  document.getElementById('sl-week').textContent=week;
+  document.getElementById('sl-props').textContent=props;
+  if(!list.length){document.getElementById('inspLogTable').innerHTML='<div class="empty">No inspections found</div>';return;}
+  var html='<table><thead><tr><th>Date</th><th>Property</th><th>Inspector</th><th>Type</th><th>Overall Status</th><th>Items OK</th><th>Issues Found</th><th>N/A</th><th>Notes</th></tr></thead><tbody>';
+  list.forEach(function(i){
+    var hasIssues=i.issuesFound>0;
+    html+='<tr>';
+    html+='<td style="white-space:nowrap">'+esc(i.submittedAt?i.submittedAt.slice(0,10):'')+'</td>';
+    html+='<td style="font-weight:600;min-width:160px">'+esc(i.property||'')+'</td>';
+    html+='<td>'+esc(i.inspector||'')+'</td>';
+    html+='<td><span class="badge b-ok">'+esc(TYPE_LABELS[i.formType]||i.formType||'')+'</span></td>';
+    html+='<td><span class="badge '+(hasIssues?'b-issue':'b-clear')+'">'+(hasIssues?i.issuesFound+' Issue'+(i.issuesFound!==1?'s':''):'All Clear')+'</span></td>';
+    html+='<td style="text-align:center">'+( i.itemsOk||0)+'</td>';
+    html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( i.issuesFound||0)+'</td>';
+    html+='<td style="text-align:center">'+( i.naCount||0)+'</td>';
+    html+='<td style="max-width:220px;font-size:12px">'+esc((i.issues||[]).slice(0,2).map(function(x){return x.item;}).join('; '))+'</td>';
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('inspLogTable').innerHTML=html;
+}
+
+// ── SEASONAL INSPECTIONS ──────────────────────────────────────────────────────
+function renderSeasonal(){
+  var season=document.getElementById('si-season').value;
+  var days=parseInt(document.getElementById('si-days').value)||0;
+  var prop=(document.getElementById('si-prop').value||'').toLowerCase();
+  var seasonTypes=['spring','fall','kitchen_inv','linen_inv'];
+  var list=filterDays(_insp,days).filter(function(i){
+    if(!seasonTypes.includes(i.formType))return false;
+    if(season&&i.formType!==season)return false;
+    if(prop&&!(i.property||'').toLowerCase().includes(prop))return false;
+    return true;
+  });
+  if(!list.length){document.getElementById('seasonalTable').innerHTML='<div class="empty">No seasonal inspections found</div>';return;}
+  var html='<table><thead><tr><th>Date</th><th>Property</th><th>Manager</th><th>Inspector</th><th>Season / Type</th><th>Items OK</th><th>Issues Found</th><th>N/A</th><th>Overall Status</th><th>Notes</th></tr></thead><tbody>';
+  list.forEach(function(i){
+    var mgr=PROPERTIES.find(function(p){return p.name===i.property;});
+    var hasIssues=i.issuesFound>0;
+    html+='<tr>';
+    html+='<td style="white-space:nowrap">'+esc(i.submittedAt?i.submittedAt.slice(0,10):'')+'</td>';
+    html+='<td style="font-weight:600">'+esc(i.property||'')+'</td>';
+    html+='<td>'+esc(mgr?mgr.manager:'')+'</td>';
+    html+='<td>'+esc(i.inspector||'')+'</td>';
+    html+='<td><span class="badge b-ok">'+esc(TYPE_LABELS[i.formType]||i.formType||'')+'</span></td>';
+    html+='<td style="text-align:center">'+( i.itemsOk||0)+'</td>';
+    html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( i.issuesFound||0)+'</td>';
+    html+='<td style="text-align:center">'+( i.naCount||0)+'</td>';
+    html+='<td><span class="badge '+(hasIssues?'b-issue':'b-clear')+'">'+(hasIssues?i.issuesFound+' Issue'+(i.issuesFound!==1?'s':''):'All Clear')+'</span></td>';
+    html+='<td style="max-width:200px;font-size:12px">'+esc((i.issues||[]).slice(0,2).map(function(x){return x.item;}).join('; '))+'</td>';
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('seasonalTable').innerHTML=html;
+}
+
+// ── SEASONAL DASHBOARD ────────────────────────────────────────────────────────
+function renderSeaDash(){
+  var mgrF=document.getElementById('sd-mgr').value;
+  var statusF=document.getElementById('sd-status').value;
+  var propF=(document.getElementById('sd-prop').value||'').toLowerCase();
+  // Build lookup
+  var byPT={};
+  _insp.forEach(function(i){var k=i.property+'|'+i.formType;if(!byPT[k]||i.submittedAt>byPT[k].submittedAt)byPT[k]=i;});
+  var props=PROPERTIES.filter(function(p){
+    if(mgrF&&p.manager!==mgrF)return false;
+    if(propF&&!p.name.toLowerCase().includes(propF))return false;
+    return true;
+  });
+  var html='<table><thead><tr><th>Property</th><th>Manager</th><th>Spring</th><th>Fall</th><th>Kitchen Inv</th><th>Linen Inv</th><th>Status</th></tr></thead><tbody>';
+  var shown=0;
+  props.forEach(function(p){
+    var spring=byPT[p.name+'|spring'];
+    var fall=byPT[p.name+'|fall'];
+    var kitchen=byPT[p.name+'|kitchen_inv'];
+    var linen=byPT[p.name+'|linen_inv'];
+    var done=[spring,fall,kitchen,linen].filter(Boolean).length;
+    var status=done===4?'Complete':done===0?'All Pending':'In Progress';
+    if(statusF&&status!==statusF)return;
+    shown++;
+    var sBadge=done===4?'b-done':done===0?'b-overdue':'b-pending';
+    html+='<tr>';
+    html+='<td style="font-weight:600">'+esc(p.name)+'</td><td>'+esc(p.manager)+'</td>';
+    ['spring','fall','kitchen_inv','linen_inv'].forEach(function(t){
+      var rec=byPT[p.name+'|'+t];
+      html+='<td>'+(rec?'<span class="badge b-done">'+rec.submittedAt.slice(0,10)+'</span>':'<span class="badge b-never">Pending</span>')+'</td>';
+    });
+    html+='<td><span class="badge '+sBadge+'">'+status+'</span></td>';
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  if(!shown){document.getElementById('seaDashTable').innerHTML='<div class="empty">No properties match filters</div>';return;}
+  document.getElementById('seaDashTable').innerHTML=html;
+}
+
+// ── QC DASHBOARD ──────────────────────────────────────────────────────────────
+function renderQCDash(){
+  var statusF=document.getElementById('qd-status').value;
+  var mgrF=document.getElementById('qd-mgr').value;
+  var propF=(document.getElementById('qd-prop').value||'').toLowerCase();
+  var qcInsp=_insp.filter(function(i){return i.formType==='qc_check';});
+  var latestQC={};
+  qcInsp.forEach(function(i){if(!latestQC[i.property]||i.submittedAt>latestQC[i.property].submittedAt)latestQC[i.property]=i;});
+  var counts={Recent:0,'Due Soon':0,Overdue:0,'Never Checked':0};
+  var rows=[];
+  PROPERTIES.forEach(function(p){
+    if(mgrF&&p.manager!==mgrF)return;
+    if(propF&&!p.name.toLowerCase().includes(propF))return;
+    var last=latestQC[p.name];
+    var days=last?Math.floor((Date.now()-new Date(last.submittedAt))/86400000):null;
+    var status=days===null?'Never Checked':days<=30?'Recent':days<=60?'Due Soon':'Overdue';
+    counts[status]=(counts[status]||0)+1;
+    if(statusF&&status!==statusF)return;
+    rows.push({p:p,last:last,days:days,status:status});
+  });
+  document.getElementById('qd-recent').textContent=counts['Recent']||0;
+  document.getElementById('qd-due').textContent=counts['Due Soon']||0;
+  document.getElementById('qd-over').textContent=counts['Overdue']||0;
+  document.getElementById('qd-never').textContent=counts['Never Checked']||0;
+  if(!rows.length){document.getElementById('qcDashTable').innerHTML='<div class="empty">No properties match filters</div>';return;}
+  var html='<table><thead><tr><th>Property</th><th>Manager</th><th>Last QC Check</th><th>Checked By</th><th>Days Since Check</th><th>Status</th><th>Issues Found</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    var bClass=r.days===null?'b-never':r.days<=30?'b-recent':r.days<=60?'b-due':'b-overdue';
+    var statusLabel=r.days===null?'Never Checked':r.days<=30?'Recent ✓':r.days<=60?'Due Soon':'Overdue';
+    html+='<tr>';
+    html+='<td style="font-weight:600">'+esc(r.p.name)+'</td>';
+    html+='<td>'+esc(r.p.manager)+'</td>';
+    html+='<td>'+(r.last?r.last.submittedAt.slice(0,10):'—')+'</td>';
+    html+='<td>'+(r.last?esc(r.last.inspector||''):'—')+'</td>';
+    html+='<td>'+(r.days!==null?r.days+' days':'—')+'</td>';
+    html+='<td><span class="badge '+bClass+'">'+statusLabel+'</span></td>';
+    html+='<td style="color:'+(r.last&&r.last.issuesFound>0?'var(--red)':'inherit')+';font-weight:'+(r.last&&r.last.issuesFound>0?'700':'400')+'">'+(r.last?(r.last.issuesFound||0):'—')+'</td>';
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('qcDashTable').innerHTML=html;
+}
+
+// ── QC LOG ────────────────────────────────────────────────────────────────────
+function renderQCLog(){
+  var days=parseInt(document.getElementById('ql-days').value)||0;
+  var prop=(document.getElementById('ql-prop').value||'').toLowerCase();
+  var mgr=document.getElementById('ql-mgr').value;
+  var list=filterDays(_insp,days).filter(function(i){
+    if(i.formType!=='qc_check')return false;
+    if(prop&&!(i.property||'').toLowerCase().includes(prop))return false;
+    if(mgr&&i.inspector!==mgr)return false;
+    return true;
+  });
+  if(!list.length){document.getElementById('qcLogTable').innerHTML='<div class="empty">No QC inspections found</div>';return;}
+  var html='<table><thead><tr><th>Date</th><th>Property</th><th>Manager (POC)</th><th>Checked By</th><th>Items Checked</th><th>Items OK</th><th>Issues Found</th><th>N/A</th><th>Overall Status</th><th>Notes</th></tr></thead><tbody>';
+  list.forEach(function(i){
+    var mgr=PROPERTIES.find(function(p){return p.name===i.property;});
+    var hasIssues=i.issuesFound>0;
+    var total=(i.itemsOk||0)+(i.issuesFound||0)+(i.naCount||0);
+    html+='<tr>';
+    html+='<td style="white-space:nowrap">'+esc(i.submittedAt?i.submittedAt.slice(0,10):'')+'</td>';
+    html+='<td style="font-weight:600">'+esc(i.property||'')+'</td>';
+    html+='<td>'+esc(mgr?mgr.manager:'')+'</td>';
+    html+='<td>'+esc(i.inspector||'')+'</td>';
+    html+='<td style="text-align:center">'+total+'</td>';
+    html+='<td style="text-align:center">'+( i.itemsOk||0)+'</td>';
+    html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( i.issuesFound||0)+'</td>';
+    html+='<td style="text-align:center">'+( i.naCount||0)+'</td>';
+    html+='<td><span class="badge '+(hasIssues?'b-issue':'b-clear')+'">'+(hasIssues?i.issuesFound+' Issue'+(i.issuesFound!==1?'s':''):'All Clear')+'</span></td>';
+    html+='<td style="max-width:220px;font-size:12px">'+esc((i.issues||[]).slice(0,3).map(function(x){return x.item;}).join('; '))+'</td>';
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('qcLogTable').innerHTML=html;
+}
+
+// ── TRAININGS ─────────────────────────────────────────────────────────────────
+function renderTraining(){
+  var html='<table class="training-table"><thead><tr><th>Manager</th>';
+  TRAINING_MODULES.forEach(function(m){html+='<th>'+esc(m)+'</th>';});
+  html+='<th>Progress</th></tr></thead><tbody>';
+  MANAGERS.forEach(function(mgr){
+    var docId=mgr.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+    var td=_trainings[docId]||{};
+    var done=0;
+    html+='<tr><td title="'+esc(mgr)+'">'+esc(mgr)+'</td>';
+    TRAINING_MODULES.forEach(function(m,i){
+      var f='module_'+i, df='date_'+i;
+      var checked=!!td[f];
+      if(checked)done++;
+      html+='<td style="text-align:center"><input type="checkbox" class="train-check" '+(checked?'checked':'')+' onchange="toggleTraining(\''+docId+'\',\''+esc(mgr)+'\','+i+',this.checked)">';
+      if(checked&&td[df]) html+='<div class="train-date">'+esc(td[df])+'</div>';
+      html+='</td>';
+    });
+    var pct=Math.round(done/TRAINING_MODULES.length*100);
+    html+='<td style="text-align:center"><span class="pct-pill">'+pct+'%</span></td>';
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('trainingTable').innerHTML=html;
+}
+function toggleTraining(docId,mgr,idx,checked){
+  var f='module_'+idx, df='date_'+idx, u={manager:mgr};
+  u[f]=checked; u[df]=checked?new Date().toISOString().slice(0,10):'';
+  db.collection('trainings').doc(docId).set(u,{merge:true}).then(function(){
+    if(!_trainings[docId])_trainings[docId]={};
+    _trainings[docId][f]=checked; _trainings[docId][df]=u[df];
+    renderTraining(); showToast(checked?'Marked complete ✓':'Unmarked');
+  });
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+window.onload=function(){
+  var s=getSession();
+  if(s&&(s.role==='manager'||s.role==='admin')){currentUser=s;showApp();}
+};
+</script>
+</body>
+</html>
