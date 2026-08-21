@@ -151,7 +151,14 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .modal-title{font-size:18px;font-weight:800;color:var(--navy);margin-bottom:12px}
 .modal-img{width:100%;border-radius:10px;margin-bottom:12px}
 .modal-close{width:100%;padding:14px;background:var(--gray);border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer}
-.inv-qty{width:64px;text-align:center;border:1.5px solid var(--mid-gray);border-radius:6px;padding:6px 4px;font-size:15px;height:38px;-moz-appearance:textfield;}.inv-qty::-webkit-outer-spin-button,.inv-qty::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}.inv-two-col{display:flex;align-items:center;gap:8px;flex-shrink:0;padding-right:4px;}.inv-field-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;}.inv-field-lbl{font-size:10px;color:var(--dark-gray);font-weight:600;white-space:nowrap;}.inv-txt{width:90px;border:1.5px solid var(--mid-gray);border-radius:6px;padding:6px 8px;font-size:14px;height:38px;}
+.inv-qty{width:56px;text-align:center;border:1.5px solid var(--mid-gray);border-radius:8px;padding:6px 4px;font-size:15px;font-weight:700;color:var(--navy);height:36px;-moz-appearance:textfield;}.inv-qty::-webkit-outer-spin-button,.inv-qty::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}.inv-qty:focus{border-color:var(--blue);outline:none}.inv-two-col{display:flex;align-items:flex-end;gap:10px;flex-shrink:0;}.inv-field-wrap{display:flex;flex-direction:column;align-items:center;gap:3px;}.inv-field-lbl{font-size:10px;color:var(--dark-gray);font-weight:700;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;}.inv-txt{width:112px;border:1.5px solid var(--mid-gray);border-radius:8px;padding:6px 8px;font-size:14px;height:36px;}
+.inv-item-card{background:white;border-radius:12px;box-shadow:var(--shadow);margin:8px 12px;padding:12px 14px}
+.inv-item-name{font-size:14px;font-weight:600;color:var(--navy);line-height:1.35;margin-bottom:10px}
+.inv-item-row{display:flex;align-items:flex-end;gap:10px}
+.inv-photo-btn{background:none;border:1.5px solid var(--mid-gray);border-radius:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;margin-left:auto;color:var(--dark-gray)}
+.inv-photo-btn.has-photo{border-color:var(--green);color:var(--green);background:var(--green-light)}
+.inv-thumb{margin-top:10px}
+.inv-thumb img{height:64px;border-radius:8px;border:1.5px solid var(--mid-gray);cursor:pointer}
 /* Login */
 #screenLogin{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(160deg,var(--navy) 0%,var(--blue) 100%);padding:32px 24px;position:fixed;inset:0;z-index:999}
 .login-logo{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.7);margin-bottom:8px;text-align:center}
@@ -2077,12 +2084,15 @@ function startChecklist() {
   updateProgress();
 }
 
+var ICON_CAMERA = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>';
+var ICON_CHECK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
 function makePhotoBtn(key) {
+  var hasPhoto = !!(state.photos && state.photos[key]);
   var btn = document.createElement('button');
   btn.type = 'button';
-  btn.style.cssText = 'background:none;border:1.5px solid var(--mid-gray);border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:16px;';
-  btn.title = 'Add photo';
-  btn.innerHTML = (state.photos && state.photos[key]) ? '&#9989;' : '&#128247;';
+  btn.className = 'inv-photo-btn' + (hasPhoto ? ' has-photo' : '');
+  btn.title = hasPhoto ? 'Photo added' : 'Add photo';
+  btn.innerHTML = hasPhoto ? ICON_CHECK : ICON_CAMERA;
   var fileInp = document.createElement('input');
   fileInp.type = 'file'; fileInp.accept = 'image/*'; fileInp.capture = 'environment';
   fileInp.style.display = 'none';
@@ -2092,9 +2102,9 @@ function makePhotoBtn(key) {
     reader.onload = function(e) {
       if (!state.photos) state.photos = {};
       state.photos[k] = e.target.result;
-      b.innerHTML = '&#9989;'; b.style.borderColor = 'var(--green)';
+      b.classList.add('has-photo'); b.title = 'Photo added'; b.innerHTML = ICON_CHECK;
       var tw = document.getElementById('photo-thumb-' + k);
-      if (tw) { tw.style.display = ''; tw.innerHTML = ''; var img = document.createElement('img'); img.src = e.target.result; img.style.cssText = 'height:60px;border-radius:6px;border:1.5px solid var(--mid-gray);margin-top:4px;cursor:pointer;'; img.onclick=function(){window.open(e.target.result,'_blank');}; tw.appendChild(img); }
+      if (tw) { tw.style.display = ''; tw.innerHTML = ''; var img = document.createElement('img'); img.src = e.target.result; img.onclick=function(){window.open(e.target.result,'_blank');}; tw.appendChild(img); }
       saveDraftSilent();
     };
     reader.readAsDataURL(file);
@@ -2119,20 +2129,14 @@ function buildChecklist() {
       var key = si + '_' + ii;
       var saved = state.items[key] || {};
       if (state.formType === 'kitchen_inv') {
-        // Kitchen: two fields — Current + Needed + photo
+        // Kitchen: item name on its own line, Current + Needed + photo on a compact row below
         var row = document.createElement('div');
-        row.className = 'item-row'; row.id = 'row-' + key;
-        row.style.cssText = 'display:flex;flex-direction:column;padding:8px 14px;border-bottom:1px solid var(--gray);';
-        var kitTop = document.createElement('div'); kitTop.style.cssText = 'display:flex;align-items:center;gap:8px;min-height:44px;';
+        row.className = 'inv-item-card'; row.id = 'row-' + key;
         var lbl = document.createElement('div');
-        lbl.className = 'item-text'; lbl.style.flex = '1'; lbl.textContent = itemText;
-        kitTop.appendChild(lbl);
-        var twoCol = document.createElement('div'); twoCol.className = 'inv-two-col'; kitTop.appendChild(twoCol);
-        kitTop.appendChild(makePhotoBtn(key));
-        row.appendChild(kitTop);
-        var kitThumb = document.createElement('div'); kitThumb.id = 'photo-thumb-'+key; kitThumb.style.display=(state.photos&&state.photos[key]?'':'none');
-        if (state.photos&&state.photos[key]){var kt=document.createElement('img');kt.src=state.photos[key];kt.style.cssText='height:60px;border-radius:6px;border:1.5px solid var(--mid-gray);margin-top:4px;cursor:pointer;';kt.onclick=function(){window.open(state.photos[key],'_blank');};kitThumb.appendChild(kt);}
-        row.appendChild(kitThumb);
+        lbl.className = 'inv-item-name'; lbl.textContent = itemText;
+        row.appendChild(lbl);
+        var itemRow = document.createElement('div'); itemRow.className = 'inv-item-row';
+        var twoCol = document.createElement('div'); twoCol.className = 'inv-two-col';
         function makeKitField(k, field, label, savedVal) {
           var wrap = document.createElement('div'); wrap.className = 'inv-field-wrap';
           var lbEl = document.createElement('div'); lbEl.className = 'inv-field-lbl'; lbEl.textContent = label;
@@ -2144,19 +2148,23 @@ function buildChecklist() {
         }
         twoCol.appendChild(makeKitField(key,'value','Current',saved.value));
         twoCol.appendChild(makeKitField(key,'needed','Needed',saved.needed));
-        row.appendChild(lbl); row.appendChild(twoCol);
+        itemRow.appendChild(twoCol);
+        itemRow.appendChild(makePhotoBtn(key));
+        row.appendChild(itemRow);
+        var kitThumb = document.createElement('div'); kitThumb.className = 'inv-thumb'; kitThumb.id = 'photo-thumb-'+key; kitThumb.style.display=(state.photos&&state.photos[key]?'':'none');
+        if (state.photos&&state.photos[key]){var kt=document.createElement('img');kt.src=state.photos[key];kt.onclick=function(){window.open(state.photos[key],'_blank');};kitThumb.appendChild(kt);}
+        row.appendChild(kitThumb);
         block.appendChild(row);
         return;
       }
       if (state.formType === 'linen_inv') {
         var isBedSize = itemText.indexOf('Bed Size') !== -1;
         var row = document.createElement('div');
-        row.className = 'item-row'; row.id = 'row-' + key;
-        row.style.cssText = 'display:flex;flex-direction:column;padding:8px 14px;border-bottom:1px solid var(--gray);';
-        var linTop = document.createElement('div'); linTop.style.cssText = 'display:flex;align-items:center;gap:8px;min-height:44px;';
+        row.className = 'inv-item-card'; row.id = 'row-' + key;
         var lbl = document.createElement('div');
-        lbl.className = 'item-text'; lbl.style.flex = '1'; lbl.textContent = itemText;
-        linTop.appendChild(lbl);
+        lbl.className = 'inv-item-name'; lbl.textContent = itemText;
+        row.appendChild(lbl);
+        var itemRow = document.createElement('div'); itemRow.className = 'inv-item-row';
         function makeLinField(k, field, label, savedVal) {
           var wrap = document.createElement('div'); wrap.className = 'inv-field-wrap';
           var lbEl = document.createElement('div'); lbEl.className = 'inv-field-lbl'; lbEl.textContent = label;
@@ -2167,20 +2175,20 @@ function buildChecklist() {
           wrap.appendChild(lbEl); wrap.appendChild(inp); return wrap;
         }
         if (isBedSize) {
-          var linInp = document.createElement('input'); linInp.type='text'; linInp.className='inv-txt'; linInp.placeholder='King / Queen...'; linInp.style.width='110px';
+          var linInp = document.createElement('input'); linInp.type='text'; linInp.className='inv-txt'; linInp.placeholder='King / Queen...';
           linInp.value = (saved.value !== undefined ? saved.value : '');
           linInp.oninput = (function(k,inp){return function(){if(!state.items[k])state.items[k]={};state.items[k].value=inp.value;saveDraftSilent();};})(key,linInp);
-          linTop.appendChild(linInp);
+          itemRow.appendChild(linInp);
         } else {
           var twoCol2 = document.createElement('div'); twoCol2.className = 'inv-two-col';
           twoCol2.appendChild(makeLinField(key,'value','Current',saved.value));
           twoCol2.appendChild(makeLinField(key,'needed','Needed',saved.needed));
-          linTop.appendChild(twoCol2);
+          itemRow.appendChild(twoCol2);
         }
-        linTop.appendChild(makePhotoBtn(key));
-        row.appendChild(linTop);
-        var linThumb = document.createElement('div'); linThumb.id = 'photo-thumb-'+key; linThumb.style.display=(state.photos&&state.photos[key]?'':'none');
-        if (state.photos&&state.photos[key]){var lt=document.createElement('img');lt.src=state.photos[key];lt.style.cssText='height:60px;border-radius:6px;border:1.5px solid var(--mid-gray);margin-top:4px;cursor:pointer;';lt.onclick=function(){window.open(state.photos[key],'_blank');};linThumb.appendChild(lt);}
+        itemRow.appendChild(makePhotoBtn(key));
+        row.appendChild(itemRow);
+        var linThumb = document.createElement('div'); linThumb.className = 'inv-thumb'; linThumb.id = 'photo-thumb-'+key; linThumb.style.display=(state.photos&&state.photos[key]?'':'none');
+        if (state.photos&&state.photos[key]){var lt=document.createElement('img');lt.src=state.photos[key];lt.onclick=function(){window.open(state.photos[key],'_blank');};linThumb.appendChild(lt);}
         row.appendChild(linThumb);
         block.appendChild(row);
         return;
