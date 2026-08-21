@@ -12,7 +12,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <style>
-:root{--navy:#063461;--blue:#2E75B6;--light-blue:#D6E4F0;--green:#1A7A3F;--green-light:#E8F5EE;--red:#CC0000;--red-light:#FDECEA;--orange:#CC6600;--orange-light:#FFF3E0;--gray:#F5F5F5;--mid-gray:#E0E0E0;--dark-gray:#555;--text:#1A1A2E;--white:#FFFFFF;--radius:14px;--shadow:0 2px 12px rgba(6,52,97,.10);--shadow-md:0 4px 24px rgba(6,52,97,.15)}
+:root{--navy:#063461;--blue:#2E75B6;--light-blue:#D6E4F0;--green:#1565A0;--green-light:#D6E4F0;--red:#CC0000;--red-light:#FDECEA;--orange:#CC6600;--orange-light:#FFF3E0;--gray:#F5F5F5;--mid-gray:#E0E0E0;--dark-gray:#555;--text:#1A1A2E;--white:#FFFFFF;--radius:14px;--shadow:0 2px 12px rgba(6,52,97,.10);--shadow-md:0 4px 24px rgba(6,52,97,.15)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#F0F4F8;color:var(--text);overscroll-behavior:none}
 body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height:100vh}
@@ -34,7 +34,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .form-card .icon{font-size:32px;margin-bottom:10px;display:block}
 .form-card .label{font-size:13px;font-weight:700;color:var(--navy);line-height:1.3}
 .form-card .count{font-size:11px;color:var(--dark-gray);margin-top:4px}
-.form-card.spring{border-color:#2E8B57}.form-card.fall{border-color:#CC6600}.form-card.checkin-summer{border-color:var(--blue)}.form-card.checkin-winter{border-color:#5B9FD4}.form-card.checkout-summer{border-color:var(--red)}.form-card.checkout-winter{border-color:#063461}.form-card.kitchen-inv{border-color:#D4870A}.form-card.linen-inv{border-color:#8B5CF6}.form-card.qc{border-color:#7B2D8B}
+.form-card.spring{border-color:#0D7EA6}.form-card.fall{border-color:#CC6600}.form-card.checkin-summer{border-color:var(--blue)}.form-card.checkin-winter{border-color:#5B9FD4}.form-card.checkout-summer{border-color:var(--red)}.form-card.checkout-winter{border-color:#063461}.form-card.kitchen-inv{border-color:#D4870A}.form-card.linen-inv{border-color:#8B5CF6}.form-card.qc{border-color:#7B2D8B}
 .section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--dark-gray);padding:0 16px 8px;margin-top:4px}
 .drafts-list{padding:0 16px;display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
 .draft-card{background:white;border-radius:10px;padding:14px 16px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;cursor:pointer}
@@ -206,9 +206,10 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 <!-- HOME -->
 <div class="screen active" id="screenHome">
   <div class="home-hero">
+    <div style="font-size:28px;margin-bottom:6px">&#128273;</div>
     <div class="home-logo">Tahoe Luxury Properties</div>
     <div class="home-title">Property Inspections</div>
-    <div class="home-sub">Tap a form to begin</div>
+    <div class="home-sub">Lake Tahoe &amp; Truckee</div>
   </div>
   <div class="form-grid">
     <div class="form-card spring" onclick="startForm('spring')"><span class="icon">&#127800;</span><div class="label">Spring Inspection</div><div class="count">Season opening</div></div>
@@ -222,7 +223,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
     <div class="form-card qc" style="grid-column:span 2" onclick="startForm('qc_check')"><span class="icon">&#128373;</span><div class="label">QC Check</div><div class="count">Manager spot-check</div></div>
   </div>
   <div id="allUserNavBtns" style="display:none;padding:0 16px 4px;flex-direction:column;gap:8px">
-    <button class="btn-primary" style="background:linear-gradient(135deg,#1A7A3F,#2E8B57)" onclick="loadMyInspections()">&#128203; My Inspections</button>
+    <button class="btn-primary" style="background:linear-gradient(135deg,#063461,#2E75B6)" onclick="loadMyInspections()">&#128203; My Inspections</button>
   </div>
   <div id="managerNavBtns" style="display:none;padding:0 16px 8px;flex-direction:column;gap:8px">
     <button class="btn-primary" style="background:linear-gradient(135deg,var(--navy),var(--blue))" onclick="loadDashboard()">&#128202; View Inspection Dashboard</button>
@@ -280,12 +281,19 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 <!-- MANAGER DASHBOARD -->
 <div class="screen dash-screen" id="screenDashboard">
   <div style="background:linear-gradient(135deg,var(--navy),var(--blue));padding:20px 16px 16px;color:white">
+    <button onclick="showScreen('screenHome')" style="background:rgba(255,255,255,0.15);border:none;color:white;font-size:13px;font-weight:700;cursor:pointer;border-radius:8px;padding:6px 12px;margin-bottom:10px;display:flex;align-items:center;gap:6px">&#8592; Home</button>
     <div style="font-size:20px;font-weight:800">&#128202; Inspection Dashboard</div>
     <div style="font-size:13px;opacity:.8;margin-top:2px">All submitted inspections</div>
   </div>
-  <div class="dash-filter">
-    <select id="dashFilterType" onchange="applyDashFilter()"><option value="">All Types</option><option value="checkin_summer">Check In Summer</option><option value="checkin_winter">Check In Winter</option><option value="checkout_summer">Check Out Summer</option><option value="checkout_winter">Check Out Winter</option><option value="spring">Spring</option><option value="fall">Fall</option><option value="qc_check">QC Check</option><option value="kitchen_inv">Kitchen Inv</option><option value="linen_inv">Linen Inv</option></select>
-    <select id="dashFilterDays" onchange="applyDashFilter()"><option value="0">All Time</option><option value="7">Last 7 Days</option><option value="30">Last 30 Days</option><option value="90">Last 90 Days</option></select>
+  <div style="padding:10px 16px 4px;display:flex;flex-direction:column;gap:8px;background:var(--gray);border-bottom:1px solid var(--mid-gray)">
+    <div style="display:flex;gap:8px">
+      <select id="dashFilterType" onchange="applyDashFilter()" style="border:2px solid var(--mid-gray);border-radius:8px;padding:7px 10px;font-size:13px;background:white;flex:1;-webkit-appearance:none"><option value="">All Types</option><option value="checkin_summer">Check In Summer</option><option value="checkin_winter">Check In Winter</option><option value="checkout_summer">Check Out Summer</option><option value="checkout_winter">Check Out Winter</option><option value="spring">Spring</option><option value="fall">Fall</option><option value="qc_check">QC Check</option><option value="kitchen_inv">Kitchen Inv</option><option value="linen_inv">Linen Inv</option></select>
+      <select id="dashFilterDays" onchange="applyDashFilter()" style="border:2px solid var(--mid-gray);border-radius:8px;padding:7px 10px;font-size:13px;background:white;flex:1;-webkit-appearance:none"><option value="0">All Time</option><option value="7">Last 7 Days</option><option value="30">Last 30 Days</option><option value="90">Last 90 Days</option></select>
+    </div>
+    <div style="display:flex;gap:8px">
+      <input id="dashFilterProperty" oninput="applyDashFilter()" placeholder="&#128269; Search by property..." style="border:2px solid var(--mid-gray);border-radius:8px;padding:7px 10px;font-size:13px;background:white;flex:1;outline:none">
+      <select id="dashFilterInspector" onchange="applyDashFilter()" style="border:2px solid var(--mid-gray);border-radius:8px;padding:7px 10px;font-size:13px;background:white;flex:1;-webkit-appearance:none"><option value="">All Inspectors</option></select>
+    </div>
   </div>
   <div id="dashboardList" style="padding-top:4px"></div>
 </div>
@@ -293,6 +301,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 <!-- USER MANAGEMENT -->
 <div class="screen dash-screen" id="screenUsers">
   <div style="background:linear-gradient(135deg,#7B2D8B,#5B1A6B);padding:20px 16px 16px;color:white">
+    <button onclick="showScreen('screenHome')" style="background:rgba(255,255,255,0.15);border:none;color:white;font-size:13px;font-weight:700;cursor:pointer;border-radius:8px;padding:6px 12px;margin-bottom:10px;display:flex;align-items:center;gap:6px">&#8592; Home</button>
     <div style="font-size:20px;font-weight:800">&#128101; Manage Users</div>
     <div style="font-size:13px;opacity:.8;margin-top:2px">Add and manage team access</div>
   </div>
@@ -314,7 +323,8 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 
 <!-- MY INSPECTIONS -->
 <div class="screen dash-screen" id="screenMyInspections">
-  <div style="background:linear-gradient(135deg,#1A7A3F,#2E8B57);padding:20px 16px 16px;color:white">
+  <div style="background:linear-gradient(135deg,#063461,#2E75B6);padding:20px 16px 16px;color:white">
+    <button onclick="showScreen('screenHome')" style="background:rgba(255,255,255,0.15);border:none;color:white;font-size:13px;font-weight:700;cursor:pointer;border-radius:8px;padding:6px 12px;margin-bottom:10px;display:flex;align-items:center;gap:6px">&#8592; Home</button>
     <div style="font-size:20px;font-weight:800">&#128203; My Inspections</div>
     <div style="font-size:13px;opacity:.8;margin-top:2px">Your submitted inspection history</div>
   </div>
@@ -558,15 +568,25 @@ function loadDashboard() {
   document.getElementById('dashboardList').innerHTML='<div style="text-align:center;padding:40px;color:var(--dark-gray)">Loading...</div>';
   db.collection('inspections').orderBy('submittedAt','desc').limit(200).get().then(function(snap) {
     _allInspections = snap.docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
+    // Populate inspector dropdown
+    var inspectorSel = document.getElementById('dashFilterInspector');
+    var seen = {};
+    var opts = '<option value="">All Inspectors</option>';
+    _allInspections.forEach(function(i){ if(i.inspector && !seen[i.inspector]){ seen[i.inspector]=1; opts+='<option value="'+i.inspector+'">'+i.inspector+'</option>'; } });
+    inspectorSel.innerHTML = opts;
     applyDashFilter();
   }).catch(function(e){ document.getElementById('dashboardList').innerHTML='<div style="text-align:center;padding:40px;color:var(--red)">Error loading. Check Firebase config.</div>'; });
 }
 function applyDashFilter() {
   var type = document.getElementById('dashFilterType').value;
   var days = parseInt(document.getElementById('dashFilterDays').value)||0;
+  var propSearch = (document.getElementById('dashFilterProperty').value||'').toLowerCase().trim();
+  var inspector = document.getElementById('dashFilterInspector').value;
   var list = _allInspections.filter(function(i){
     if (type && i.formType !== type) return false;
     if (days > 0) { var d=new Date(i.submittedAt); if((Date.now()-d)>days*24*60*60*1000) return false; }
+    if (propSearch && !(i.property||'').toLowerCase().includes(propSearch) && !(i.address||'').toLowerCase().includes(propSearch)) return false;
+    if (inspector && i.inspector !== inspector) return false;
     return true;
   });
   renderDashboard(list);
@@ -629,11 +649,11 @@ function refreshUsersList() {
     var html='';
     snap.docs.forEach(function(d){
       var u=d.data();
-      var roleColors={admin:'#7B2D8B',manager:'#063461',inspector:'#1A7A3F'};
+      var roleColors={admin:'#7B2D8B',manager:'#063461',inspector:'#2E75B6'};
       html+='<div style="background:white;border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px">';
       html+='<div style="width:40px;height:40px;border-radius:50%;background:var(--light-blue);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:var(--navy)">'+esc((u.name||'?').charAt(0).toUpperCase())+'</div>';
       html+='<div style="flex:1"><div style="font-weight:700;color:var(--navy)">'+esc(u.name||'')+'</div><div style="font-size:12px;color:var(--dark-gray)">@'+esc(u.username||'')+' &bull; <span style="font-weight:700">'+u.role+'</span>'+(u.active?'':' &bull; <span style="color:var(--red)">inactive</span>')+'</div></div>';
-      html+='<button onclick="toggleUser(\''+d.id+'\','+(u.active?'false':'true')+')" style="padding:6px 12px;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;background:'+(u.active?'#FDECEA':'#E8F5EE')+';color:'+(u.active?'var(--red)':'var(--green)')+'">'+( u.active?'Deactivate':'Activate')+'</button>';
+      html+='<button onclick="toggleUser(\''+d.id+'\','+(u.active?'false':'true')+')" style="padding:6px 12px;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;background:'+(u.active?'#FDECEA':'#D6E4F0')+';color:'+(u.active?'var(--red)':'var(--navy)')+'">'+( u.active?'Deactivate':'Activate')+'</button>';
       html+='</div>';
     });
     document.getElementById('usersList').innerHTML=html||'<div style="text-align:center;padding:20px;color:var(--dark-gray)">No users yet — add one above</div>';
