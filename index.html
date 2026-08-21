@@ -328,9 +328,12 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
     <div style="font-size:20px;font-weight:800">&#128203; My Inspections</div>
     <div style="font-size:13px;opacity:.8;margin-top:2px">Your submitted inspection history</div>
   </div>
-  <div class="dash-filter">
-    <select id="myFilterType" onchange="applyMyFilter()"><option value="">All Types</option><option value="checkin_summer">Check In Summer</option><option value="checkin_winter">Check In Winter</option><option value="checkout_summer">Check Out Summer</option><option value="checkout_winter">Check Out Winter</option><option value="spring">Spring</option><option value="fall">Fall</option><option value="qc_check">QC Check</option><option value="kitchen_inv">Kitchen Inv</option><option value="linen_inv">Linen Inv</option></select>
-    <select id="myFilterDays" onchange="applyMyFilter()"><option value="0">All Time</option><option value="7">Last 7 Days</option><option value="30">Last 30 Days</option><option value="90">Last 90 Days</option></select>
+  <div style="padding:10px 16px 4px;display:flex;flex-direction:column;gap:8px;background:var(--gray);border-bottom:1px solid var(--mid-gray)">
+    <div style="display:flex;gap:8px">
+      <select id="myFilterType" onchange="applyMyFilter()" style="border:2px solid var(--mid-gray);border-radius:8px;padding:7px 10px;font-size:13px;background:white;flex:1;-webkit-appearance:none"><option value="">All Types</option><option value="checkin_summer">Check In Summer</option><option value="checkin_winter">Check In Winter</option><option value="checkout_summer">Check Out Summer</option><option value="checkout_winter">Check Out Winter</option><option value="spring">Spring</option><option value="fall">Fall</option><option value="qc_check">QC Check</option><option value="kitchen_inv">Kitchen Inv</option><option value="linen_inv">Linen Inv</option></select>
+      <select id="myFilterDays" onchange="applyMyFilter()" style="border:2px solid var(--mid-gray);border-radius:8px;padding:7px 10px;font-size:13px;background:white;flex:1;-webkit-appearance:none"><option value="0">All Time</option><option value="7">Last 7 Days</option><option value="30">Last 30 Days</option><option value="90">Last 90 Days</option></select>
+    </div>
+    <input id="myFilterProperty" oninput="applyMyFilter()" placeholder="&#128269; Search by property..." style="border:2px solid var(--mid-gray);border-radius:8px;padding:7px 10px;font-size:13px;background:white;width:100%;outline:none">
   </div>
   <div id="myInspectionsList" style="padding-top:4px"></div>
 </div>
@@ -507,9 +510,11 @@ function loadMyInspections() {
 function applyMyFilter() {
   var type = document.getElementById('myFilterType').value;
   var days = parseInt(document.getElementById('myFilterDays').value)||0;
+  var propSearch = (document.getElementById('myFilterProperty').value||'').toLowerCase().trim();
   var list = _myInspections.filter(function(i){
     if (type && i.formType !== type) return false;
     if (days > 0) { var d=new Date(i.submittedAt); if((Date.now()-d)>days*24*60*60*1000) return false; }
+    if (propSearch && !(i.property||'').toLowerCase().includes(propSearch) && !(i.address||'').toLowerCase().includes(propSearch)) return false;
     return true;
   });
   renderMyInspections(list);
@@ -2513,7 +2518,7 @@ function emailReport(onSuccess) {
     if (state.formType === 'linen_inv') { var lnKeys=Object.keys(linNeedMap); if(lnKeys.length>0){ body+='LINEN NEEDED — SUMMARY\n'; lnKeys.forEach(function(nm){body+='  '+nm+': '+linNeedMap[nm]+' needed\n';}); body+='\n'; } }
     if (state.invNotes&&state.invNotes.trim()) body += '\nADDITIONAL NOTES\n'+state.invNotes+'\n';
     var pCntE = Object.keys(state.photos||{}).length;
-    if (pCntE>0 && !HTTP_ENDPOINT) body += '\nPHOTOS: '+pCntE+' photo'+(pCntE>1?'s':'')+' captured (will be attached via Power Automate)\n';
+    if (pCntE>0) body += '\nPHOTOS: '+pCntE+' photo'+(pCntE>1?'s':'')+' available — view & download from the TLP Manager Dashboard\n';
     body += '\n--\nSent from TLP Inspection App';
     var mailtoInv = 'mailto:' + INSPECTION_EMAIL + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
     if (HTTP_ENDPOINT) {
@@ -2547,7 +2552,7 @@ function emailReport(onSuccess) {
         outdoorFurniture: '',
         supplyInventory: '',
         tlpTodoItems: '',
-        photos: getPhotosPayload()
+        photos: []
       }, mailtoInv, onSuccess);
     } else {
       window.location.href = mailtoInv;
@@ -2650,7 +2655,7 @@ function emailReport(onSuccess) {
       kitchenInventory: '',
       linenInventory: '',
       tlpTodoItems: state.maintenanceNotes||'',
-      photos: getPhotosPayload()
+      photos: []
     }, mailtoReg, onSuccess);
   } else {
     window.location.href = mailtoReg;
