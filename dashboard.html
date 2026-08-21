@@ -289,10 +289,10 @@ tr:hover td{background:#fafbfe}
     <!-- COMPLAINTS -->
     <div class="tab-panel" id="tab-complaints">
       <div class="stats-row">
-        <div class="stat-card"><div class="stat-num" id="cp-total">—</div><div class="stat-lbl">Total Complaints</div></div>
-        <div class="stat-card red"><div class="stat-num" id="cp-open">—</div><div class="stat-lbl">Open</div></div>
-        <div class="stat-card"><div class="stat-num" id="cp-resolved">—</div><div class="stat-lbl">Resolved</div></div>
-        <div class="stat-card navy"><div class="stat-num" id="cp-week">—</div><div class="stat-lbl">This Week</div></div>
+        <div class="stat-card" id="cpf-all" onclick="setCFilter('all')" style="cursor:pointer"><div class="stat-num" id="cp-total">—</div><div class="stat-lbl">Total Complaints</div></div>
+        <div class="stat-card red" id="cpf-open" onclick="setCFilter('open')" style="cursor:pointer"><div class="stat-num" id="cp-open">—</div><div class="stat-lbl">Open</div></div>
+        <div class="stat-card" id="cpf-resolved" onclick="setCFilter('resolved')" style="cursor:pointer"><div class="stat-num" id="cp-resolved">—</div><div class="stat-lbl">Resolved</div></div>
+        <div class="stat-card navy" id="cpf-week" onclick="setCFilter('week')" style="cursor:pointer"><div class="stat-num" id="cp-week">—</div><div class="stat-lbl">This Week</div></div>
       </div>
 
       <button class="open-complaint-btn" onclick="toggleComplaintForm()">＋ Log New Complaint</button>
@@ -380,6 +380,8 @@ var PROPERTIES=[{"name":"12th Tee At Northstar","manager":"Caitlin McDonough"},{
 var MANAGERS=['Andrea Degliantoni','Annie Stryker','Caitlin McDonough','Charli Martin','Christian Cuneo','Christina Cifelli','Jennifer Suter','Kayla Cox','Kelly Dietz','Kobe Robbin','Michael Ballew','Natalie Garnett','Pat Hall','Scott McBeth','Stephanie Hoffman','Tina Geilenfeldt','Trevor Simons'];
 
 var TRAINING_MODULES=['Check In Procedure','Check Out Procedure','Communication w/ Guests & Owners','TLUXP Standards & Branding','Damages Procedure / Claims','Spring / Fall Walkthroughs','Dresscode','Maintenance'];
+
+var PROPERTY_EMAILS={'12th Tee At Northstar':'12thtee@tluxp.com','A Walk In The Woods':'awalkinthewoods@tluxp.com','Above & Beyond - Lakeview':'aboveandbeyond@tluxp.com','Adventure Awaits':'adventureawaits@tluxp.com','Alpen Glow At Northstar':'alpenglow@tluxp.com','Alpine Perfection':'alpineperfection@tluxp.com','Anchors Aweigh - Lakefront':'anchorsaweigh@tluxp.com','Aspen Paradise':'aspenparadise@tluxp.com','Backside 180 at Northstar':'backside180@tluxp.com','Bella Vista Sul Lago - Lakeview':'bellavista@tluxp.com',"Belleview's Beauty - Lakefront":'belleviewsbeauty@tluxp.com','Bellissimo Lago - Lakefront':'bellissimolago@tluxp.com','Big Sky - Lakeview':'bigsky@tluxp.com','Black Bear Cottage - Lakefront':'blackbearcottage@tluxp.com','Blackwood Creek Chalet':'blackwoodcreekchalet@tluxp.com','Blissful Days - Lakefront':'blissfuldays@tluxp.com','Bluebird Days At Palisades':'bluebird@tluxp.com','Boulder Place Lookout At Northstar':'boulderplace@tluxp.com',"Bradley's Bungalow":'bradleysbungalow@tluxp.com','California Sunshine - Lakeview':'californiasunshine@tluxp.com','Candlelight Lodge':'candlelightlodge@tluxp.com','Carnelian Charm - Lakefront':'carneliancharm@tluxp.com','Carnelian Haus - Lakefront':'carnelianhaus@tluxp.com',"Charlie's Den - Lakefront":'charliesden@tluxp.com','Cherry Lodge':'cherrylodge@tluxp.com','Constellation #404 Ski-In & Out At Northstar':'404constellation@tluxp.com','Constellation #407 Ski-In & Out At Northstar':'407constellation@tluxp.com','Creekview':'creekview@tluxp.com','Donner Lake Dreams - Lakefront':'donnerlakedreams@tluxp.com','Enchanted Ridge':'enchantedridge@tluxp.com','Fairest Picture - Lakeview':'fairestpicture@tluxp.com','First Chair @ Palisades (The Bronson)':'firstchair@tluxp.com','Fleur du Lac #1 - Lakefront':'fleurdulac1@tluxp.com','Forever Edgewood - Lakeview':'foreveredgewood@tluxp.com','Fresh Tracks at Northstar':'freshtracks@tluxp.com','Front and Center':'frontandcenter@tluxp.com','Gerry G. - Lakefront':'gerryg@tluxp.com','Gonowabie Lodge - Lakefront':'gonowabielodge@tluxp.com','Granite Chief Lodge At Palisades':'granitechief@tluxp.com','Heavenly View - Lakefront':'heavenlyview@tluxp.com','Hidden Ridge at Northstar':'hiddenridge@tluxp.com','Highlands Holiday':'highlands@tluxp.com','Holly Hideaway':'hollyhideaway@tluxp.com','Home Run at Northstar':'homerun@tluxp.com','Homewood Trifecta - Lakefront':'homewoodtrifecta@tluxp.com','In the Wild Woods':'inthewildwoods@tluxp.com','Incline Oasis - Lakeview':'inclineoasis@tluxp.com','Just Grand':'justgrand@tluxp.com',"King's View Lodge - Lakeview":'jessie@tluxp.com','La Dolce Vita - Lakefront':'ladolcevita@tluxp.com','Lake Escape - Lakefront':'lakeescape@tluxp.com','Lake Of The Sky - Lakeview':'lakeofthesky@tluxp.com','Lakeside Cedars':'lakesidecedars@tluxp.com','Lakeside Grove - Lakefront':'lakesidegrove@tluxp.com','Laughing Waters - Lakefront':'laughingwaters@tluxp.com',"Laura's Overlook Lodge at Northstar":'laurasoverlooklodge@tluxp.com',"Lift and Tee Retreat at Schaffer's Mill":'liftandtee@tluxp.com','Luxury River Retreat':'luxuryriverretreat@tluxp.com','Majestic Waters - Lakefront':'majesticwaters@tluxp.com','Making Memories - Lakeview':'makingmemories@tluxp.com','Manzanita House - Lakeview':'manzanitahouse@tluxp.com','Maybach Lake House - Lakefront':'maybachlakehouse@tluxp.com','McKinney Bay Retreat':'mckinneybay@tluxp.com','Mill Creek Retreat - Incline Village':'millcreekretreat@tluxp.com','Moana Mountain Shack - Lakeview':'moana@tluxp.com','Modern Marvel - Incline Village':'modernmarvel@tluxp.com','Modern Mountain at Palisades':'modernmountain@tluxp.com','Moondance At Tahoe Park':'moondance@tluxp.com','Mountain Bear Lodge At Northstar':'mountainbearlodge@tluxp.com','Mountain Retreat - Lakeview':'mountainretreat@tluxp.com','Palatial Pines - Lakefront':'palatialpines@tluxp.com','Peace of Tahoe - Lakefront':'peaceoftahoe@tluxp.com','Pier Pleasure - Lakefront':'pierpleasure@tluxp.com','Pineland Retreat':'pineland@tluxp.com',"Ramblin' Rose - Lakeview":'ramblinrose@tluxp.com','Reflections - Lakeview':'reflections@tluxp.com','Rise and Shine - Lakefront':'riseandshine@tluxp.com','Rising Sun':'risingsun@tluxp.com','Riverfront Lodge':'riverfrontlodge@tluxp.com','Rubicon Shores - Lakefront':'rubiconshores@tluxp.com','Sail Away - Lakefront':'sailaway@tluxp.com','Sandy Shores - Lakefront':'sandyshores@tluxp.com','Seek No Further - Lakefront':'seeknofurther@tluxp.com','Serendipity - Lakeview':'serendipity@tluxp.com','Shimmering Shores - Lakefront':'shimmeringshores@tluxp.com','Shoshone Chalet at Palisades':'shoshone@tluxp.com','Sierra Sunset Estate - Lakefront':'sierrasunsetestate@tluxp.com','Sierra Vista - Lakeview':'sierravista@tluxp.com','Signature Retreat on the 18th':'signatureretreat@tluxp.com','Silverfell Lodge at Northstar':'silverfelllodge@tluxp.com',"Sittin' on the Dock - Lakefront":'sittinonthedock@tluxp.com',"Skippin' Stones - Lakefront":'skippinstones@tluxp.com','Slopeside At Northstar':'slopeside@tluxp.com','Solitude':'solitude@tluxp.com','Spirit of the Mountain':'spirit@tluxp.com','Stanford Rock Retreat':'stanfordrock@tluxp.com','Starry Nights - Lakefront':'starrynights@tluxp.com','Steeple Cove - Lakefront':'steeplecove@tluxp.com','Stone Crest Estate - Lakefront':'stonecrestestate@tluxp.com','Streams and Dreams':'streamsanddreams@tluxp.com','Sugar Pine Chalet - Lakefront':'sugarpine@tluxp.com','Summer Breeze - Lakefront':'summerbreeze@tluxp.com','Summerhouse - Lakefront':'summerhouse@tluxp.com','Summit Splendor at Martis Camp':'summitsplendor@tluxp.com','Sundance':'sundance@tluxp.com','Sunny Days':'sunnydays@tluxp.com','Sunrise by Sunnyside - Lakefront':'sunrisebysunnyside@tluxp.com','Sunset Blue - Lakefront':'sunsetblue@tluxp.com','Tahoe City Serenity':'tahoecityserenity@tluxp.com','Tahoe Treehouse':'tahoetreehouse@tluxp.com',"Tahoe's Ahwahnee - Lakeview":'tahoesahwahnee@tluxp.com',"Tahoe's Tranquility - Lakeview":'tahoestranquility@tluxp.com','Tall Pines Ski Shack':'tallpines@tluxp.com','Tewesi Manor - Lakefront':'tewesi@tluxp.com','The Duck House':'theduckhouse@tluxp.com','The Frontier':'thefrontier@tluxp.com','The Lodge at Swiss Lane':'thelodgeatswisslane@tluxp.com','The View at Big Pine - Lakeview':'bigpine@tluxp.com','Treetop Lodge':'treetoplodge@tluxp.com','Twilight Ridge':'twilightridge@tluxp.com','Twin Tips At Northstar':'twintips@tluxp.com','Village Walk Skyline At Northstar':'vistaazul@tluxp.com',"Water's Edge - Lakefront":'watersedge@tluxp.com',"Wendy's Wish - Lakefront":'wendyswish@tluxp.com','Whispering Winds':'whisperingwinds@tluxp.com','Wildwood at Dollar Point - Lakeview':'wildwood@tluxp.com','Wolf Ridge':'wolfridge@tluxp.com',"Zoe's North Star at Northstar":'zoesnorthstar@tluxp.com'};
 
 var TYPE_LABELS={spring:'Spring',fall:'Fall',checkin_summer:'Check In Summer',checkin_winter:'Check In Winter',checkout_summer:'Check Out Summer',checkout_winter:'Check Out Winter',kitchen_inv:'Kitchen Inventory',linen_inv:'Linen Inventory',qc_check:'QC Check'};
 
@@ -722,13 +724,23 @@ function downloadAllPhotos(){
 
 // ── EMAILJS ───────────────────────────────────────────────────────────────────
 var EJS_SERVICE='service_6y0iagt';
-var EJS_TEMPLATE='lz85fco';
+var EJS_TEMPLATE='template_yltx3ce';
 var EJS_KEY='Tzh2b9SuxvmSJIcNj';
 emailjs.init(EJS_KEY);
 
 // ── COMPLAINTS ────────────────────────────────────────────────────────────────
 var VERIFIED_BY=['Stephanie Hoffman','Pat Hall','Trevor Simons','Tina Geilenfeldt','Kelly Dietz','Jennifer Suter','Christina Cifelli'];
 var _complaints=[];
+var _cFilter='all';
+
+function setCFilter(f){
+  _cFilter=f;
+  ['all','open','resolved','week'].forEach(function(k){
+    var el=document.getElementById('cpf-'+k);
+    if(el) el.style.outline=k===f?'3px solid var(--navy)':'none';
+  });
+  renderComplaints();
+}
 
 function initComplaintForm(){
   var sel=document.getElementById('cf-prop');
@@ -746,6 +758,7 @@ function complaintPropChange(){
   var prop=document.getElementById('cf-prop').value;
   var p=PROPERTIES.find(function(x){return x.name===prop;});
   document.getElementById('cf-mgr').value=p?p.manager:'';
+  document.getElementById('cf-email').value=PROPERTY_EMAILS[prop]||'';
 }
 
 function submitComplaint(sendEmail){
@@ -793,9 +806,15 @@ function renderComplaints(){
   document.getElementById('cp-open').textContent=open;
   document.getElementById('cp-resolved').textContent=resolved;
   document.getElementById('cp-week').textContent=week;
-  if(!_complaints.length){document.getElementById('complaintsList').innerHTML='<div class="empty">No complaints logged yet.</div>';return;}
+  var list=_complaints.filter(function(c){
+    if(_cFilter==='open') return !c.resolved;
+    if(_cFilter==='resolved') return c.resolved;
+    if(_cFilter==='week') return (Date.now()-new Date(c.submittedAt))<7*86400000;
+    return true;
+  });
+  if(!list.length){document.getElementById('complaintsList').innerHTML='<div class="empty">No complaints match this filter.</div>';return;}
   var html='';
-  _complaints.forEach(function(c,idx){
+  list.forEach(function(c,idx){
     var resolvedBadge=c.resolved?'<span class="badge b-clear" style="margin-left:8px">Resolved ✓</span>':'<span class="badge b-issue" style="margin-left:8px">Open</span>';
     var notifiedBadge=c.notified?'<span class="notified-badge" style="margin-left:6px">Owner Notified 📧</span>':'';
     var vbOpts='<option value="">— Select —</option>';
