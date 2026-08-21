@@ -650,10 +650,20 @@ function refreshUsersList() {
     snap.docs.forEach(function(d){
       var u=d.data();
       var roleColors={admin:'#7B2D8B',manager:'#063461',inspector:'#2E75B6'};
-      html+='<div style="background:white;border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px">';
-      html+='<div style="width:40px;height:40px;border-radius:50%;background:var(--light-blue);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:var(--navy)">'+esc((u.name||'?').charAt(0).toUpperCase())+'</div>';
-      html+='<div style="flex:1"><div style="font-weight:700;color:var(--navy)">'+esc(u.name||'')+'</div><div style="font-size:12px;color:var(--dark-gray)">@'+esc(u.username||'')+' &bull; <span style="font-weight:700">'+u.role+'</span>'+(u.active?'':' &bull; <span style="color:var(--red)">inactive</span>')+'</div></div>';
+      html+='<div style="background:white;border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow)">';
+      html+='<div style="display:flex;align-items:center;gap:12px">';
+      html+='<div style="width:40px;height:40px;border-radius:50%;background:var(--light-blue);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:var(--navy);flex-shrink:0">'+esc((u.name||'?').charAt(0).toUpperCase())+'</div>';
+      html+='<div style="flex:1"><div style="font-weight:700;color:var(--navy)">'+esc(u.name||'')+'</div><div style="font-size:12px;color:var(--dark-gray)">@'+esc(u.username||'')+(u.active?'':' &bull; <span style="color:var(--red)">inactive</span>')+'</div></div>';
       html+='<button onclick="toggleUser(\''+d.id+'\','+(u.active?'false':'true')+')" style="padding:6px 12px;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;background:'+(u.active?'#FDECEA':'#D6E4F0')+';color:'+(u.active?'var(--red)':'var(--navy)')+'">'+( u.active?'Deactivate':'Activate')+'</button>';
+      html+='</div>';
+      html+='<div style="margin-top:10px;display:flex;gap:6px;align-items:center">';
+      html+='<span style="font-size:11px;font-weight:700;color:var(--dark-gray);text-transform:uppercase;letter-spacing:.5px">Role:</span>';
+      ['inspector','manager','admin'].forEach(function(r){
+        var active = u.role===r;
+        var colors={inspector:'#2E75B6',manager:'#063461',admin:'#7B2D8B'};
+        html+='<button onclick="updateRole(\''+d.id+'\',\''+r+'\')" style="padding:5px 10px;border:2px solid '+(active?colors[r]:'var(--mid-gray)')+';border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;background:'+(active?colors[r]:'white')+';color:'+(active?'white':'var(--dark-gray)')+'">'+r.charAt(0).toUpperCase()+r.slice(1)+'</button>';
+      });
+      html+='</div>';
       html+='</div>';
     });
     document.getElementById('usersList').innerHTML=html||'<div style="text-align:center;padding:20px;color:var(--dark-gray)">No users yet — add one above</div>';
@@ -661,6 +671,9 @@ function refreshUsersList() {
 }
 function toggleUser(id,active) {
   db.collection('users').doc(id).update({active:active==='true'||active===true}).then(refreshUsersList);
+}
+function updateRole(id,role) {
+  db.collection('users').doc(id).update({role:role}).then(function(){ showToast('Role updated to '+role); refreshUsersList(); });
 }
 function addUser() {
   var name=(document.getElementById('newUserName').value||'').trim();
