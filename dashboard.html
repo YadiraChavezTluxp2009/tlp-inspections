@@ -231,6 +231,7 @@ tr:hover td{background:#fafbfe}
           <div><div class="card-title">📊 Seasonal Dashboard</div><div class="card-sub">Spring · Fall · Kitchen · Linen completion status per property</div></div>
           <div class="spacer"></div>
           <div class="filters">
+            <select id="sd-sort" onchange="renderSeaDash()"><option value="property">Sort: Property A–Z</option><option value="manager">Sort: Manager A–Z</option></select>
             <select id="sd-mgr" onchange="renderSeaDash()"><option value="">All Managers</option></select>
             <select id="sd-status" onchange="renderSeaDash()"><option value="">All Statuses</option><option value="Complete">Complete</option><option value="In Progress">In Progress</option><option value="All Pending">All Pending</option></select>
             <input id="sd-prop" oninput="renderSeaDash()" placeholder="🔍 Property…" style="width:170px">
@@ -253,6 +254,7 @@ tr:hover td{background:#fafbfe}
           <div><div class="card-title">🔍 QC Dashboard</div><div class="card-sub">Last QC check per property — auto-populated from QC Check form submissions</div></div>
           <div class="spacer"></div>
           <div class="filters">
+            <select id="qd-sort" onchange="renderQCDash()"><option value="property">Sort: Property A–Z</option><option value="manager">Sort: Manager A–Z</option></select>
             <select id="qd-status" onchange="renderQCDash()"><option value="">All Statuses</option><option value="Recent">Recent ✓</option><option value="Due Soon">Due Soon</option><option value="Overdue">Overdue</option><option value="Never Checked">Never Checked</option></select>
             <select id="qd-mgr" onchange="renderQCDash()"><option value="">All Managers</option></select>
             <input id="qd-prop" oninput="renderQCDash()" placeholder="🔍 Property…" style="width:170px">
@@ -542,6 +544,7 @@ function renderSeaDash(){
   var mgrF=document.getElementById('sd-mgr').value;
   var statusF=document.getElementById('sd-status').value;
   var propF=(document.getElementById('sd-prop').value||'').toLowerCase();
+  var sortF=document.getElementById('sd-sort').value;
   // Build lookup
   var byPT={};
   _insp.forEach(function(i){var k=i.property+'|'+i.formType;if(!byPT[k]||i.submittedAt>byPT[k].submittedAt)byPT[k]=i;});
@@ -549,6 +552,10 @@ function renderSeaDash(){
     if(mgrF&&p.manager!==mgrF)return false;
     if(propF&&!p.name.toLowerCase().includes(propF))return false;
     return true;
+  });
+  props=props.slice().sort(function(a,b){
+    if(sortF==='manager')return (a.manager||'').localeCompare(b.manager||'')||a.name.localeCompare(b.name);
+    return a.name.localeCompare(b.name);
   });
   var html='<table><thead><tr><th>Property</th><th>Manager</th><th>Spring</th><th>Fall</th><th>Kitchen Inv</th><th>Linen Inv</th><th>Status</th></tr></thead><tbody>';
   var shown=0;
@@ -581,6 +588,7 @@ function renderQCDash(){
   var statusF=document.getElementById('qd-status').value;
   var mgrF=document.getElementById('qd-mgr').value;
   var propF=(document.getElementById('qd-prop').value||'').toLowerCase();
+  var sortF=document.getElementById('qd-sort').value;
   var qcInsp=_insp.filter(function(i){return i.formType==='qc_check';});
   var latestQC={};
   qcInsp.forEach(function(i){if(!latestQC[i.property]||i.submittedAt>latestQC[i.property].submittedAt)latestQC[i.property]=i;});
@@ -595,6 +603,10 @@ function renderQCDash(){
     counts[status]=(counts[status]||0)+1;
     if(statusF&&status!==statusF)return;
     rows.push({p:p,last:last,days:days,status:status});
+  });
+  rows.sort(function(a,b){
+    if(sortF==='manager')return (a.p.manager||'').localeCompare(b.p.manager||'')||a.p.name.localeCompare(b.p.name);
+    return a.p.name.localeCompare(b.p.name);
   });
   document.getElementById('qd-recent').textContent=counts['Recent']||0;
   document.getElementById('qd-due').textContent=counts['Due Soon']||0;
