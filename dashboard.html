@@ -66,6 +66,27 @@ tr:hover td{background:#fafbfe}
 .b-never{background:var(--mid-gray);color:var(--dark-gray)}
 .b-issue{background:#FDECEA;color:var(--red)}
 .b-clear{background:#D6E4F0;color:var(--navy)}
+.b-ready{background:#E3F5E9;color:#1E7B45}
+.b-not-ready{background:#FDECEA;color:var(--red)}
+.b-conditional{background:#FFF3E0;color:var(--orange)}
+.b-void{background:var(--mid-gray);color:var(--dark-gray)}
+/* INSPECTION LOG — expandable issue details */
+.details-btn{display:inline-flex;align-items:center;gap:4px;background:var(--red-light);border:1.5px solid #F5B7B1;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;color:var(--red);cursor:pointer}
+.details-btn.no-issues{background:var(--gray);border-color:var(--mid-gray);color:var(--dark-gray)}
+.details-btn .chev{display:inline-block;transition:transform .15s}
+.details-btn.open .chev{transform:rotate(90deg)}
+.insp-detail-row td{background:#FAFBFD;padding:14px 20px;border-bottom:2px solid var(--mid-gray)}
+.insp-issue-item{background:white;border-left:3px solid var(--red);border-radius:6px;padding:8px 12px;margin-bottom:8px;font-size:12.5px;box-shadow:var(--shadow)}
+.insp-issue-item:last-child{margin-bottom:0}
+.insp-issue-section{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--dark-gray)}
+.insp-issue-text{font-weight:600;color:var(--text);margin-top:2px}
+.insp-issue-note{color:var(--dark-gray);font-style:italic;margin-top:4px}
+.insp-issue-charge{color:var(--red);font-weight:700;margin-top:4px;font-size:12px}
+.insp-notes-block{background:white;border-radius:6px;padding:8px 12px;margin-bottom:8px;font-size:12.5px;box-shadow:var(--shadow)}
+.insp-notes-block:last-child{margin-bottom:0}
+.insp-notes-block strong{color:var(--navy)}
+.insp-detail-heading{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--dark-gray);margin:0 0 8px}
+.insp-detail-heading:not(:first-child){margin-top:14px}
 /* FILTERS */
 .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .filters select,.filters input{border:1.5px solid var(--mid-gray);border-radius:7px;padding:6px 10px;font-size:12px;background:white;outline:none}
@@ -478,31 +499,69 @@ function renderInspLog(){
   document.getElementById('sl-week').textContent=week;
   document.getElementById('sl-props').textContent=props;
   if(!list.length){document.getElementById('inspLogTable').innerHTML='<div class="empty">No inspections found</div>';return;}
-  var html='<table><thead><tr><th>Date</th><th>Property</th><th>Inspector</th><th>Type</th><th>Overall Status</th><th>Items OK</th><th>Issues Found</th><th>N/A</th><th>Notes</th><th>Photos</th></tr></thead><tbody>';
+  var html='<table><thead><tr><th>Date</th><th>Property</th><th>Inspector</th><th>Type</th><th>Check-In Status</th><th>Overall Status</th><th>Items OK</th><th>Issues Found</th><th>N/A</th><th>Details</th><th>Photos</th></tr></thead><tbody>';
+  var checkinStatusLabels={'ready':{txt:'✅ Ready',cls:'b-ready'},'not-ready':{txt:'❌ Not Ready',cls:'b-not-ready'},'conditional':{txt:'⚠️ Conditional',cls:'b-conditional'},'VOID':{txt:'🚫 VOID',cls:'b-void'}};
   list.forEach(function(i){
+    var issueList=i.issues||[];
     var hasIssues=i.issuesFound>0;
+    var mgrNotes=(i.managerNotes||'').trim();
+    var maintNotes=(i.maintenanceNotes||'').trim();
+    var hasDetails=hasIssues||mgrNotes||maintNotes;
     var photos=i.photoUrls||[];
     var photoCount=photos.length;
     var safeId=i.id.replace(/[^a-zA-Z0-9]/g,'');
+    var checkinSt=checkinStatusLabels[i.overallStatus];
     html+='<tr>';
     html+='<td style="white-space:nowrap">'+esc(i.submittedAt?i.submittedAt.slice(0,10):'')+'</td>';
     html+='<td style="font-weight:600;min-width:160px">'+esc(i.property||'')+'</td>';
     html+='<td>'+esc(i.inspector||'')+'</td>';
     html+='<td><span class="badge b-ok">'+esc(TYPE_LABELS[i.formType]||i.formType||'')+'</span></td>';
+    html+='<td>'+(checkinSt?'<span class="badge '+checkinSt.cls+'">'+checkinSt.txt+'</span>':'<span class="no-photo">&mdash;</span>')+'</td>';
     html+='<td><span class="badge '+(hasIssues?'b-issue':'b-clear')+'">'+(hasIssues?i.issuesFound+' Issue'+(i.issuesFound!==1?'s':''):'All Clear')+'</span></td>';
     html+='<td style="text-align:center">'+( i.itemsOk||0)+'</td>';
     html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( i.issuesFound||0)+'</td>';
     html+='<td style="text-align:center">'+( i.naCount||0)+'</td>';
-    html+='<td style="max-width:220px;font-size:12px">'+esc((i.issues||[]).slice(0,2).map(function(x){return x.item;}).join('; '))+'</td>';
+    if(hasDetails){
+      html+='<td><button class="details-btn'+(hasIssues?'':' no-issues')+'" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
+    } else {
+      html+='<td><span class="no-photo">&mdash;</span></td>';
+    }
     if(photoCount>0){
       html+='<td><button class="photo-btn" onclick="openLb(\''+safeId+'\')">📷 '+photoCount+' photo'+(photoCount!==1?'s':'')+'</button></td>';
     } else {
       html+='<td><span class="no-photo">No photos</span></td>';
     }
     html+='</tr>';
+    if(hasDetails){
+      html+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="11">';
+      if(hasIssues){
+        html+='<div class="insp-detail-heading">&#128295; '+issueList.length+' Issue'+(issueList.length!==1?'s':'')+' Found</div>';
+        issueList.forEach(function(x){
+          html+='<div class="insp-issue-item"><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div>';
+          if(x.notes)html+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
+          if(x.charge>0)html+='<div class="insp-issue-charge">Charge: $'+Number(x.charge).toFixed(2)+'</div>';
+          html+='</div>';
+        });
+      }
+      if(mgrNotes){
+        html+='<div class="insp-detail-heading">&#128221; Manager Notes</div><div class="insp-notes-block">'+esc(mgrNotes).replace(/\n/g,'<br>')+'</div>';
+      }
+      if(maintNotes){
+        html+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
+      }
+      html+='</td></tr>';
+    }
   });
   html+='</tbody></table>';
   document.getElementById('inspLogTable').innerHTML=html;
+}
+function toggleInspDetail(id){
+  var row=document.getElementById('insp-detail-'+id);
+  var btn=document.getElementById('insp-btn-'+id);
+  if(!row)return;
+  var open=row.style.display==='none';
+  row.style.display=open?'table-row':'none';
+  if(btn)btn.classList.toggle('open',open);
 }
 
 // ── SEASONAL INSPECTIONS ──────────────────────────────────────────────────────
