@@ -481,7 +481,7 @@ function renderInspLog(){
   var html='<table><thead><tr><th>Date</th><th>Property</th><th>Inspector</th><th>Type</th><th>Overall Status</th><th>Items OK</th><th>Issues Found</th><th>N/A</th><th>Notes</th><th>Photos</th></tr></thead><tbody>';
   list.forEach(function(i){
     var hasIssues=i.issuesFound>0;
-    var photos=i.photos||[];
+    var photos=i.photoUrls||[];
     var photoCount=photos.length;
     var safeId=i.id.replace(/[^a-zA-Z0-9]/g,'');
     html+='<tr>';
@@ -705,7 +705,7 @@ var _lbPhotos=[];
 function openLb(inspId){
   var insp=_insp.find(function(i){return i.id.replace(/[^a-zA-Z0-9]/g,'')===inspId;});
   if(!insp)return;
-  var photos=insp.photos||[];
+  var photos=insp.photoUrls||[];
   _lbPhotos=photos;
   document.getElementById('lbProp').textContent=insp.property||'';
   document.getElementById('lbMeta').textContent=(insp.submittedAt?insp.submittedAt.slice(0,10):'')+' · '+(insp.inspector||'')+' · '+(TYPE_LABELS[insp.formType]||insp.formType||'');
