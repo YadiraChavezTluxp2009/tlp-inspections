@@ -102,6 +102,16 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .item-row.issue-row .item-main{background:var(--red-light)}
 .item-row.na-row .item-main{background:var(--gray)}
 .sticky-prog{position:sticky;top:0;z-index:50;background:white;border-bottom:1px solid var(--mid-gray);padding:10px 16px 8px;display:flex;align-items:center;gap:12px}
+.hide-done-bar{background:var(--gray);border-bottom:1px solid var(--mid-gray);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.hide-done-label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--dark-gray);cursor:pointer;-webkit-user-select:none;user-select:none}
+.hide-done-label input{width:18px;height:18px;accent-color:var(--green);cursor:pointer}
+.save-status{font-size:11px;color:var(--dark-gray);opacity:.75;white-space:nowrap}
+.save-status.err{color:var(--red);font-weight:800;opacity:1}
+.section-head{cursor:pointer}
+#checklistWrap.hide-completed .item-row.ok-row,
+#checklistWrap.hide-completed .item-row.na-row{display:none}
+#checklistWrap.hide-completed .section-block.force-show .item-row.ok-row,
+#checklistWrap.hide-completed .section-block.force-show .item-row.na-row{display:flex}
 .prog-bar{flex:1;height:8px;background:var(--mid-gray);border-radius:4px;overflow:hidden}
 .prog-fill{height:100%;background:var(--green);border-radius:4px;transition:width .3s}
 .prog-text{font-size:12px;font-weight:700;color:var(--navy);white-space:nowrap}
@@ -275,6 +285,10 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
   <div class="sticky-prog">
     <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
     <div><div class="prog-text" id="progText">0 / 0</div><div class="prog-issues" id="progIssues"></div></div>
+  </div>
+  <div class="hide-done-bar">
+    <label class="hide-done-label"><input type="checkbox" id="hideDoneToggle" onchange="toggleHideCompleted()"><span>Hide completed items</span></label>
+    <span class="save-status" id="saveStatus"></span>
   </div>
   <div class="checklist-wrap" id="checklistWrap"></div>
   <div style="padding:16px"><button class="btn-primary" onclick="showSummary()">View Summary &amp; Complete &#8594;</button></div>
@@ -1719,7 +1733,8 @@ function getSections(type, prop) {
       'Is hot tub temp set to 102\xb0F?',
       'Is there trash in the garage?',
       'Did you schedule a pickup (if applicable)?',
-      'How full is house propane tank (if applicable)?'
+      'How full is house propane tank (if applicable)?',
+      'Is the Bear Bin / bear box fully closed and secured?'
     ]},
     {title:'Interior — General', items:[
       'If complete, send pic of guest eval to Mgt / Steph',
@@ -1740,17 +1755,6 @@ function getSections(type, prop) {
       'Are there any stains or tears in upholstery? (note below)',
       'Is there any damage to the inside of the fridge / freezer?',
       'Are any pieces missing for pool table / ping pong / foosball?'
-    ]},
-    {title:'Damage Assessment (if pet on reservation)', items:[
-      'Was there a pet on the reservation? (Y/N)',
-      'Is there excess pet hair requiring extra cleaning?',
-      'Are there any scratches on doors or floors? (note below)',
-      'Are there any stains in carpets or rugs? (note below)',
-      'Are there any stains or tears in upholstery? (note below)',
-      'Is there any damage to the inside of the fridge / freezer?',
-      'Are any pieces missing for pool table / ping pong / foosball?',
-      'Are there any stress cracks from snowload on walls / ceiling / beams?',
-      'Are any doors difficult to open due to snowload on roof?'
     ]},
     {title:'Bedrooms', items:[
       'Did you check under beds and dressers for lost & found?',
@@ -1815,7 +1819,8 @@ function getSections(type, prop) {
       'Is there trash in the garage?',
       'Did you schedule a pickup (if applicable)?',
       'How full is house propane tank (if applicable)?',
-      'Does propane tank need to be shoveled / cleared?'
+      'Does propane tank need to be shoveled / cleared?',
+      'Is the Bear Bin / bear box fully closed and secured?'
     ]},
     {title:'Interior — General', items:[
       'If complete, send pic of guest eval to Mgt / Steph',
@@ -1871,10 +1876,123 @@ function getSections(type, prop) {
       'TLUXP Soap / Shampoo / Conditioner',
       'Light bulbs (assess what home uses)',
       'Heater Air Filters (read current size)'
+    ]},
+    {title:'Damage Assessment (if pet on reservation)', items:[
+      'Was there a pet on the reservation? (Y/N)',
+      'Is there excess pet hair requiring extra cleaning?',
+      'Are there any scratches on doors or floors? (note below)',
+      'Are there any stains in carpets or rugs? (note below)',
+      'Are there any stains or tears in upholstery? (note below)',
+      'Is there any damage to the inside of the fridge / freezer?',
+      'Are any pieces missing for pool table / ping pong / foosball?',
+      'Are there any stress cracks from snowload on walls / ceiling / beams?',
+      'Are any doors difficult to open due to snowload on roof?'
     ]}
   ];
 }
 
+// Snapshot of the checkout_summer template exactly as it existed before the
+// 2026-08-31 fix that removed a duplicated "Damage Assessment" section
+// (checkout_summer had erroneously included Winter-only damage items).
+// Used ONLY to migrate any draft that was started before this fix and saved
+// without a section snapshot, so its answers keep lining up with the same
+// question text instead of shifting onto the wrong item after the template
+// changed. New drafts never use this — see loadDraft().
+var LEGACY_CHECKOUT_SUMMER_SECTIONS = [
+  {title:'Exterior', items:[
+    'Bear Bin checked — pickup scheduled if full and guests arriving before next trash day',
+    'Is dinghy clean inside (if applicable)?',
+    'Are oars present? (if applicable)',
+    'Is dinghy secured and upside down on shore? — take photo (if applicable)',
+    'Remove trash / debris from yard — look for cigarettes especially by hot tub',
+    'Dog waste — walk yard and all decks and remove',
+    'Lockbox — is key there, does it open easily?',
+    'Does key tag need replacing?',
+    'Did you close patio umbrellas and tie them?',
+    'Is the BBQ cover present?',
+    'Are there 2 full propane tanks for BBQ?',
+    'Do BBQ utensils need replacement?',
+    'Is BBQ propane tank or gas line turned OFF?',
+    'Is there damage to patio furniture / cushions?',
+    'Did you put patio furniture back in place?',
+    'Does hot tub have any damage?',
+    'Does hot tub need dump & scrub?',
+    'Is hot tub temp set to 102\xb0F?',
+    'Is there trash in the garage?',
+    'Did you schedule a pickup (if applicable)?',
+    'How full is house propane tank (if applicable)?'
+  ]},
+  {title:'Interior — General', items:[
+    'If complete, send pic of guest eval to Mgt / Steph',
+    'How many HOA cards / passes? — write down pass numbers',
+    'Do passes have TLUXP lanyard (if applicable)?',
+    'How many garage openers?',
+    'Did you set heat temp to 55\xb0F, A/C to 70\xb0F?',
+    'Firewood, kindling, lighter at each wood burning fireplace',
+    'Is extra wood storage accessible for guests?',
+    'Did you check under furniture for lost & found?',
+    'Did you check ALL drawers for lost & found?'
+  ]},
+  {title:'Damage Assessment (if pet on reservation)', items:[
+    'Was there a pet on the reservation? (Y/N)',
+    'Is there excess pet hair requiring extra cleaning?',
+    'Are there any scratches on doors or floors? (note below)',
+    'Are there any stains in carpets or rugs? (note below)',
+    'Are there any stains or tears in upholstery? (note below)',
+    'Is there any damage to the inside of the fridge / freezer?',
+    'Are any pieces missing for pool table / ping pong / foosball?'
+  ]},
+  {title:'Damage Assessment (if pet on reservation)', items:[
+    'Was there a pet on the reservation? (Y/N)',
+    'Is there excess pet hair requiring extra cleaning?',
+    'Are there any scratches on doors or floors? (note below)',
+    'Are there any stains in carpets or rugs? (note below)',
+    'Are there any stains or tears in upholstery? (note below)',
+    'Is there any damage to the inside of the fridge / freezer?',
+    'Are any pieces missing for pool table / ping pong / foosball?',
+    'Are there any stress cracks from snowload on walls / ceiling / beams?',
+    'Are any doors difficult to open due to snowload on roof?'
+  ]},
+  {title:'Bedrooms', items:[
+    'Did you check under beds and dressers for lost & found?',
+    'Did you check closets and drawers for lost & found?',
+    'Are there any stains or damage to bedding or pillows?',
+    'Was power outage kit used / opened? Inventory it if so'
+  ]},
+  {title:'Shut Down / Security', items:[
+    'Did you lock ALL doors and test to ensure they\'re locked?',
+    'Did you lock ALL windows?',
+    'Did you adjust the heat stated previously? (not for B2Bs)',
+    'Did you turn ALL lights off? (not for B2Bs)',
+    'Did you set the alarm (if active)? (not for B2Bs)'
+  ]},
+  {title:'Supply Check', items:[
+    'Toilet Paper (Charmin preferred)',
+    'Paper Towels (Bounty preferred)',
+    'Kleenex (square box in cover)',
+    'Tall Kitchen garbage bags 13 gal (unscented)',
+    'Coffee Filters — confirm type, reusable present if applicable',
+    'Small Trash bags for bathrooms',
+    'Large Black contractor bags',
+    'Sponges — blue individually wrapped (no green)',
+    'Hand Soap refill (clear)',
+    'Dishwashing soap (Dawn preferred)',
+    'Dishwasher detergent',
+    'Laundry Soap — no Tide, fragrance free preferred',
+    'Dryer Sheets — fragrance free',
+    'Olive oil',
+    'Foil',
+    'Saran wrap',
+    'Ziploc Bags',
+    'Salt',
+    'Peppercorns for the grinder',
+    'Wand Lighters',
+    'Batteries: 9V, AA, AAA',
+    'TLUXP Soap / Shampoo / Conditioner',
+    'Light bulbs (assess what home uses)',
+    'Heater Air Filters (read current size)'
+  ]}
+];
 
 var state = {};
 function newState() { return {formType:null, selectedProp:null, info:{}, items:{}, draftId:Date.now(), overallStatus:null, _sections:null, maintenanceNotes:'', managerNotes:'', invNotes:'', startTime:null, endTime:null, photos:{}, isVoided:false}; }
@@ -2012,6 +2130,7 @@ function goBack() {
 }
 function resetToHome() {
   state = newState();
+  clearActiveDraft();
   document.getElementById('bottomNav').style.display = 'none';
   document.getElementById('globalProg').style.display = 'none';
   setHeader('TLP Inspections', 'Tahoe Luxury Properties', false);
@@ -2069,7 +2188,10 @@ function startChecklist() {
     inspector: inspector,
     bedrooms: parseInt(document.getElementById('fieldBedrooms').value) || (state.selectedProp && state.selectedProp.bedrooms) || 3
   };
-  state.startTime = new Date().toLocaleString();
+  // Only stamp a start time for a brand-new inspection. If this is a resumed
+  // draft, state.startTime was already restored by loadDraft() — overwriting
+  // it here would reset the tracked time-at-property on every reopen.
+  if (!state.startTime) state.startTime = new Date().toLocaleString();
   localStorage.setItem('tlp_inspector', inspector);
   buildChecklist();
   setHeader(FORM_META[state.formType].name, state.selectedProp.name, true);
@@ -2079,6 +2201,9 @@ function startChecklist() {
   if (voidBtn) voidBtn.style.display = (state.formType === 'checkin_summer' || state.formType === 'checkin_winter') ? 'flex' : 'none';
   showScreen('screenChecklist');
   updateProgress();
+  markActiveDraft(state.draftId);
+  saveDraftSilent();
+  startAutosave();
 }
 
 var ICON_CAMERA = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>';
@@ -2114,7 +2239,19 @@ function makePhotoBtn(key) {
 function buildChecklist() {
   var wrap = document.getElementById('checklistWrap');
   wrap.innerHTML = '';
-  var sections = getSections(state.formType, state.selectedProp);
+  // IMPORTANT: if this inspection already has a section list (freshly generated
+  // earlier this session, or restored from a saved draft's snapshot), reuse it
+  // as-is instead of calling getSections() again. Some templates (QC Check)
+  // randomly select their items, so re-generating on every rebuild/reopen used
+  // to silently swap in a different set of questions than the ones the answers
+  // were actually recorded against — that was the root cause of drafts showing
+  // wrong/missing completion counts after a save-and-reopen. Freezing the
+  // section list per-inspection also protects in-progress drafts from any
+  // future template edits (added/removed/reordered questions).
+  var sections = state._sections;
+  if (!sections || !sections.length) {
+    sections = getSections(state.formType, state.selectedProp);
+  }
   state._sections = sections;
   sections.forEach(function(section, si) {
     var block = document.createElement('div');
@@ -2122,6 +2259,8 @@ function buildChecklist() {
     var head = document.createElement('div');
     head.className = 'section-head';
     head.innerHTML = '<span>' + esc(section.title) + '</span><span class="section-badge" id="sec-badge-' + si + '">' + section.items.length + '</span>';
+    head.title = 'Tap to show/hide completed items in this section';
+    head.onclick = (function(blk){ return function(){ blk.classList.toggle('force-show'); }; })(block);
     block.appendChild(head);
     section.items.forEach(function(itemText, ii) {
       var key = si + '_' + ii;
@@ -2721,16 +2860,51 @@ function voidInspection() {
   setTimeout(function() { confirmFinish(); }, 800);
 }
 function saveDraftSilent() {
-  if (!state.formType) return;
-  var draftData={id:state.draftId,formType:state.formType,selectedProp:state.selectedProp,info:state.info,items:state.items,overallStatus:state.overallStatus,savedAt:Date.now(),userId:currentUser?currentUser.id:null};
-  var drafts=getDrafts();
-  drafts[state.draftId]=draftData;
-  localStorage.setItem('tlp_drafts',JSON.stringify(drafts));
-  if (db && currentUser) {
-    db.collection('drafts').doc(currentUser.id+'_'+state.draftId).set(draftData).catch(function(){});
+  if (!state.formType) return true;
+  // Persist EVERY field needed to fully restore this inspection on reopen:
+  // responses/checkboxes (items), photos, inspector notes (invNotes),
+  // manager notes (managerNotes), maintenance notes (maintenanceNotes),
+  // the frozen section/question list (_sections) so answers never get
+  // remapped to different questions, start/end timestamps, void state, etc.
+  var draftData={
+    id:state.draftId,
+    formType:state.formType,
+    selectedProp:state.selectedProp,
+    info:state.info,
+    items:state.items,
+    photos:state.photos||{},
+    invNotes:state.invNotes||'',
+    managerNotes:state.managerNotes||'',
+    maintenanceNotes:state.maintenanceNotes||'',
+    overallStatus:state.overallStatus,
+    isVoided:!!state.isVoided,
+    startTime:state.startTime||null,
+    endTime:state.endTime||null,
+    _sections:state._sections||null,
+    savedAt:Date.now(),
+    userId:currentUser?currentUser.id:null
+  };
+  try {
+    var drafts=getDrafts();
+    drafts[state.draftId]=draftData;
+    localStorage.setItem('tlp_drafts',JSON.stringify(drafts));
+  } catch (e) {
+    // e.g. localStorage quota exceeded (common with many embedded photos) —
+    // do NOT pretend this succeeded; surface it so the inspector knows to
+    // act (free space, reduce photos, or get a connection to sync via cloud).
+    console.warn('Draft save failed:', e);
+    showSaveError();
+    return false;
   }
+  if (db && currentUser) {
+    db.collection('drafts').doc(currentUser.id+'_'+state.draftId).set(draftData).catch(function(e){
+      console.warn('Cloud draft sync failed (local save still succeeded):', e);
+    });
+  }
+  markSaved();
+  return true;
 }
-function saveDraft() { saveDraftSilent(); showToast('Draft saved'); }
+function saveDraft() { var ok = saveDraftSilent(); if (ok) showToast('Draft saved'); }
 function loadCloudDrafts() {
   if (!db || !currentUser) return;
   db.collection('drafts').where('userId','==',currentUser.id).orderBy('savedAt','desc').limit(10).get().then(function(snap){
@@ -2748,11 +2922,44 @@ function loadCloudDrafts() {
 }
 function loadDraft(id) {
   var drafts=getDrafts(), d=drafts[id]; if (!d) return;
-  state.items=d.items||{}; state.info=d.info||{}; state.overallStatus=d.overallStatus; state.selectedProp=d.selectedProp;
+  // Restore every field that was persisted (see saveDraftSilent). Older
+  // drafts saved before this fix simply won't have some of these fields —
+  // the ||{}/||'' fallbacks below mean they restore as empty rather than
+  // throwing or leaving state half-populated.
+  state.items=d.items||{};
+  state.info=d.info||{};
+  state.overallStatus=d.overallStatus||null;
+  state.selectedProp=d.selectedProp||null;
+  state.photos=d.photos||{};
+  state.invNotes=d.invNotes||'';
+  state.managerNotes=d.managerNotes||'';
+  state.maintenanceNotes=d.maintenanceNotes||'';
+  state.startTime=d.startTime||null;
+  state.endTime=d.endTime||null;
+  state.isVoided=!!d.isVoided;
+  if (d._sections && d._sections.length) {
+    // Normal case: the exact question list this inspection was built with.
+    state._sections = d._sections;
+  } else if (d.formType === 'checkout_summer') {
+    // Migration path: a checkout_summer draft saved before the 2026-08-31
+    // fix has no snapshot. Fall back to the template EXACTLY as it existed
+    // when this draft was started, so its answers keep pointing at the
+    // same question text instead of shifting onto the wrong item now that
+    // the duplicate Damage Assessment section has been removed.
+    state._sections = JSON.parse(JSON.stringify(LEGACY_CHECKOUT_SUMMER_SECTIONS));
+  }
+  // Note: a pre-fix QC Check draft has no snapshot either, and — unlike
+  // checkout_summer — there is no way to recover which 12 items its random
+  // selection actually used (that was never recorded). It will regenerate a
+  // fresh (possibly different) 12-item list on this one reopen, exactly as
+  // before this fix; from the very next save onward it is frozen and
+  // correct. This is a known, disclosed limitation for QC drafts that were
+  // already in progress at the moment this fix shipped.
   if (d.selectedProp) { document.getElementById('propSearch').value=d.selectedProp.name; selectProperty(d.selectedProp); }
   if (d.info&&d.info.date) document.getElementById('fieldDate').value=d.info.date;
   if (d.info&&d.info.time) document.getElementById('fieldTime').value=d.info.time;
   if (d.info&&d.info.inspector) document.getElementById('fieldInspector').value=d.info.inspector;
+  if (d.info&&d.info.bedrooms) document.getElementById('fieldBedrooms').value=d.info.bedrooms;
 }
 function getDrafts() { try{return JSON.parse(localStorage.getItem('tlp_drafts')||'{}');}catch(e){return{};} }
 function renderDrafts() {
@@ -2762,7 +2969,11 @@ function renderDrafts() {
   section.style.display='block'; list.innerHTML='';
   keys.slice(0,5).forEach(function(id){
     var d=drafts[id], meta=FORM_META[d.formType]; if (!meta) return;
-    var sections=d.selectedProp?getSections(d.formType,d.selectedProp):[];
+    // Prefer the draft's own frozen section snapshot for the % preview so it
+    // matches what will actually be shown on reopen. Only fall back to
+    // regenerating (which can differ for QC Check's randomized item list) for
+    // legacy drafts saved before snapshots existed.
+    var sections = (d._sections && d._sections.length) ? d._sections : (d.selectedProp?getSections(d.formType,d.selectedProp):[]);
     var total=0, done=0;
     sections.forEach(function(sec,si){sec.items.forEach(function(_,ii){total++;if((d.items[si+'_'+ii]||{}).status)done++;});});
     var pct=total>0?Math.round(done/total*100):0;
@@ -2810,6 +3021,72 @@ function showToast(msg) {
   t.textContent=msg; t.classList.add('show');
   setTimeout(function(){t.classList.remove('show');},2500);
 }
+
+// ── Save confirmation / error indicator (issue #1) ──────────────────────────
+function markSaved() {
+  var el = document.getElementById('saveStatus'); if (!el) return;
+  el.classList.remove('err');
+  var t = new Date();
+  var h = t.getHours(), m = t.getMinutes();
+  var ampm = h >= 12 ? 'PM' : 'AM';
+  var h12 = h % 12; if (h12 === 0) h12 = 12;
+  var mm = (m < 10 ? '0' : '') + m;
+  el.textContent = 'Saved ' + h12 + ':' + mm + ' ' + ampm;
+}
+function showSaveError() {
+  var el = document.getElementById('saveStatus');
+  if (el) { el.classList.add('err'); el.textContent = 'Save failed — see below'; }
+  showToast('⚠️ Draft could NOT be saved (device storage may be full). Free up space or try again — your latest changes are at risk until this succeeds.');
+}
+
+// ── Track the in-progress inspection so it can be restored automatically if
+//    the page reloads unexpectedly (session expiry, mobile OS tab reload,
+//    accidental refresh) — issue #2 ─────────────────────────────────────────
+function markActiveDraft(id) {
+  try { localStorage.setItem('tlp_active_draft', String(id)); } catch (e) {}
+}
+function clearActiveDraft() {
+  try { localStorage.removeItem('tlp_active_draft'); } catch (e) {}
+}
+function resumeActiveDraftIfAny() {
+  var activeId = null;
+  try { activeId = localStorage.getItem('tlp_active_draft'); } catch (e) { return; }
+  if (!activeId) return;
+  var drafts = getDrafts(), d = drafts[activeId];
+  if (!d) { clearActiveDraft(); return; }
+  try {
+    startForm(d.formType, activeId);
+    startChecklist();
+    showToast('Resumed your in-progress inspection — nothing was lost.');
+  } catch (e) {
+    console.warn('Could not auto-resume active draft:', e);
+  }
+}
+
+// ── Periodic background autosave + protection against losing work on
+//    refresh / navigation / connectivity loss / an expiring session — issue #2
+var _autosaveTimer = null;
+function startAutosave() {
+  if (_autosaveTimer) return;
+  _autosaveTimer = setInterval(function() {
+    if (state && state.formType) saveDraftSilent();
+  }, 20000);
+}
+window.addEventListener('beforeunload', function() {
+  if (state && state.formType) saveDraftSilent();
+});
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'hidden' && state && state.formType) saveDraftSilent();
+});
+window.addEventListener('pagehide', function() {
+  if (state && state.formType) saveDraftSilent();
+});
+
+// ── "Hide completed items" toggle (issue #4) ────────────────────────────────
+function toggleHideCompleted() {
+  var on = document.getElementById('hideDoneToggle').checked;
+  document.getElementById('checklistWrap').classList.toggle('hide-completed', on);
+}
 function formatDate(d) {
   if (!d) return '';
   var p=d.split('-'); if (p.length!==3) return d;
@@ -2819,6 +3096,7 @@ window.addEventListener('load',function(){
   if (session) {
     currentUser = session;
     showApp();
+    resumeActiveDraftIfAny();
   }
   // If no session, login screen is already visible (default display)
 });
