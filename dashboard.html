@@ -702,11 +702,18 @@ function renderQCLog(){
     return true;
   });
   if(!list.length){document.getElementById('qcLogTable').innerHTML='<div class="empty">No QC inspections found</div>';return;}
-  var html='<table><thead><tr><th>Date</th><th>Property</th><th>Manager (POC)</th><th>Checked By</th><th>Items Checked</th><th>Items OK</th><th>Issues Found</th><th>N/A</th><th>Overall Status</th><th>Notes</th></tr></thead><tbody>';
+  var html='<table><thead><tr><th>Date</th><th>Property</th><th>Manager (POC)</th><th>Checked By</th><th>Items Checked</th><th>Items OK</th><th>Issues Found</th><th>N/A</th><th>Overall Status</th><th>Details</th><th>Photos</th></tr></thead><tbody>';
   list.forEach(function(i){
     var mgr=PROPERTIES.find(function(p){return p.name===i.property;});
+    var issueList=i.issues||[];
     var hasIssues=i.issuesFound>0;
+    var mgrNotes=(i.managerNotes||'').trim();
+    var maintNotes=(i.maintenanceNotes||'').trim();
+    var hasDetails=hasIssues||mgrNotes||maintNotes;
+    var photos=i.photoUrls||[];
+    var photoCount=photos.length;
     var total=(i.itemsOk||0)+(i.issuesFound||0)+(i.naCount||0);
+    var safeId='qc'+i.id.replace(/[^a-zA-Z0-9]/g,'');
     html+='<tr>';
     html+='<td style="white-space:nowrap">'+esc(i.submittedAt?i.submittedAt.slice(0,10):'')+'</td>';
     html+='<td style="font-weight:600">'+esc(i.property||'')+'</td>';
@@ -717,8 +724,36 @@ function renderQCLog(){
     html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( i.issuesFound||0)+'</td>';
     html+='<td style="text-align:center">'+( i.naCount||0)+'</td>';
     html+='<td><span class="badge '+(hasIssues?'b-issue':'b-clear')+'">'+(hasIssues?i.issuesFound+' Issue'+(i.issuesFound!==1?'s':''):'All Clear')+'</span></td>';
-    html+='<td style="max-width:220px;font-size:12px">'+esc((i.issues||[]).slice(0,3).map(function(x){return x.item;}).join('; '))+'</td>';
+    if(hasDetails){
+      html+='<td><button class="details-btn'+(hasIssues?'':' no-issues')+'" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
+    } else {
+      html+='<td><span class="no-photo">&mdash;</span></td>';
+    }
+    if(photoCount>0){
+      html+='<td><button class="photo-btn" onclick="openLb(\''+i.id.replace(/[^a-zA-Z0-9]/g,'')+'\')">📷 '+photoCount+' photo'+(photoCount!==1?'s':'')+'</button></td>';
+    } else {
+      html+='<td><span class="no-photo">No photos</span></td>';
+    }
     html+='</tr>';
+    if(hasDetails){
+      html+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="11">';
+      if(hasIssues){
+        html+='<div class="insp-detail-heading">&#128295; '+issueList.length+' Issue'+(issueList.length!==1?'s':'')+' Found</div>';
+        issueList.forEach(function(x){
+          html+='<div class="insp-issue-item"><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div>';
+          if(x.notes)html+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
+          if(x.charge>0)html+='<div class="insp-issue-charge">Charge: $'+Number(x.charge).toFixed(2)+'</div>';
+          html+='</div>';
+        });
+      }
+      if(mgrNotes){
+        html+='<div class="insp-detail-heading">&#128221; Manager Notes</div><div class="insp-notes-block">'+esc(mgrNotes).replace(/\n/g,'<br>')+'</div>';
+      }
+      if(maintNotes){
+        html+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
+      }
+      html+='</td></tr>';
+    }
   });
   html+='</tbody></table>';
   document.getElementById('qcLogTable').innerHTML=html;
