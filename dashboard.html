@@ -476,6 +476,19 @@ function renderAll(){renderInspLog();renderSeasonal();renderSeaDash();renderQCDa
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function showToast(m){var t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(function(){t.style.display='none';},2500);}
 function filterDays(insp,days){if(!days)return insp;var cut=Date.now()-days*86400000;return insp.filter(function(i){return new Date(i.submittedAt)>=cut;});}
+// Formats an ISO timestamp as "YYYY-MM-DD h:mm AM/PM" in the viewer's LOCAL time zone.
+// Note: submittedAt is stored as new Date().toISOString() (UTC). The date portion here is
+// derived from the same local Date object as the time, rather than slicing the raw UTC
+// string — that avoids the two disagreeing (e.g. an evening Pacific-time submission is
+// already past midnight UTC, so a raw UTC slice would show the following day's date).
+function fmtDateTime(iso){
+  if(!iso)return '';
+  var d=new Date(iso);
+  if(isNaN(d.getTime()))return String(iso).slice(0,10);
+  var y=d.getFullYear(), mo=String(d.getMonth()+1).padStart(2,'0'), da=String(d.getDate()).padStart(2,'0');
+  var time=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  return y+'-'+mo+'-'+da+' '+time;
+}
 function switchTab(name,btn){
   document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active');});
   document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
@@ -519,7 +532,7 @@ function renderInspLog(){
     var safeId=i.id.replace(/[^a-zA-Z0-9]/g,'');
     var checkinSt=checkinStatusLabels[i.overallStatus];
     html+='<tr>';
-    html+='<td style="white-space:nowrap">'+esc(i.submittedAt?i.submittedAt.slice(0,10):'')+'</td>';
+    html+='<td style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td>';
     html+='<td style="font-weight:600;min-width:160px">'+esc(i.property||'')+'</td>';
     html+='<td>'+esc(i.inspector||'')+'</td>';
     html+='<td><span class="badge b-ok">'+esc(TYPE_LABELS[i.formType]||i.formType||'')+'</span></td>';
@@ -589,7 +602,7 @@ function renderSeasonal(){
     var mgr=PROPERTIES.find(function(p){return p.name===i.property;});
     var hasIssues=i.issuesFound>0;
     html+='<tr>';
-    html+='<td style="white-space:nowrap">'+esc(i.submittedAt?i.submittedAt.slice(0,10):'')+'</td>';
+    html+='<td style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td>';
     html+='<td style="font-weight:600">'+esc(i.property||'')+'</td>';
     html+='<td>'+esc(mgr?mgr.manager:'')+'</td>';
     html+='<td>'+esc(i.inspector||'')+'</td>';
@@ -722,7 +735,7 @@ function renderQCLog(){
     var total=(i.itemsOk||0)+(i.issuesFound||0)+(i.naCount||0);
     var safeId='qc'+i.id.replace(/[^a-zA-Z0-9]/g,'');
     html+='<tr>';
-    html+='<td style="white-space:nowrap">'+esc(i.submittedAt?i.submittedAt.slice(0,10):'')+'</td>';
+    html+='<td style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td>';
     html+='<td style="font-weight:600">'+esc(i.property||'')+'</td>';
     html+='<td>'+esc(mgr?mgr.manager:'')+'</td>';
     html+='<td>'+esc(i.inspector||'')+'</td>';
