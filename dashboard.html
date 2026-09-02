@@ -196,7 +196,7 @@ tr:hover td{background:#fafbfe}
     <button class="logout-btn" onclick="doLogout()">Log Out</button>
   </div>
   <div class="tab-nav">
-    <button class="tab-btn active" onclick="switchTab('insplog',this)">📋 Inspection Log</button>
+    <button class="tab-btn active" onclick="switchTab('insplog',this)">📋 Check-Ins/Check-Outs Log</button>
     <button class="tab-btn" onclick="switchTab('seasonal',this)">🌿 Seasonal Inspections</button>
     <button class="tab-btn" onclick="switchTab('seadash',this)">📊 Seasonal Dashboard</button>
     <button class="tab-btn" onclick="switchTab('qcdash',this)">🔍 QC Dashboard</button>
@@ -216,10 +216,10 @@ tr:hover td{background:#fafbfe}
       </div>
       <div class="card">
         <div class="card-hdr">
-          <div><div class="card-title">Inspection Log</div><div class="card-sub">All submitted inspections — auto-populated from the app</div></div>
+          <div><div class="card-title">Check-Ins/Check-Outs Log</div><div class="card-sub">All submitted Check-In / Check-Out inspections — auto-populated from the app. QC, Kitchen, Linen, Spring, and Fall inspections have their own separate logs.</div></div>
           <div class="spacer"></div>
           <div class="filters">
-            <select id="il-type" onchange="renderInspLog()"><option value="">All Types</option><option value="checkin_summer">Check In Summer</option><option value="checkin_winter">Check In Winter</option><option value="checkout_summer">Check Out Summer</option><option value="checkout_winter">Check Out Winter</option><option value="spring">Spring</option><option value="fall">Fall</option><option value="kitchen_inv">Kitchen Inv</option><option value="linen_inv">Linen Inv</option><option value="qc_check">QC Check</option></select>
+            <select id="il-type" onchange="renderInspLog()"><option value="">All Types</option><option value="checkin_summer">Check In Summer</option><option value="checkin_winter">Check In Winter</option><option value="checkout_summer">Check Out Summer</option><option value="checkout_winter">Check Out Winter</option></select>
             <select id="il-days" onchange="renderInspLog()"><option value="0">All Time</option><option value="7">Last 7 Days</option><option value="30">Last 30 Days</option><option value="90">Last 90 Days</option></select>
             <input id="il-prop" oninput="renderInspLog()" placeholder="🔍 Property…" style="width:170px">
             <select id="il-insp" onchange="renderInspLog()"><option value="">All Inspectors</option></select>
@@ -318,6 +318,11 @@ tr:hover td{background:#fafbfe}
         <div class="stat-card red" id="cpf-open" onclick="setCFilter('open')" style="cursor:pointer"><div class="stat-num" id="cp-open">—</div><div class="stat-lbl">Open</div></div>
         <div class="stat-card" id="cpf-resolved" onclick="setCFilter('resolved')" style="cursor:pointer"><div class="stat-num" id="cp-resolved">—</div><div class="stat-lbl">Resolved</div></div>
         <div class="stat-card navy" id="cpf-week" onclick="setCFilter('week')" style="cursor:pointer"><div class="stat-num" id="cp-week">—</div><div class="stat-lbl">This Week</div></div>
+      </div>
+
+      <div class="filters" style="margin-bottom:16px">
+        <input id="cp-prop" oninput="renderComplaints()" placeholder="🔍 Search by property…" style="width:220px">
+        <select id="cp-mgr" onchange="renderComplaints()"><option value="">All Managers</option></select>
       </div>
 
       <button class="open-complaint-btn" onclick="toggleComplaintForm()">＋ Log New Complaint</button>
@@ -442,7 +447,7 @@ function showApp(){
   document.getElementById('app').style.display='flex';
   document.getElementById('userPill').textContent=(currentUser.role==='admin'?'⭐ ':'')+currentUser.name;
   // Populate manager dropdowns
-  ['sd-mgr','qd-mgr','ql-mgr'].forEach(function(id){
+  ['sd-mgr','qd-mgr','ql-mgr','cp-mgr'].forEach(function(id){
     var el=document.getElementById(id);
     MANAGERS.forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m;el.appendChild(o);});
   });
@@ -454,9 +459,9 @@ function showApp(){
 function loadData(){
   db.collection('inspections').orderBy('submittedAt','desc').limit(500).get().then(function(snap){
     _insp=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
-    // Populate inspector dropdown
+    // Populate inspector dropdown — scoped to Check-In/Check-Out inspections, matching the Check-Ins/Check-Outs Log itself
     var seen={}, opts='<option value="">All Inspectors</option>';
-    _insp.forEach(function(i){if(i.inspector&&!seen[i.inspector]){seen[i.inspector]=1;opts+='<option value="'+esc(i.inspector)+'">'+esc(i.inspector)+'</option>';}});
+    _insp.forEach(function(i){if(CHECKIN_CHECKOUT_TYPES.indexOf(i.formType)!==-1&&i.inspector&&!seen[i.inspector]){seen[i.inspector]=1;opts+='<option value="'+esc(i.inspector)+'">'+esc(i.inspector)+'</option>';}});
     document.getElementById('il-insp').innerHTML=opts;
     renderAll();
   }).catch(function(e){console.error(e);});
@@ -478,13 +483,15 @@ function switchTab(name,btn){
   btn.classList.add('active');
 }
 
-// ── INSPECTION LOG ────────────────────────────────────────────────────────────
+// ── INSPECTION LOG (Check-Ins/Check-Outs only — QC, Kitchen, Linen, Spring, and Fall each have their own separate log/tab) ──
+var CHECKIN_CHECKOUT_TYPES=['checkin_summer','checkin_winter','checkout_summer','checkout_winter'];
 function renderInspLog(){
   var type=document.getElementById('il-type').value;
   var days=parseInt(document.getElementById('il-days').value)||0;
   var prop=(document.getElementById('il-prop').value||'').toLowerCase();
   var insp=document.getElementById('il-insp').value;
   var list=filterDays(_insp,days).filter(function(i){
+    if(CHECKIN_CHECKOUT_TYPES.indexOf(i.formType)===-1)return false;
     if(type&&i.formType!==type)return false;
     if(prop&&!(i.property||'').toLowerCase().includes(prop))return false;
     if(insp&&i.inspector!==insp)return false;
@@ -907,14 +914,21 @@ function loadComplaints(){
 }
 
 function renderComplaints(){
-  var open=_complaints.filter(function(c){return !c.resolved;}).length;
-  var resolved=_complaints.filter(function(c){return c.resolved;}).length;
-  var week=_complaints.filter(function(c){return (Date.now()-new Date(c.submittedAt))<7*86400000;}).length;
-  document.getElementById('cp-total').textContent=_complaints.length;
+  var propF=(document.getElementById('cp-prop').value||'').toLowerCase();
+  var mgrF=document.getElementById('cp-mgr').value;
+  var scoped=_complaints.filter(function(c){
+    if(propF&&!(c.property||'').toLowerCase().includes(propF))return false;
+    if(mgrF&&c.manager!==mgrF)return false;
+    return true;
+  });
+  var open=scoped.filter(function(c){return !c.resolved;}).length;
+  var resolved=scoped.filter(function(c){return c.resolved;}).length;
+  var week=scoped.filter(function(c){return (Date.now()-new Date(c.submittedAt))<7*86400000;}).length;
+  document.getElementById('cp-total').textContent=scoped.length;
   document.getElementById('cp-open').textContent=open;
   document.getElementById('cp-resolved').textContent=resolved;
   document.getElementById('cp-week').textContent=week;
-  var list=_complaints.filter(function(c){
+  var list=scoped.filter(function(c){
     if(_cFilter==='open') return !c.resolved;
     if(_cFilter==='resolved') return c.resolved;
     if(_cFilter==='week') return (Date.now()-new Date(c.submittedAt))<7*86400000;
