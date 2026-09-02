@@ -87,6 +87,9 @@ tr:hover td{background:#fafbfe}
 .insp-notes-block strong{color:var(--navy)}
 .insp-detail-heading{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--dark-gray);margin:0 0 8px}
 .insp-detail-heading:not(:first-child){margin-top:14px}
+.insp-resolved-banner{background:#E3F5E9;color:#1E7B45;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;font-weight:700}
+.insp-unresolved-banner{background:var(--red-light);color:var(--red);border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;font-weight:700}
+.b-resolved{background:#E3F5E9;color:#1E7B45}
 /* FILTERS */
 .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .filters select,.filters input{border:1.5px solid var(--mid-gray);border-radius:7px;padding:6px 10px;font-size:12px;background:white;outline:none}
@@ -526,7 +529,10 @@ function renderInspLog(){
     var hasIssues=i.issuesFound>0;
     var mgrNotes=(i.managerNotes||'').trim();
     var maintNotes=(i.maintenanceNotes||'').trim();
-    var hasDetails=hasIssues||mgrNotes||maintNotes;
+    var updates=i.updates||[];
+    var isResolved=!!i.resolved;
+    var needsResolution=(i.overallStatus==='not-ready'||i.overallStatus==='conditional');
+    var hasDetails=hasIssues||mgrNotes||maintNotes||needsResolution||isResolved||updates.length>0;
     var photos=i.photoUrls||[];
     var photoCount=photos.length;
     var safeId=i.id.replace(/[^a-zA-Z0-9]/g,'');
@@ -536,7 +542,7 @@ function renderInspLog(){
     html+='<td style="font-weight:600;min-width:160px">'+esc(i.property||'')+'</td>';
     html+='<td>'+esc(i.inspector||'')+'</td>';
     html+='<td><span class="badge b-ok">'+esc(TYPE_LABELS[i.formType]||i.formType||'')+'</span></td>';
-    html+='<td>'+(checkinSt?'<span class="badge '+checkinSt.cls+'">'+checkinSt.txt+'</span>':'<span class="no-photo">&mdash;</span>')+'</td>';
+    html+='<td>'+(checkinSt?'<span class="badge '+checkinSt.cls+'">'+checkinSt.txt+'</span>'+(isResolved?' <span class="badge b-resolved" style="margin-left:4px">&#10003; Resolved</span>':''):'<span class="no-photo">&mdash;</span>')+'</td>';
     html+='<td><span class="badge '+(hasIssues?'b-issue':'b-clear')+'">'+(hasIssues?i.issuesFound+' Issue'+(i.issuesFound!==1?'s':''):'All Clear')+'</span></td>';
     html+='<td style="text-align:center">'+( i.itemsOk||0)+'</td>';
     html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( i.issuesFound||0)+'</td>';
@@ -569,12 +575,27 @@ function renderInspLog(){
       if(maintNotes){
         html+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
       }
+      if(needsResolution||isResolved||updates.length){
+        html+='<div class="insp-detail-heading">&#128295; Check-In Status</div>';
+        if(isResolved){
+          html+='<div class="insp-resolved-banner">&#9989; Marked Resolved</div>';
+        } else {
+          html+='<div class="insp-unresolved-banner">'+(i.overallStatus==='not-ready'?'&#10060; Not Ready':'&#9888;&#65039; Conditional')+' &mdash; not yet marked resolved</div>';
+        }
+        var updHtml='';
+        updates.forEach(function(u){updHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
+        html+='<div class="updates-log">'+(updHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
+        html+='<div class="add-update-row"><input type="text" id="insp-note-'+safeId+'" placeholder="Add an update&hellip; (e.g. all items addressed)"><button onclick="addInspUpdate(\''+i.id+'\',\''+safeId+'\')">+ Add</button></div>';
+        html+='<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer"><input type="checkbox" class="res-check" '+(isResolved?'checked':'')+' onchange="toggleInspResolved(\''+i.id+'\',this.checked)"> Mark Resolved</label>';
+      }
       html+='</td></tr>';
     }
   });
   html+='</tbody></table>';
   document.getElementById('inspLogTable').innerHTML=html;
+  reopenPreservedDetails();
 }
+var _openDetailIds={}; // remembers which expandable Details rows (Inspection/QC log) are open, so they stay open across a re-render (e.g. after resolving/adding a note)
 function toggleInspDetail(id){
   var row=document.getElementById('insp-detail-'+id);
   var btn=document.getElementById('insp-btn-'+id);
@@ -582,6 +603,15 @@ function toggleInspDetail(id){
   var open=row.style.display==='none';
   row.style.display=open?'table-row':'none';
   if(btn)btn.classList.toggle('open',open);
+  if(open) _openDetailIds[id]=true; else delete _openDetailIds[id];
+}
+function reopenPreservedDetails(){
+  Object.keys(_openDetailIds).forEach(function(id){
+    var row=document.getElementById('insp-detail-'+id);
+    var btn=document.getElementById('insp-btn-'+id);
+    if(row){ row.style.display='table-row'; if(btn)btn.classList.add('open'); }
+    else { delete _openDetailIds[id]; }
+  });
 }
 
 // ── SEASONAL INSPECTIONS ──────────────────────────────────────────────────────
@@ -777,6 +807,7 @@ function renderQCLog(){
   });
   html+='</tbody></table>';
   document.getElementById('qcLogTable').innerHTML=html;
+  reopenPreservedDetails();
 }
 
 // ── TRAININGS ─────────────────────────────────────────────────────────────────
@@ -995,6 +1026,34 @@ function addUpdate(docId,idx){
 
 function toggleResolved(docId,checked,idx){
   db.collection('complaints').doc(docId).update({resolved:checked}).then(function(){showToast(checked?'Marked resolved ✓':'Reopened');loadComplaints();});
+}
+
+// ── CHECK-IN/CHECK-OUT RESOLUTION (Not Ready / Conditional → Resolved) ─────────
+// Mirrors the Complaints resolved/updates pattern above, but writes onto the
+// inspection doc itself rather than a separate collection. The original
+// overallStatus (what the inspector found) is never overwritten — this only adds
+// a resolved flag + a timestamped note log, so the original record stays intact.
+function addInspUpdate(docId,safeId){
+  var input=document.getElementById('insp-note-'+safeId);
+  var text=(input.value||'').trim();
+  if(!text)return;
+  var now=new Date();
+  var entry={text:text,by:currentUser.name,date:now.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
+  db.collection('inspections').doc(docId).update({updates:firebase.firestore.FieldValue.arrayUnion(entry)}).then(function(){
+    var insp=_insp.find(function(x){return x.id===docId;});
+    if(insp){ if(!insp.updates)insp.updates=[]; insp.updates.push(entry); }
+    showToast('Update added');
+    renderInspLog();
+  }).catch(function(){showToast('Error adding update');});
+}
+
+function toggleInspResolved(docId,checked){
+  db.collection('inspections').doc(docId).update({resolved:checked}).then(function(){
+    var insp=_insp.find(function(x){return x.id===docId;});
+    if(insp) insp.resolved=checked;
+    showToast(checked?'Marked resolved ✓':'Reopened');
+    renderInspLog();
+  }).catch(function(){showToast('Error updating status');});
 }
 
 function saveVerified(docId,val){
