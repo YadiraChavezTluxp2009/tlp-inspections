@@ -397,8 +397,9 @@ try {
     firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.firestore();
     storage = firebase.storage();
+    console.log('[PHOTO-DEBUG] Firebase Storage initialized', { bucket: FIREBASE_CONFIG.storageBucket });
   }
-} catch(e) { console.warn('Firebase not configured:', e); }
+} catch(e) { console.warn('[PHOTO-DEBUG] Firebase not configured:', e); }
 
 // ── Session / Auth ──
 var currentUser = null;
@@ -448,38 +449,89 @@ function doLogout() {
 }
 
 // ── Firebase: Photo upload ──
+// Each collected photo keeps the positional key (sectionIndex_itemIndex) it
+// was captured under, whether it came from a general checklist item
+// (state.items[key].photos[]) or a Kitchen/Linen inventory row
+// (state.photos[key]). That key is what lets an uploaded photo be traced
+// back to the exact section/question it belongs to (see saveInspectionToFirebase).
 function collectAllPhotos() {
   var photos = [];
   Object.keys(state.photos || {}).forEach(function(k) {
-    if (state.photos[k]) photos.push(state.photos[k]);
+    if (state.photos[k]) photos.push({ key: k, dataUrl: state.photos[k] });
   });
   Object.keys(state.items || {}).forEach(function(k) {
     var item = state.items[k];
     if (item && item.photos) {
-      item.photos.forEach(function(dataUrl) { if (dataUrl) photos.push(dataUrl); });
+      item.photos.forEach(function(dataUrl) { if (dataUrl) photos.push({ key: k, dataUrl: dataUrl }); });
     }
   });
   return photos;
 }
+// Uploads every collected photo to Firebase Storage. IMPORTANT: each photo is
+// uploaded and error-handled INDEPENDENTLY — one failed photo (bad network,
+// storage permission error, etc.) no longer wipes out the URLs for photos
+// that uploaded successfully (previously this used a single Promise.all with
+// one shared .catch, so a single failure silently discarded the whole batch
+// and the inspection would save with photoUrls:[] and no indication anything
+// had gone wrong). Returns {photoUrls, itemPhotos, failCount, total}.
 function uploadPhotosToStorage(inspectionId) {
-  if (!storage) return Promise.resolve([]);
   var photos = collectAllPhotos();
-  if (!photos.length) return Promise.resolve([]);
-  var uploads = photos.map(function(dataUrl, i) {
+  var out = { photoUrls: [], itemPhotos: {}, failCount: 0, total: photos.length };
+  if (!photos.length) return Promise.resolve(out);
+  if (!storage) {
+    console.warn('[PHOTO-DEBUG] Firebase Storage is not initialized — cannot upload photos.', { inspectionId: inspectionId, count: photos.length });
+    out.failCount = photos.length;
+    return Promise.resolve(out);
+  }
+  var uploads = photos.map(function(p, i) {
+    var dataUrl = p.dataUrl;
     var isJpg = dataUrl.indexOf('image/jpeg') >= 0 || dataUrl.indexOf('image/jpg') >= 0;
     var ext = isJpg ? 'jpg' : 'png';
-    var ref = storage.ref('inspections/' + inspectionId + '/photo_' + i + '.' + ext);
-    return ref.putString(dataUrl, 'data_url').then(function() { return ref.getDownloadURL(); });
+    var fileName = 'photo_' + i + '.' + ext;
+    var path = 'inspections/' + inspectionId + '/' + fileName;
+    var ref = storage.ref(path);
+    console.log('[PHOTO-DEBUG] Uploading photo', { itemKey: p.key, fileName: fileName, path: path });
+    return ref.putString(dataUrl, 'data_url').then(function() {
+      console.log('[PHOTO-DEBUG] Upload succeeded, requesting download URL', { path: path });
+      return ref.getDownloadURL();
+    }).then(function(url) {
+      console.log('[PHOTO-DEBUG] Download URL received', { path: path, url: url });
+      return { ok: true, key: p.key, url: url };
+    }).catch(function(e) {
+      console.warn('[PHOTO-DEBUG] Photo upload FAILED', { itemKey: p.key, path: path, code: e && e.code, message: e && e.message ? e.message : e });
+      return { ok: false, key: p.key, error: (e && e.code) || (e && e.message) || String(e) };
+    });
   });
-  return Promise.all(uploads).catch(function(e) { console.warn('Photo upload error:', e); return []; });
+  return Promise.all(uploads).then(function(results) {
+    results.forEach(function(r) {
+      if (r.ok) {
+        out.photoUrls.push(r.url);
+        if (!out.itemPhotos[r.key]) out.itemPhotos[r.key] = [];
+        out.itemPhotos[r.key].push(r.url);
+      } else {
+        out.failCount++;
+      }
+    });
+    console.log('[PHOTO-DEBUG] Upload batch complete', { inspectionId: inspectionId, succeeded: out.photoUrls.length, failed: out.failCount, total: out.total });
+    return out;
+  });
 }
 
 // ── Firebase: Save inspection ──
-function saveInspectionToFirebase(photoUrls, inspectionId) {
+// `uploadResult` is the {photoUrls, itemPhotos, failCount, total} object
+// returned by uploadPhotosToStorage(). itemPhotos (keyed the same way as
+// state.items, e.g. "2_5") lets each issue carry the specific photo(s) taken
+// for that exact question, in addition to the flat photoUrls/photoCount
+// fields kept for backward compatibility with the Dashboard's existing
+// whole-inspection photo count/gallery.
+function saveInspectionToFirebase(uploadResult, inspectionId) {
   if (!db || !state.formType) return;
+  uploadResult = uploadResult || {};
+  var photoUrls = uploadResult.photoUrls || [];
+  var itemPhotos = uploadResult.itemPhotos || {};
   var sections = state._sections || [];
   var issueList = [];
-  sections.forEach(function(sec,si){ sec.items.forEach(function(txt,ii){ var it=state.items[si+'_'+ii]||{}; if(it.status==='issue') issueList.push({section:sec.title,text:txt,notes:it.notes||'',charge:it.charge||0}); }); });
+  sections.forEach(function(sec,si){ sec.items.forEach(function(txt,ii){ var key=si+'_'+ii; var it=state.items[key]||{}; if(it.status==='issue') issueList.push({section:sec.title,text:txt,notes:it.notes||'',charge:it.charge||0,photos:itemPhotos[key]||[]}); }); });
   var ok=0,issues=0,na=0,charge=0;
   sections.forEach(function(sec,si){ sec.items.forEach(function(_,ii){ var it=state.items[si+'_'+ii]||{}; if(it.status==='ok')ok++; else if(it.status==='issue'){issues++;charge+=it.charge||0;} else if(it.status==='na')na++; }); });
   var info=state.info;
@@ -489,14 +541,16 @@ function saveInspectionToFirebase(photoUrls, inspectionId) {
     date:info.date||'', startTime:state.startTime||'', endTime:state.endTime||'',
     overallStatus:state.overallStatus||'', itemsOk:ok, issuesFound:issues,
     naCount:na, totalCharge:charge, issues:issueList,
-    photoUrls:photoUrls||[], photoCount:(photoUrls||[]).length,
+    photoUrls:photoUrls, photoCount:photoUrls.length,
+    itemPhotos:itemPhotos, photoUploadFailCount:uploadResult.failCount||0,
     managerNotes:state.managerNotes||'', maintenanceNotes:state.maintenanceNotes||'',
     submittedAt:new Date().toISOString()
   };
+  console.log('[PHOTO-DEBUG] Saving inspection record', { inspectionId: inspectionId, photoCount: docData.photoCount, photoUploadFailCount: docData.photoUploadFailCount, itemPhotoKeys: Object.keys(itemPhotos) });
   if (inspectionId) {
-    db.collection('inspections').doc(inspectionId).set(docData).catch(function(e){console.warn('Firebase save error',e);});
+    db.collection('inspections').doc(inspectionId).set(docData).catch(function(e){console.warn('[PHOTO-DEBUG] Firebase save error',e);});
   } else {
-    db.collection('inspections').add(docData).catch(function(e){console.warn('Firebase save error',e);});
+    db.collection('inspections').add(docData).catch(function(e){console.warn('[PHOTO-DEBUG] Firebase save error',e);});
   }
 }
 
@@ -3035,14 +3089,27 @@ function confirmFinish() {
   var inspectionId = 'insp_' + draftId;
   var photoCount = collectAllPhotos().length;
   showToast(photoCount > 0 ? 'Uploading ' + photoCount + ' photo' + (photoCount!==1?'s':'') + '...' : 'Saving inspection...');
-  uploadPhotosToStorage(inspectionId).then(function(photoUrls) {
+  uploadPhotosToStorage(inspectionId).then(function(uploadResult) {
     var drafts = getDrafts();
     delete drafts[draftId];
     localStorage.setItem('tlp_drafts', JSON.stringify(drafts));
     if (db && currentUser) { db.collection('drafts').doc(currentUser.id+'_'+draftId).delete().catch(function(){}); }
-    saveInspectionToFirebase(photoUrls, inspectionId);
-    showToast('Inspection submitted!');
+    saveInspectionToFirebase(uploadResult, inspectionId);
+    // Requirement: never let the inspection appear to have saved successfully
+    // WITH its photos if some (or all) of those photos actually failed to
+    // upload. The inspection data itself still saves either way (so the
+    // rest of the report is never lost), but the toast makes the photo
+    // problem explicit instead of a blanket "Inspection submitted!".
+    if (uploadResult.failCount > 0) {
+      var okCount = uploadResult.total - uploadResult.failCount;
+      showToast('Inspection submitted, but ' + uploadResult.failCount + ' of ' + uploadResult.total + ' photo' + (uploadResult.total!==1?'s':'') + ' failed to upload' + (okCount>0?' ('+okCount+' saved OK)':'') + '. Please check your connection and try re-adding the missing photo' + (uploadResult.failCount!==1?'s':'') + '.', 6000);
+    } else {
+      showToast('Inspection submitted!');
+    }
     resetToHome();
+  }).catch(function(e) {
+    console.warn('[PHOTO-DEBUG] Unexpected error finishing inspection', e);
+    showToast('Something went wrong saving this inspection. Please try again.', 6000);
   });
 }
 function saveAndHome() { saveDraftSilent(); showToast('Draft saved'); resetToHome(); }
@@ -3054,10 +3121,11 @@ function openModal(title, src) {
 function closeModal() {
   document.getElementById('modalOverlay').classList.remove('open');
 }
-function showToast(msg) {
+function showToast(msg, ms) {
   var t=document.getElementById('toast');
   t.textContent=msg; t.classList.add('show');
-  setTimeout(function(){t.classList.remove('show');},2500);
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(function(){t.classList.remove('show');}, ms||2500);
 }
 
 // ── Save confirmation / error indicator (issue #1) ──────────────────────────
