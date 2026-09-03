@@ -82,6 +82,9 @@ tr:hover td{background:#fafbfe}
 .insp-issue-text{font-weight:600;color:var(--text);margin-top:2px}
 .insp-issue-note{color:var(--dark-gray);font-style:italic;margin-top:4px}
 .insp-issue-charge{color:var(--red);font-weight:700;margin-top:4px;font-size:12px}
+.insp-issue-photos{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.insp-issue-thumb{width:52px;height:52px;object-fit:cover;border-radius:6px;border:1.5px solid var(--mid-gray);cursor:pointer}
+.insp-issue-thumb.photo-broken{display:none}
 .insp-notes-block{background:white;border-radius:6px;padding:8px 12px;margin-bottom:8px;font-size:12.5px;box-shadow:var(--shadow)}
 .insp-notes-block:last-child{margin-bottom:0}
 .insp-notes-block strong{color:var(--navy)}
@@ -164,6 +167,9 @@ tr:hover td{background:#fafbfe}
 .lb-img-wrap img{width:100%;height:100%;object-fit:cover;display:block}
 .lb-img-dl{position:absolute;bottom:7px;right:7px;background:rgba(0,0,0,.65);color:white;border:none;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;display:none;align-items:center;gap:4px}
 .lb-img-wrap:hover .lb-img-dl{display:flex}
+.lb-img-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dark-gray);font-size:12px;font-weight:600}
+.lb-img-error{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:10px;color:var(--red);font-size:12px;font-weight:700;background:#FFF5F5}
+.lb-img-error span{display:block;color:var(--dark-gray);font-weight:400;font-size:10.5px;margin-top:4px;line-height:1.3}
 .lb-footer{padding:12px 18px;border-top:1px solid var(--mid-gray);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .lb-count{font-size:12px;color:var(--dark-gray)}
 .lb-dl-all{background:linear-gradient(135deg,var(--navy),var(--blue));color:white;border:none;border-radius:9px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer}
@@ -462,12 +468,20 @@ function showApp(){
 function loadData(){
   db.collection('inspections').orderBy('submittedAt','desc').limit(500).get().then(function(snap){
     _insp=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    // [PHOTO-DEBUG] Summarize exactly what photo data came back from Firestore
+    // for the most recent inspections, so a "photos missing on Dashboard"
+    // report can be diagnosed from the console without guessing.
+    var withPhotos=_insp.filter(function(i){return i.photoUrls&&(Array.isArray(i.photoUrls)?i.photoUrls.length:true);}).length;
+    console.log('[PHOTO-DEBUG] Dashboard loaded inspections', {total:_insp.length, withPhotoUrlsField:withPhotos});
+    _insp.slice(0,5).forEach(function(i){
+      console.log('[PHOTO-DEBUG] Inspection photo data', {id:i.id, property:i.property, submittedAt:i.submittedAt, photoUrls:i.photoUrls, photoCount:i.photoCount, photoUploadFailCount:i.photoUploadFailCount, hasItemPhotos:!!i.itemPhotos});
+    });
     // Populate inspector dropdown — scoped to Check-In/Check-Out inspections, matching the Check-Ins/Check-Outs Log itself
     var seen={}, opts='<option value="">All Inspectors</option>';
     _insp.forEach(function(i){if(CHECKIN_CHECKOUT_TYPES.indexOf(i.formType)!==-1&&i.inspector&&!seen[i.inspector]){seen[i.inspector]=1;opts+='<option value="'+esc(i.inspector)+'">'+esc(i.inspector)+'</option>';}});
     document.getElementById('il-insp').innerHTML=opts;
     renderAll();
-  }).catch(function(e){console.error(e);});
+  }).catch(function(e){console.error('[PHOTO-DEBUG] Failed to load inspections from Firestore',e);});
   db.collection('trainings').get().then(function(snap){
     snap.docs.forEach(function(d){_trainings[d.id]=d.data();});
     renderTraining();
@@ -477,6 +491,28 @@ function renderAll(){renderInspLog();renderSeasonal();renderSeaDash();renderQCDa
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+// Normalizes an inspection's stored photo data into a plain array of usable
+// URLs, tolerating every shape old or new records might have: a modern
+// array of Storage URLs, a single legacy URL saved as a bare string, or a
+// missing/undefined field. Also drops entries that can never load (empty
+// strings, non-strings, and stray blob: URLs — those only ever resolve
+// within the browser tab that created them, so a blob: URL saved into
+// Firestore by mistake is permanently dead by the time the Dashboard reads
+// it back). Never throws, never mutates the source record.
+function normalizePhotoUrls(raw, ctx){
+  var list;
+  if(!raw) list=[];
+  else if(typeof raw==='string') list=[raw];
+  else if(Array.isArray(raw)) list=raw;
+  else { console.warn('[PHOTO-DEBUG] Unexpected photoUrls shape, ignoring',{ctx:ctx,raw:raw}); list=[]; }
+  var out=list.filter(function(u){
+    if(typeof u!=='string'||!u.trim()) return false;
+    if(u.indexOf('blob:')===0){ console.warn('[PHOTO-DEBUG] Dropping dead blob: URL from photo list',{ctx:ctx,url:u}); return false; }
+    return true;
+  });
+  if(out.length!==list.length) console.warn('[PHOTO-DEBUG] Filtered invalid photo URL(s)',{ctx:ctx,kept:out.length,original:list.length});
+  return out;
+}
 function showToast(m){var t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(function(){t.style.display='none';},2500);}
 function filterDays(insp,days){if(!days)return insp;var cut=Date.now()-days*86400000;return insp.filter(function(i){return new Date(i.submittedAt)>=cut;});}
 // Formats an ISO timestamp as "YYYY-MM-DD h:mm AM/PM" in the viewer's LOCAL time zone.
@@ -533,8 +569,9 @@ function renderInspLog(){
     var isResolved=!!i.resolved;
     var needsResolution=(i.overallStatus==='not-ready'||i.overallStatus==='conditional');
     var hasDetails=hasIssues||mgrNotes||maintNotes||needsResolution||isResolved||updates.length>0;
-    var photos=i.photoUrls||[];
+    var photos=normalizePhotoUrls(i.photoUrls,'inspLog:'+i.id);
     var photoCount=photos.length;
+    var photoFailCount=i.photoUploadFailCount||0;
     var safeId=i.id.replace(/[^a-zA-Z0-9]/g,'');
     var checkinSt=checkinStatusLabels[i.overallStatus];
     html+='<tr>';
@@ -552,8 +589,8 @@ function renderInspLog(){
     } else {
       html+='<td><span class="no-photo">&mdash;</span></td>';
     }
-    if(photoCount>0){
-      html+='<td><button class="photo-btn" onclick="openLb(\''+safeId+'\')">📷 '+photoCount+' photo'+(photoCount!==1?'s':'')+'</button></td>';
+    if(photoCount>0||photoFailCount>0){
+      html+='<td>'+(photoCount>0?'<button class="photo-btn" onclick="openLb(\''+safeId+'\')">📷 '+photoCount+' photo'+(photoCount!==1?'s':'')+'</button>':'<span class="no-photo">No photos</span>')+(photoFailCount>0?' <span class="badge b-not-ready" title="These photos were taken during the inspection but failed to upload — ask the inspector to re-add them.">&#9888; '+photoFailCount+' failed</span>':'')+'</td>';
     } else {
       html+='<td><span class="no-photo">No photos</span></td>';
     }
@@ -563,9 +600,15 @@ function renderInspLog(){
       if(hasIssues){
         html+='<div class="insp-detail-heading">&#128295; '+issueList.length+' Issue'+(issueList.length!==1?'s':'')+' Found</div>';
         issueList.forEach(function(x){
+          var xPhotos=normalizePhotoUrls(x.photos,'inspLog:'+i.id+':issue');
           html+='<div class="insp-issue-item"><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div>';
           if(x.notes)html+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
           if(x.charge>0)html+='<div class="insp-issue-charge">Charge: $'+Number(x.charge).toFixed(2)+'</div>';
+          if(xPhotos.length){
+            html+='<div class="insp-issue-photos">';
+            xPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
+            html+='</div>';
+          }
           html+='</div>';
         });
       }
@@ -760,8 +803,9 @@ function renderQCLog(){
     var mgrNotes=(i.managerNotes||'').trim();
     var maintNotes=(i.maintenanceNotes||'').trim();
     var hasDetails=hasIssues||mgrNotes||maintNotes;
-    var photos=i.photoUrls||[];
+    var photos=normalizePhotoUrls(i.photoUrls,'qcLog:'+i.id);
     var photoCount=photos.length;
+    var photoFailCount=i.photoUploadFailCount||0;
     var total=(i.itemsOk||0)+(i.issuesFound||0)+(i.naCount||0);
     var safeId='qc'+i.id.replace(/[^a-zA-Z0-9]/g,'');
     html+='<tr>';
@@ -779,8 +823,8 @@ function renderQCLog(){
     } else {
       html+='<td><span class="no-photo">&mdash;</span></td>';
     }
-    if(photoCount>0){
-      html+='<td><button class="photo-btn" onclick="openLb(\''+i.id.replace(/[^a-zA-Z0-9]/g,'')+'\')">📷 '+photoCount+' photo'+(photoCount!==1?'s':'')+'</button></td>';
+    if(photoCount>0||photoFailCount>0){
+      html+='<td>'+(photoCount>0?'<button class="photo-btn" onclick="openLb(\''+i.id.replace(/[^a-zA-Z0-9]/g,'')+'\')">📷 '+photoCount+' photo'+(photoCount!==1?'s':'')+'</button>':'<span class="no-photo">No photos</span>')+(photoFailCount>0?' <span class="badge b-not-ready" title="These photos were taken during the inspection but failed to upload — ask the inspector to re-add them.">&#9888; '+photoFailCount+' failed</span>':'')+'</td>';
     } else {
       html+='<td><span class="no-photo">No photos</span></td>';
     }
@@ -790,9 +834,15 @@ function renderQCLog(){
       if(hasIssues){
         html+='<div class="insp-detail-heading">&#128295; '+issueList.length+' Issue'+(issueList.length!==1?'s':'')+' Found</div>';
         issueList.forEach(function(x){
+          var xPhotos=normalizePhotoUrls(x.photos,'qcLog:'+i.id+':issue');
           html+='<div class="insp-issue-item"><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div>';
           if(x.notes)html+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
           if(x.charge>0)html+='<div class="insp-issue-charge">Charge: $'+Number(x.charge).toFixed(2)+'</div>';
+          if(xPhotos.length){
+            html+='<div class="insp-issue-photos">';
+            xPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
+            html+='</div>';
+          }
           html+='</div>';
         });
       }
@@ -850,17 +900,37 @@ var _lbPhotos=[];
 function openLb(inspId){
   var insp=_insp.find(function(i){return i.id.replace(/[^a-zA-Z0-9]/g,'')===inspId;});
   if(!insp)return;
-  var photos=insp.photoUrls||[];
+  var photos=normalizePhotoUrls(insp.photoUrls,'lightbox:'+insp.id);
+  console.log('[PHOTO-DEBUG] Dashboard opening photo lightbox',{inspectionId:insp.id,property:insp.property,rawPhotoUrls:insp.photoUrls,normalizedCount:photos.length,photoUploadFailCount:insp.photoUploadFailCount||0});
   _lbPhotos=photos;
   document.getElementById('lbProp').textContent=insp.property||'';
   document.getElementById('lbMeta').textContent=(insp.submittedAt?insp.submittedAt.slice(0,10):'')+' · '+(insp.inspector||'')+' · '+(TYPE_LABELS[insp.formType]||insp.formType||'');
   document.getElementById('lbCount').textContent=photos.length+' photo'+(photos.length!==1?'s':'');
   var grid=document.getElementById('lbGrid');
-  if(!photos.length){grid.innerHTML='<div class="empty">No photos attached to this inspection.</div>';document.getElementById('lbOverlay').classList.add('open');return;}
+  if(!photos.length){
+    var failMsg=(insp.photoUploadFailCount>0)?('<div style="margin-top:6px;font-size:12px">'+insp.photoUploadFailCount+' photo'+(insp.photoUploadFailCount!==1?'s were':' was')+' taken during this inspection but failed to upload, so there is nothing to show. Ask the inspector to re-add '+(insp.photoUploadFailCount!==1?'them':'it')+'.</div>'):'';
+    grid.innerHTML='<div class="empty">No photos attached to this inspection.'+failMsg+'</div>';
+    document.getElementById('lbOverlay').classList.add('open');
+    return;
+  }
+  // Each photo starts in a "Loading…" state and swaps to either the image
+  // (onload) or a clear "Photo unavailable" message (onerror) — the
+  // Dashboard should never silently show a blank/broken tile.
   var html='';
   photos.forEach(function(url,idx){
-    html+='<div class="lb-img-wrap">';
-    html+='<img src="'+esc(url)+'" alt="Photo '+(idx+1)+'" loading="lazy" onerror="this.style.display=\'none\'">';
+    var uid='lbimg'+idx+'_'+Math.random().toString(36).slice(2,8);
+    html+='<div class="lb-img-wrap" id="wrap-'+uid+'">';
+    html+='<div class="lb-img-loading" id="load-'+uid+'">Loading…</div>';
+    html+='<div class="lb-img-error" id="err-'+uid+'" style="display:none">&#9888; Photo unavailable<br><span>This image could not be loaded. It may have been moved, deleted, or the link expired.</span></div>';
+    // NOTE: the <img> is intentionally NOT display:none/visibility:hidden up
+    // front — a hidden element has no layout box, so with loading="lazy" the
+    // browser's viewport-intersection check never triggers and the image is
+    // never actually fetched (onload/onerror would then never fire, and a
+    // truly broken photo would sit as "Loading…" forever). It's fine to
+    // leave visible underneath the loading overlay: the overlay is an
+    // absolutely-positioned sibling that paints on top until the load
+    // settles, at which point we hide whichever of {overlay, image} lost.
+    html+='<img src="'+esc(url)+'" alt="Photo '+(idx+1)+'" loading="lazy" onload="document.getElementById(\'load-'+uid+'\').style.display=\'none\';" onerror="document.getElementById(\'load-'+uid+'\').style.display=\'none\';document.getElementById(\'err-'+uid+'\').style.display=\'\';this.style.display=\'none\';console.warn(\'[PHOTO-DEBUG] Dashboard image failed to load (network/CORS/permission/expired/deleted)\',{inspectionId:\''+insp.id+'\',url:\''+esc(url)+'\'});">';
     html+='<button class="lb-img-dl" onclick="dlPhoto(\''+esc(url)+'\','+(idx+1)+')">⬇ Download</button>';
     html+='</div>';
   });
