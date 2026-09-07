@@ -96,6 +96,12 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .photo-add-ic{font-size:19px;line-height:1}
 .photo-add-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.2px;margin-top:3px;line-height:1.15;color:var(--dark-gray)}
 .photo-file{display:none}
+.sc-photo-thumb-wrap{position:relative;width:64px;height:64px;flex-shrink:0}
+.sc-photo-thumb-wrap img{width:64px;height:64px;border-radius:8px;object-fit:cover;cursor:pointer;border:2px solid var(--mid-gray);display:block}
+.sc-photo-del{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--red,#CC0000);color:white;border:2px solid white;font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.sc-manager-card{background:var(--gray);border-radius:10px;padding:12px 14px;font-size:14px}
+.sc-manager-name{font-weight:700;color:var(--navy)}
+.sc-manager-email{font-size:12px;color:var(--dark-gray);margin-top:2px}
 .inv-photo-btns{display:flex;gap:6px;flex-shrink:0;margin-left:auto}
 .charge-row{display:flex;align-items:center;gap:8px;margin-top:10px}
 .charge-row label{font-size:12px;font-weight:700;color:var(--dark-gray);white-space:nowrap}
@@ -106,6 +112,14 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .item-row.na-row .item-main{background:var(--gray)}
 .sticky-prog{position:sticky;top:0;z-index:50;background:white;border-bottom:1px solid var(--mid-gray);padding:10px 16px 8px;display:flex;align-items:center;gap:12px}
 .hide-done-bar{background:var(--gray);border-bottom:1px solid var(--mid-gray);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.checklist-search-bar{background:white;border-bottom:1px solid var(--mid-gray);padding:8px 16px}
+.checklist-search-wrap{position:relative;display:flex;align-items:center}
+.checklist-search-icon{position:absolute;left:11px;font-size:13px;opacity:.55;pointer-events:none}
+.checklist-search-input{width:100%;padding:10px 34px 10px 32px;border:2px solid var(--mid-gray);border-radius:10px;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;background:white;color:var(--text);box-sizing:border-box;transition:border-color .2s}
+.checklist-search-input:focus{border-color:var(--blue)}
+.checklist-search-clear{position:absolute;right:4px;background:none;border:none;font-size:22px;line-height:1;color:var(--dark-gray);cursor:pointer;padding:4px 8px}
+.checklist-search-noresults{margin-top:8px;text-align:center;color:var(--dark-gray);font-size:13px;padding:14px 10px}
+.item-row.search-hide,.inv-item-card.search-hide,.section-block.search-hide{display:none!important}
 .hide-done-label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--dark-gray);cursor:pointer;-webkit-user-select:none;user-select:none}
 .hide-done-label input{width:18px;height:18px;accent-color:var(--green);cursor:pointer}
 .save-status{font-size:11px;color:var(--dark-gray);opacity:.75;white-space:nowrap}
@@ -242,6 +256,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
     <div class="form-card kitchen-inv" onclick="startForm('kitchen_inv')"><span class="icon">&#127869;</span><div class="label">Kitchen Inventory</div><div class="count">Dishes, flatware &amp; appliances</div></div>
     <div class="form-card linen-inv" onclick="startForm('linen_inv')"><span class="icon">&#128719;</span><div class="label">Linen Inventory</div><div class="count">Sheets, blankets &amp; towels</div></div>
     <div class="form-card qc" style="grid-column:span 2" onclick="startForm('qc_check')"><span class="icon">&#128373;</span><div class="label">QC Check</div><div class="count">Manager spot-check</div></div>
+    <div class="form-card qc" style="grid-column:span 2" onclick="startForm('spot_check')"><span class="icon">&#128295;</span><div class="label">Spot Check</div><div class="count">Quickly report a single maintenance issue</div></div>
   </div>
   <div id="allUserNavBtns" style="display:none;padding:0 16px 4px;flex-direction:column;gap:8px">
     <button class="btn-primary" style="background:linear-gradient(135deg,#063461,#2E75B6)" onclick="loadMyInspections()">&#128203; My Inspections</button>
@@ -283,6 +298,67 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
   </div>
 </div>
 
+<!-- SPOT CHECK — lightweight standalone maintenance-issue report; no full QC checklist required -->
+<div class="screen" id="screenSpotCheck">
+  <div class="setup-form">
+    <div class="setup-banner"><span>&#128295;</span><div><strong id="scSummaryProp"></strong><br><span style="font-size:12px;color:var(--dark-gray)" id="scSummaryMeta"></span></div></div>
+    <div class="field">
+      <label>Maintenance Issue Category</label>
+      <select id="scCategory"></select>
+    </div>
+    <div class="field">
+      <label>Description</label>
+      <textarea id="scDescription" class="note-input" style="width:100%;min-height:90px;box-sizing:border-box" placeholder="Describe the issue..."></textarea>
+    </div>
+    <div class="field">
+      <label>Location Within the Home</label>
+      <input type="text" id="scLocation" placeholder="e.g. Master bathroom, garage, back deck...">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Priority Level</label>
+        <select id="scPriority">
+          <option value="Low">Low</option>
+          <option value="Medium" selected>Medium</option>
+          <option value="High">High</option>
+          <option value="Urgent">Urgent</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Status</label>
+        <select id="scStatus">
+          <option value="Open" selected>Open</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Resolved">Resolved</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Photos</label>
+      <div class="photo-row">
+        <div class="photo-add" onclick="document.getElementById('scPhotoTake').click()"><span class="photo-add-ic">&#128247;</span><span class="photo-add-lbl">Take Photo</span></div>
+        <input type="file" accept="image/*" capture="environment" id="scPhotoTake" class="photo-file" onchange="addSpotCheckPhoto(event)">
+        <div class="photo-upload" onclick="document.getElementById('scPhotoUpload').click()"><span class="photo-add-ic">&#128444;&#65039;</span><span class="photo-add-lbl">Upload Photo</span></div>
+        <input type="file" accept="image/*" id="scPhotoUpload" class="photo-file" onchange="addSpotCheckPhoto(event)">
+        <div class="photo-row" id="scPhotoThumbs" style="margin-top:0"></div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Additional Notes</label>
+      <textarea id="scNotes" class="note-input" style="width:100%;min-height:70px;box-sizing:border-box" placeholder="Optional..."></textarea>
+    </div>
+    <div class="field">
+      <label>Assigned House Manager</label>
+      <div class="sc-manager-card">
+        <div class="sc-manager-name" id="scManagerName"></div>
+        <div class="sc-manager-email" id="scManagerEmail"></div>
+      </div>
+    </div>
+    <button class="btn-primary" onclick="submitSpotCheck()">Submit Spot Check &#8594;</button>
+    <div style="height:20px"></div>
+  </div>
+</div>
+
 <!-- CHECKLIST -->
 <div class="screen" id="screenChecklist">
   <div class="sticky-prog">
@@ -292,6 +368,14 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
   <div class="hide-done-bar">
     <label class="hide-done-label"><input type="checkbox" id="hideDoneToggle" onchange="toggleHideCompleted()"><span>Hide completed items</span></label>
     <span class="save-status" id="saveStatus"></span>
+  </div>
+  <div class="checklist-search-bar">
+    <div class="checklist-search-wrap">
+      <span class="checklist-search-icon">&#128269;</span>
+      <input type="text" id="checklistSearch" class="checklist-search-input" placeholder="Search checklist items..." oninput="filterChecklist()" autocomplete="off">
+      <button type="button" id="checklistSearchClear" class="checklist-search-clear" onclick="clearChecklistSearch()" style="display:none" aria-label="Clear search">&times;</button>
+    </div>
+    <div class="checklist-search-noresults" id="checklistNoResults" style="display:none">No matching items found.</div>
   </div>
   <div class="checklist-wrap" id="checklistWrap"></div>
   <div style="padding:16px"><button class="btn-primary" onclick="showSummary()">View Summary &amp; Complete &#8594;</button></div>
@@ -1165,7 +1249,9 @@ function getSections(type, prop) {
       'Bear Bin cleaned',
       'Bear Bin trash cans in good shape',
       'Buoy inspection scheduled (if applicable)',
-      'Dock depth checked (if applicable)'
+      'Dock depth checked (if applicable)',
+      'Bear Bin sign present and in good condition',
+      'Cameras noted (quantity and location)'
     ]},
     {title:'Front Entry', items:[
       'New key tag made / present',
@@ -1219,7 +1305,9 @@ function getSections(type, prop) {
       'Dishwasher drain cleaned',
       'All drains cleaned (bathtubs, sinks, etc.)',
       'Ice maker producing ice (or ample ice trays present)',
-      'Sink caulking in good condition'
+      'Sink caulking in good condition',
+      'Grout clean (if counter tile)',
+      'Fire extinguisher location and service date noted'
     ]},
     {title:'Bedrooms', items:[
       'Fan in each bedroom closet with neatly wrapped cord',
@@ -1235,7 +1323,8 @@ function getSections(type, prop) {
       'Dresser drawers tight, handles secure, no trash inside',
       'Mattress comfortable (lay on it!)',
       'Power Outage Kit confirmed in primary bedroom closet',
-      'Art, d\xe9cor, and updates assessed'
+      'Art, d\xe9cor, and updates assessed',
+      'Luggage racks present (if applicable)'
     ]},
     {title:'Bathrooms', items:[
       'All drains flowing freely (sink, tub, shower)',
@@ -1249,7 +1338,8 @@ function getSections(type, prop) {
       'Shower curtains / liners in good condition',
       'Blow dryer present in each full bathroom',
       'Glass, stone, or metal soap dispensers at each sink',
-      'Any d\xe9cor updates assessed'
+      'Any d\xe9cor updates assessed',
+      'Drain clean-out scheduled if needed'
     ]},
     {title:'Linens', items:[
       'Total linen inventory meets standards (2 sets per bed)',
@@ -1277,7 +1367,9 @@ function getSections(type, prop) {
       'BBQ tools in good shape (brush, spatula, fork)',
       'Garage clean and organized',
       'Garage swept',
-      'Guest bikes, SUPs, watercraft documented (if applicable)'
+      'Guest bikes, SUPs, watercraft documented (if applicable)',
+      'BBQ grease pan clean',
+      'Oil stains on floor noted (if any)'
     ]},
     {title:'Seasonal Services — Schedule Before Summer', items:[
       'Battery change — all smoke / CO alarms',
@@ -1293,11 +1385,17 @@ function getSections(type, prop) {
       'Large appliance annual check-up scheduled'
     ]},
     supplyInv,
+    {title:'Damages & Repairs', items:[
+      'All damages, repairs, or work to be done noted and photographed',
+      'Damage report submitted to TLP office'
+    ]},
     {title:'Before You Leave', items:[
       'Supply inventory form complete and filed',
       'All windows closed and locked',
       'All doors locked',
-      'TLP TO-DO items noted and submitted'
+      'TLP TO-DO items noted and submitted',
+      'Kitchen inventory form complete and filed',
+      'Linen inventory form complete and filed'
     ]},
     {title:'Outdoor Setup', items:[
       'Outdoor furniture has been set out for the season'
@@ -1315,7 +1413,8 @@ function getSections(type, prop) {
       'HOA pass numbers documented before heading out',
       'Hidden key location confirmed',
       'Next check-in date noted',
-      'Supply inventory printed and ready'
+      'Supply inventory printed and ready',
+      'Batteries and needed supplies packed'
     ]},
     {title:'Front Exterior', items:[
       'Snow poles in place for season',
@@ -1333,6 +1432,7 @@ function getSections(type, prop) {
     {title:'Front Entry', items:[
       'Lockbox clean and in good condition',
       'Lockbox not on front door',
+      'Lockbox functioning properly',
       'Door and lock working properly',
       'Hidden key confirmed in noted location'
     ]},
@@ -1351,7 +1451,11 @@ function getSections(type, prop) {
       'Furnace filters checked (replaced / cleaned)',
       'All lamps, light fixtures, outlets tested',
       'All light bulbs working (burned out ones replaced)',
-      'Picture frames straight'
+      'Picture frames straight',
+      'Guest Book Tablet reviewed — property guide accurate',
+      'WiFi info in guest book matches router',
+      'Matches or fire starters present',
+      'Photo book present for cleaners'
     ]},
     {title:'Electronics', items:[
       'Instructions present, accurate, and easy to follow',
@@ -1371,7 +1475,14 @@ function getSections(type, prop) {
       'Ice maker producing ice (or ice trays present)',
       'Sink caulking in good condition',
       'Grout clean (if counter tile)',
-      'Fire extinguisher location and service date noted'
+      'Fire extinguisher location and service date noted',
+      'Supplies present (foil, saran wrap, baggies)',
+      'Small appliances in good condition and tested',
+      'Pots and pans in good shape',
+      'Dishtowels — at least 8 matching, good condition',
+      'Potholders — at least 2 glove + 2 flat, good condition',
+      'Dishwasher drain cleaned',
+      'All drains cleaned (bathtubs, sinks, etc.)'
     ]},
     {title:'Bedrooms', items:[
       'Bedding in good condition (update needed?)',
@@ -1381,7 +1492,10 @@ function getSections(type, prop) {
       'Two side tables, two lamps, and dresser in each room',
       'Under each bed clean',
       'Luggage racks present (if applicable)',
-      '2nd set of sheets stored in closet or linen closet'
+      '2nd set of sheets stored in closet or linen closet',
+      'Pillows: 2 per sleeper on bed + 1 per sleeper in closet (with pillow case)',
+      'Pillow condition good (no yellowing, odors, damage)',
+      'Dresser drawers tight, handles secure, no trash inside'
     ]},
     {title:'Bathrooms', items:[
       'All drains flowing freely (sink, tub, shower)',
@@ -1391,11 +1505,15 @@ function getSections(type, prop) {
       'Towels in good condition (soft, no stains / rips / fraying)',
       'Bath mats and rugs in good shape',
       'No hard water stains on shower doors',
-      'Shower / bath faucets functioning (no leaks, easy to use)'
+      'Shower / bath faucets functioning (no leaks, easy to use)',
+      'Jetted tubs tested — jets working, no dirty buildup',
+      'Shower curtains / liners in good condition',
+      'Glass, stone, or metal soap dispensers at each sink'
     ]},
     {title:'Linens', items:[
       'Linen closet location noted — labeled and organized',
-      'All linens in good condition (no stains / rips / fraying)'
+      'All linens in good condition (no stains / rips / fraying)',
+      'Hot tub towels in good shape and sufficient (1 per person, matching)'
     ]},
     {title:'Decks & Outdoor', items:[
       'Patio furniture brought in or covered for winter',
@@ -1404,13 +1522,16 @@ function getSections(type, prop) {
       'BBQ auto ignitor working',
       'Two full propane tanks present',
       'BBQ cover in good shape',
-      'BBQ grease pan clean'
+      'BBQ grease pan clean',
+      'Patio dining table capacity noted in Track',
+      'BBQ tools in good shape (brush, spatula, fork)'
     ]},
     {title:'Garage', items:[
       'Two shovels present',
       'Garage clean and organized',
       'Garage swept',
-      'Oil stains on floor noted (if any)'
+      'Oil stains on floor noted (if any)',
+      'Guest bikes, SUPs, watercraft documented (if applicable)'
     ]},
     {title:'House Inventory', items:[
       'Fans: 1 per bedroom present in closet',
@@ -1418,7 +1539,10 @@ function getSections(type, prop) {
       'Power Outage Kit present (location noted)',
       'Blow dryers: 1 per full bathroom',
       'Pool cue tips intact',
-      'Pool chalk color matches felt'
+      'Pool chalk color matches felt',
+      'Foosball men intact, 3+ soccer balls present',
+      'Ping pong: 4 paddles, 5+ balls, and caddy present',
+      'Ping pong table and net intact and sturdy'
     ]},
     supplyInv,
     {title:'Damages & Repairs', items:[
@@ -1430,7 +1554,8 @@ function getSections(type, prop) {
       'Linen inventory form complete and filed',
       'Supply inventory form complete and filed',
       'All windows closed and locked',
-      'All doors locked'
+      'All doors locked',
+      'TLP TO-DO items noted and submitted'
     ]},
     {title:'Outdoor Winterization', items:[
       'Outdoor furniture has been put away / stored for winter'
@@ -2181,6 +2306,8 @@ function goBack() {
     setHeader(FORM_META[state.formType].name, state.selectedProp ? state.selectedProp.name : '', true);
   } else if (document.getElementById('screenChecklist').classList.contains('active')) {
     if (confirm('Go back? Progress will be saved as a draft.')) { saveDraft(); resetToHome(); }
+  } else if (document.getElementById('screenSpotCheck').classList.contains('active')) {
+    if (confirm('Discard this Spot Check?')) resetToHome();
   } else if (document.getElementById('screenSetup').classList.contains('active')) {
     resetToHome();
   }
@@ -2209,7 +2336,8 @@ var FORM_META = {
   checkout_winter:{name:'Check Out — Winter',  icon:'&#10052;'},
   kitchen_inv:    {name:'Kitchen Inventory',     icon:'&#127869;'},
   linen_inv:      {name:'Linen Inventory',       icon:'&#128719;'},
-  qc_check:       {name:'Quality Control Check', icon:'&#128373;'}
+  qc_check:       {name:'Quality Control Check', icon:'&#128373;'},
+  spot_check:     {name:'Spot Check',            icon:'&#128295;'}
 };
 
 function startForm(type, draftId) {
@@ -2250,6 +2378,13 @@ function startChecklist() {
   // it here would reset the tracked time-at-property on every reopen.
   if (!state.startTime) state.startTime = new Date().toLocaleString();
   localStorage.setItem('tlp_inspector', inspector);
+  // Spot Check is a lightweight standalone maintenance-issue report — it reuses this
+  // same Property/Date/Time/Inspector setup screen, but skips the full checklist
+  // entirely and goes straight to its own short form instead.
+  if (state.formType === 'spot_check') {
+    showSpotCheckForm();
+    return;
+  }
   buildChecklist();
   setHeader(FORM_META[state.formType].name, state.selectedProp.name, true);
   document.getElementById('bottomNav').style.display = 'flex';
@@ -2320,6 +2455,14 @@ function makePhotoBtn(key) {
 function buildChecklist() {
   var wrap = document.getElementById('checklistWrap');
   wrap.innerHTML = '';
+  // Reset any leftover search filter from a previous checklist session so a freshly
+  // opened/reopened form always starts showing the full list.
+  var _searchEl = document.getElementById('checklistSearch');
+  if (_searchEl) _searchEl.value = '';
+  var _searchClearEl = document.getElementById('checklistSearchClear');
+  if (_searchClearEl) _searchClearEl.style.display = 'none';
+  var _noResultsEl = document.getElementById('checklistNoResults');
+  if (_noResultsEl) _noResultsEl.style.display = 'none';
   // IMPORTANT: if this inspection already has a section list (freshly generated
   // earlier this session, or restored from a saved draft's snapshot), reuse it
   // as-is instead of calling getSections() again. Some templates (QC Check)
@@ -2898,6 +3041,163 @@ function emailReport(onSuccess) {
   }
 }
 
+// ── SPOT CHECK — lightweight standalone maintenance-issue report. Reuses the normal
+// Property/Date/Time/Inspector setup screen (state.info / state.selectedProp) but
+// otherwise has its own short form, its own photo list, and its own submit flow —
+// inspectors never have to complete a full QC checklist to report a single issue.
+var SPOT_CHECK_CATEGORIES = ['Plumbing','Electrical','HVAC / Heating & Cooling','Appliance','Structural / Exterior','Furniture / Interior','Pool / Hot Tub','Landscaping / Grounds','Safety Hazard','Pest / Wildlife','Other'];
+var spotCheck = { photos: [] };
+function showSpotCheckForm() {
+  spotCheck = { photos: [] };
+  var prop = state.selectedProp, info = state.info;
+  document.getElementById('scSummaryProp').textContent = prop ? prop.name : '';
+  document.getElementById('scSummaryMeta').textContent = formatDate(info.date) + (info.time ? ' at ' + info.time : '') + ' • ' + (info.inspector || '');
+  var catSel = document.getElementById('scCategory');
+  catSel.innerHTML = '<option value="">Select category...</option>' + SPOT_CHECK_CATEGORIES.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join('');
+  document.getElementById('scDescription').value = '';
+  document.getElementById('scLocation').value = '';
+  document.getElementById('scPriority').value = 'Medium';
+  document.getElementById('scStatus').value = 'Open';
+  document.getElementById('scNotes').value = '';
+  renderSpotCheckPhotos();
+  // Assigned House Manager is auto-filled from the property's existing contact/email
+  // and is not editable here (matches the property's contact used everywhere else in
+  // this app) — it always reflects whichever property was selected on the setup screen.
+  var mgrName = (prop && prop.contact) || '';
+  var mgrEmail = (prop && prop.email) || '';
+  document.getElementById('scManagerName').textContent = mgrName || 'No contact on file';
+  document.getElementById('scManagerEmail').textContent = mgrEmail || 'No email on file for this property — a copy will go to ' + INSPECTION_EMAIL + ' instead';
+  setHeader('Spot Check', prop ? prop.name : '', true);
+  document.getElementById('bottomNav').style.display = 'none';
+  showScreen('screenSpotCheck');
+}
+function addSpotCheckPhoto(e) {
+  var file = e.target.files[0]; if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) { spotCheck.photos.push(ev.target.result); renderSpotCheckPhotos(); };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+function removeSpotCheckPhoto(i) {
+  spotCheck.photos.splice(i, 1);
+  renderSpotCheckPhotos();
+}
+function renderSpotCheckPhotos() {
+  var row = document.getElementById('scPhotoThumbs');
+  if (!row) return;
+  row.innerHTML = '';
+  spotCheck.photos.forEach(function(dataUrl, i) {
+    var wrap = document.createElement('div'); wrap.className = 'sc-photo-thumb-wrap';
+    var img = document.createElement('img'); img.src = dataUrl; img.onclick = function(){ window.open(dataUrl, '_blank'); };
+    var del = document.createElement('button'); del.type = 'button'; del.className = 'sc-photo-del'; del.innerHTML = '&times;'; del.title = 'Remove photo';
+    del.onclick = function(ev){ ev.stopPropagation(); removeSpotCheckPhoto(i); };
+    wrap.appendChild(img); wrap.appendChild(del);
+    row.appendChild(wrap);
+  });
+}
+// Uploads Spot Check photos the same fault-tolerant way as the main checklist flow —
+// each photo succeeds/fails independently so one bad upload never wipes out the rest.
+function uploadSpotCheckPhotos(inspectionId) {
+  var photos = spotCheck.photos || [];
+  var out = { photoUrls: [], failCount: 0, total: photos.length };
+  if (!photos.length) return Promise.resolve(out);
+  if (!storage) { out.failCount = photos.length; return Promise.resolve(out); }
+  var uploads = photos.map(function(dataUrl, i) {
+    var isJpg = dataUrl.indexOf('image/jpeg') >= 0 || dataUrl.indexOf('image/jpg') >= 0;
+    var ext = isJpg ? 'jpg' : 'png';
+    var path = 'inspections/' + inspectionId + '/photo_' + i + '.' + ext;
+    var ref = storage.ref(path);
+    return ref.putString(dataUrl, 'data_url').then(function(){ return ref.getDownloadURL(); })
+      .then(function(url){ return { ok: true, url: url }; })
+      .catch(function(e){ console.warn('[SPOT-CHECK] Photo upload failed', path, e); return { ok: false }; });
+  });
+  return Promise.all(uploads).then(function(results){
+    results.forEach(function(r){ if (r.ok) out.photoUrls.push(r.url); else out.failCount++; });
+    return out;
+  });
+}
+function submitSpotCheck() {
+  var category = document.getElementById('scCategory').value;
+  var description = document.getElementById('scDescription').value.trim();
+  var location = document.getElementById('scLocation').value.trim();
+  var priority = document.getElementById('scPriority').value;
+  var status = document.getElementById('scStatus').value;
+  var notes = document.getElementById('scNotes').value.trim();
+  if (!category) { showToast('Please select a maintenance issue category'); return; }
+  if (!description) { showToast('Please describe the issue'); document.getElementById('scDescription').focus(); return; }
+  if (!location) { showToast('Please note the location within the home'); document.getElementById('scLocation').focus(); return; }
+  var prop = state.selectedProp, info = state.info;
+  var mgrName = (prop && prop.contact) || '';
+  var mgrEmail = (prop && prop.email) || '';
+  var inspectionId = 'spotcheck_' + Date.now();
+  showToast(spotCheck.photos.length ? 'Uploading photo(s)...' : 'Submitting Spot Check...');
+  uploadSpotCheckPhotos(inspectionId).then(function(uploadResult) {
+    var docData = {
+      formType: 'spot_check',
+      property: prop ? prop.name : '', address: prop ? prop.address : '',
+      inspector: info.inspector || '', inspectorId: currentUser ? currentUser.id : '',
+      date: info.date || '', time: info.time || '',
+      category: category, description: description, location: location,
+      priority: priority, notes: notes, status: status,
+      assignedManagerName: mgrName, assignedManagerEmail: mgrEmail,
+      photoUrls: uploadResult.photoUrls, photoCount: uploadResult.photoUrls.length,
+      photoUploadFailCount: uploadResult.failCount,
+      // Mirrors the resolved/updates history pattern already used for Complaints and
+      // Check-In Status elsewhere in this app, so the Dashboard can update status and
+      // keep a full resolution history without inventing a new mechanism.
+      resolved: status === 'Resolved',
+      updates: [],
+      submittedAt: new Date().toISOString()
+    };
+    if (db) db.collection('inspections').doc(inspectionId).set(docData).catch(function(e){ console.warn('[SPOT-CHECK] Save error', e); });
+    sendSpotCheckEmail(docData);
+    if (uploadResult.failCount > 0) {
+      showToast('Spot Check submitted, but ' + uploadResult.failCount + ' of ' + uploadResult.total + ' photo(s) failed to upload.', 6000);
+    } else {
+      showToast('Spot Check submitted!');
+    }
+    setTimeout(function(){ resetToHome(); }, 900);
+  }).catch(function(e){
+    console.warn('[SPOT-CHECK] Unexpected error submitting', e);
+    showToast('Something went wrong submitting this Spot Check. Please try again.', 6000);
+  });
+}
+function sendSpotCheckEmail(docData) {
+  var toEmail = docData.assignedManagerEmail || INSPECTION_EMAIL;
+  var subj = 'Spot Check — ' + docData.priority + ' Priority — ' + docData.property;
+  var body = 'TAHOE LUXURY PROPERTIES — SPOT CHECK REPORT\n==================================================\n';
+  body += 'Property: ' + docData.property + '\n';
+  body += 'Location: ' + docData.location + '\n';
+  body += 'Category: ' + docData.category + '\n';
+  body += 'Priority: ' + docData.priority + '\n';
+  body += 'Submitted: ' + formatDate(docData.date) + (docData.time ? ' at ' + docData.time : '') + '\n';
+  body += 'Submitted By: ' + docData.inspector + '\n\n';
+  body += 'DESCRIPTION\n' + docData.description + '\n';
+  if (docData.notes) body += '\nADDITIONAL NOTES\n' + docData.notes + '\n';
+  if (docData.photoUrls && docData.photoUrls.length) {
+    body += '\nPHOTOS\n';
+    docData.photoUrls.forEach(function(url, i){ body += '  ' + (i+1) + '. ' + url + '\n'; });
+  }
+  body += '\n--\nSent from TLP Inspection App';
+  var mailtoSc = 'mailto:' + encodeURIComponent(toEmail) + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
+  if (HTTP_ENDPOINT) {
+    var htmlBody = body.replace(/\n/g, '<br>');
+    sendViaHTTP({
+      formType: 'spot_check',
+      subject: subj,
+      body: htmlBody,
+      to: toEmail,
+      cc: (toEmail !== INSPECTION_EMAIL) ? INSPECTION_EMAIL : '',
+      property: docData.property, inspector: docData.inspector, date: docData.date,
+      category: docData.category, location: docData.location, priority: docData.priority,
+      description: docData.description, photoUrls: docData.photoUrls || [],
+      photos: []
+    }, mailtoSc);
+  } else {
+    window.location.href = mailtoSc;
+  }
+}
+
 function submitReport() {
   var needsStatus = (state.formType === 'checkin_summer' || state.formType === 'checkin_winter');
   if (needsStatus && !state.overallStatus) {
@@ -3167,6 +3467,57 @@ function resumeActiveDraftIfAny() {
   } catch (e) {
     console.warn('Could not auto-resume active draft:', e);
   }
+}
+
+// ── CHECKLIST SEARCH — live, case-insensitive filter across every checklist screen.
+// Matches against both the item text and its section/category title. Purely visual
+// (toggles a CSS class), so it never touches state.items / state.photos / notes —
+// all answers, notes, photos, and progress are fully preserved while searching or
+// after clearing the search.
+function filterChecklist() {
+  var qEl = document.getElementById('checklistSearch');
+  var clearBtn = document.getElementById('checklistSearchClear');
+  var noResultsEl = document.getElementById('checklistNoResults');
+  if (!qEl) return;
+  var q = (qEl.value || '').trim().toLowerCase();
+  if (clearBtn) clearBtn.style.display = q ? '' : 'none';
+  var wrap = document.getElementById('checklistWrap');
+  if (!wrap) return;
+  var blocks = wrap.querySelectorAll('.section-block');
+  var anyVisible = false;
+  blocks.forEach(function(block) {
+    var rows = block.querySelectorAll('.item-row, .inv-item-card');
+    if (!q) {
+      block.classList.remove('search-hide');
+      rows.forEach(function(row) { row.classList.remove('search-hide'); });
+      anyVisible = true;
+      return;
+    }
+    var headSpan = block.querySelector('.section-head span:first-child');
+    var sectionTitle = headSpan ? headSpan.textContent.toLowerCase() : '';
+    var sectionMatches = sectionTitle.indexOf(q) !== -1;
+    var sectionHasVisibleItem = false;
+    rows.forEach(function(row) {
+      var textEl = row.querySelector('.item-text, .inv-item-name');
+      var itemText = textEl ? textEl.textContent.toLowerCase() : '';
+      var matches = sectionMatches || itemText.indexOf(q) !== -1;
+      row.classList.toggle('search-hide', !matches);
+      if (matches) sectionHasVisibleItem = true;
+    });
+    // Notes-only sections (Additional/Manager/Maintenance Notes) have no item rows —
+    // only surface them when their own section title matches the search.
+    if (!rows.length) sectionHasVisibleItem = sectionMatches;
+    block.classList.toggle('search-hide', !sectionHasVisibleItem);
+    if (sectionHasVisibleItem) anyVisible = true;
+  });
+  if (noResultsEl) noResultsEl.style.display = (q && !anyVisible) ? '' : 'none';
+}
+function clearChecklistSearch() {
+  var qEl = document.getElementById('checklistSearch');
+  if (!qEl) return;
+  qEl.value = '';
+  filterChecklist();
+  qEl.focus();
 }
 
 // ── Periodic background autosave + protection against losing work on
