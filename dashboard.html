@@ -643,7 +643,7 @@ function renderInspLog(){
     html+='<td style="font-weight:600;min-width:160px">'+esc(i.property||'')+'</td>';
     html+='<td>'+esc(i.inspector||'')+'</td>';
     html+='<td><span class="badge b-ok">'+esc(TYPE_LABELS[i.formType]||i.formType||'')+'</span></td>';
-    html+='<td>'+(checkinSt?'<span class="badge '+checkinSt.cls+'">'+checkinSt.txt+'</span>'+(wasAutoReadied?' <span class="badge b-resolved" style="margin-left:4px">&#10003; Resolved</span>':''):'<span class="no-photo">&mdash;</span>')+'</td>';
+    html+='<td>'+(checkinSt?'<span class="badge '+checkinSt.cls+'">'+checkinSt.txt+'</span>':'<span class="no-photo">&mdash;</span>')+'</td>';
     html+='<td><span class="badge '+issueBadgeCls+'">'+issueBadgeTxt+'</span></td>';
     html+='<td style="text-align:center">'+( i.itemsOk||0)+'</td>';
     html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( i.issuesFound||0)+'</td>';
