@@ -45,6 +45,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
 .stat-card.red{border-left-color:var(--red)}.stat-card.orange{border-left-color:var(--orange)}.stat-card.navy{border-left-color:var(--navy)}
 .stat-num{font-size:30px;font-weight:800;color:var(--navy)}.stat-card.red .stat-num{color:var(--red)}.stat-card.orange .stat-num{color:var(--orange)}
 .stat-lbl{font-size:11px;color:var(--dark-gray);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.6px}
+/* Compact variant — used for the Check-Ins/Check-Outs Log summary banner so it takes up less vertical space (same 4 stats, tighter layout) */
+.stats-row-compact{gap:8px;margin-bottom:14px}
+.stats-row-compact .stat-card{padding:7px 12px;display:flex;align-items:baseline;gap:8px;border-left-width:3px}
+.stats-row-compact .stat-num{font-size:19px;line-height:1.1}
+.stats-row-compact .stat-lbl{font-size:9.5px;margin-top:0;white-space:nowrap;letter-spacing:.4px}
+@media (max-width:700px){
+  .stats-row-compact{grid-template-columns:repeat(2,1fr);gap:6px}
+  .stats-row-compact .stat-card{padding:6px 10px}
+  .stats-row-compact .stat-lbl{white-space:normal;font-size:9px}
+}
+@media (max-width:420px){
+  .stats-row-compact .stat-num{font-size:17px}
+}
 /* TABLE CARD */
 .card{background:white;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:20px}
 .card-hdr{padding:14px 20px;border-bottom:1px solid var(--mid-gray);display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:white}
@@ -106,6 +119,29 @@ tr:hover td{background:#fafbfe}
 .train-check{width:17px;height:17px;cursor:pointer;accent-color:var(--navy)}
 .train-date{font-size:10px;color:var(--dark-gray);margin-top:2px;text-align:center}
 .pct-pill{display:inline-block;background:var(--light-blue);color:var(--navy);border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700}
+.train-cell{cursor:pointer;text-align:center;padding:6px 4px;transition:background .15s}
+.train-cell:hover{background:var(--gray)}
+.train-cell-date{font-size:11px;font-weight:700;color:var(--navy)}
+.train-cell-count{font-size:9.5px;color:var(--dark-gray);margin-top:1px}
+.train-cell-empty{font-size:11px;color:var(--blue);font-weight:700}
+.train-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:none;align-items:center;justify-content:center}
+.train-modal-overlay.open{display:flex}
+.train-modal-box{background:white;border-radius:14px;width:420px;max-width:92vw;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.train-modal-hdr{padding:14px 18px;border-bottom:1px solid var(--mid-gray);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.train-modal-title{font-size:15px;font-weight:800;color:var(--navy)}
+.train-modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--dark-gray);line-height:1;padding:2px 6px;border-radius:6px}
+.train-modal-close:hover{background:var(--gray)}
+.train-modal-body{padding:16px 18px;overflow-y:auto}
+.train-modal-add{display:flex;gap:8px;align-items:center;margin-bottom:16px}
+.train-modal-add input[type=date]{border:2px solid var(--mid-gray);border-radius:8px;padding:8px 10px;font-size:13px;flex:1;min-width:0}
+.train-modal-add button{background:linear-gradient(135deg,var(--navy),var(--blue));color:white;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.train-modal-add button:hover{opacity:.9}
+.train-modal-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--dark-gray);margin-bottom:8px}
+.train-hist-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--mid-gray);font-size:13px}
+.train-hist-row:last-child{border-bottom:none}
+.train-hist-date{font-weight:600;color:var(--text)}
+.train-hist-tag{font-size:10px;font-weight:700;color:#1E7B45;background:var(--light-blue);border-radius:20px;padding:2px 8px}
+.train-modal-empty{color:var(--dark-gray);font-size:13px;padding:8px 0}
 /* RESOLVED CHECKBOX */
 .res-check{width:16px;height:16px;cursor:pointer;accent-color:var(--navy)}
 /* TOAST */
@@ -217,7 +253,7 @@ tr:hover td{background:#fafbfe}
 
     <!-- INSPECTION LOG -->
     <div class="tab-panel active" id="tab-insplog">
-      <div class="stats-row">
+      <div class="stats-row stats-row-compact">
         <div class="stat-card"><div class="stat-num" id="sl-total">—</div><div class="stat-lbl">Total Inspections</div></div>
         <div class="stat-card red"><div class="stat-num" id="sl-issues">—</div><div class="stat-lbl">Total Issues Found</div></div>
         <div class="stat-card navy"><div class="stat-num" id="sl-week">—</div><div class="stat-lbl">This Week</div></div>
@@ -298,7 +334,7 @@ tr:hover td{background:#fafbfe}
     <div class="tab-panel" id="tab-qclog">
       <div class="card">
         <div class="card-hdr">
-          <div><div class="card-title">📝 QC Log</div><div class="card-sub">All QC Check inspection records</div></div>
+          <div><div class="card-title">📝 QC Log</div><div class="card-sub">All QC Check inspections and Spot Check reports (labeled by Type below)</div></div>
           <div class="spacer"></div>
           <div class="filters">
             <select id="ql-days" onchange="renderQCLog()"><option value="0">All Time</option><option value="7">Last 7 Days</option><option value="30">Last 30 Days</option><option value="90">Last 90 Days</option></select>
@@ -314,7 +350,7 @@ tr:hover td{background:#fafbfe}
     <div class="tab-panel" id="tab-training">
       <div class="card">
         <div class="card-hdr">
-          <div><div class="card-title">🎓 Manager Training Tracker</div><div class="card-sub">Check a box to mark complete — saves automatically with today's date</div></div>
+          <div><div class="card-title">🎓 Manager Training Tracker</div><div class="card-sub">Click a cell to log a completed session or view the full training history — shows the most recent date per category</div></div>
         </div>
         <div class="training-wrap"><div id="trainingTable"><div class="loading">Loading…</div></div></div>
       </div>
@@ -405,6 +441,24 @@ tr:hover td{background:#fafbfe}
     </div>
   </div>
 </div>
+<!-- TRAINING HISTORY / LOG SESSION MODAL -->
+<div class="train-modal-overlay" id="trainModalOverlay" onclick="closeTrainModalIfBg(event)">
+  <div class="train-modal-box">
+    <div class="train-modal-hdr">
+      <div class="train-modal-title" id="trainModalTitle"></div>
+      <button class="train-modal-close" onclick="closeTrainingModal()" title="Close">&#10005;</button>
+    </div>
+    <div class="train-modal-body">
+      <div class="train-modal-label">Log a Completed Session</div>
+      <div class="train-modal-add">
+        <input type="date" id="trainModalDate">
+        <button onclick="addTrainingSession()">+ Add</button>
+      </div>
+      <div class="train-modal-label">Training History</div>
+      <div id="trainModalHistory"></div>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 
 <script>
@@ -422,7 +476,7 @@ var TRAINING_MODULES=['Check In Procedure','Check Out Procedure','Communication 
 
 var PROPERTY_EMAILS={'12th Tee At Northstar':'12thtee@tluxp.com','A Walk In The Woods':'awalkinthewoods@tluxp.com','Above & Beyond - Lakeview':'aboveandbeyond@tluxp.com','Adventure Awaits':'adventureawaits@tluxp.com','Alpen Glow At Northstar':'alpenglow@tluxp.com','Alpine Perfection':'alpineperfection@tluxp.com','Anchors Aweigh - Lakefront':'anchorsaweigh@tluxp.com','Aspen Paradise':'aspenparadise@tluxp.com','Backside 180 at Northstar':'backside180@tluxp.com','Bella Vista Sul Lago - Lakeview':'bellavista@tluxp.com',"Belleview's Beauty - Lakefront":'belleviewsbeauty@tluxp.com','Bellissimo Lago - Lakefront':'bellissimolago@tluxp.com','Big Sky - Lakeview':'bigsky@tluxp.com','Black Bear Cottage - Lakefront':'blackbearcottage@tluxp.com','Blackwood Creek Chalet':'blackwoodcreekchalet@tluxp.com','Blissful Days - Lakefront':'blissfuldays@tluxp.com','Bluebird Days At Palisades':'bluebird@tluxp.com','Boulder Place Lookout At Northstar':'boulderplace@tluxp.com',"Bradley's Bungalow":'bradleysbungalow@tluxp.com','California Sunshine - Lakeview':'californiasunshine@tluxp.com','Candlelight Lodge':'candlelightlodge@tluxp.com','Carnelian Charm - Lakefront':'carneliancharm@tluxp.com','Carnelian Haus - Lakefront':'carnelianhaus@tluxp.com',"Charlie's Den - Lakefront":'charliesden@tluxp.com','Cherry Lodge':'cherrylodge@tluxp.com','Constellation #404 Ski-In & Out At Northstar':'404constellation@tluxp.com','Constellation #407 Ski-In & Out At Northstar':'407constellation@tluxp.com','Creekview':'creekview@tluxp.com','Donner Lake Dreams - Lakefront':'donnerlakedreams@tluxp.com','Enchanted Ridge':'enchantedridge@tluxp.com','Fairest Picture - Lakeview':'fairestpicture@tluxp.com','First Chair @ Palisades (The Bronson)':'firstchair@tluxp.com','Fleur du Lac #1 - Lakefront':'fleurdulac1@tluxp.com','Forever Edgewood - Lakeview':'foreveredgewood@tluxp.com','Fresh Tracks at Northstar':'freshtracks@tluxp.com','Front and Center':'frontandcenter@tluxp.com','Gerry G. - Lakefront':'gerryg@tluxp.com','Gonowabie Lodge - Lakefront':'gonowabielodge@tluxp.com','Granite Chief Lodge At Palisades':'granitechief@tluxp.com','Heavenly View - Lakefront':'heavenlyview@tluxp.com','Hidden Ridge at Northstar':'hiddenridge@tluxp.com','Highlands Holiday':'highlands@tluxp.com','Holly Hideaway':'hollyhideaway@tluxp.com','Home Run at Northstar':'homerun@tluxp.com','Homewood Trifecta - Lakefront':'homewoodtrifecta@tluxp.com','In the Wild Woods':'inthewildwoods@tluxp.com','Incline Oasis - Lakeview':'inclineoasis@tluxp.com','Just Grand':'justgrand@tluxp.com',"King's View Lodge - Lakeview":'jessie@tluxp.com','La Dolce Vita - Lakefront':'ladolcevita@tluxp.com','Lake Escape - Lakefront':'lakeescape@tluxp.com','Lake Of The Sky - Lakeview':'lakeofthesky@tluxp.com','Lakeside Cedars':'lakesidecedars@tluxp.com','Lakeside Grove - Lakefront':'lakesidegrove@tluxp.com','Laughing Waters - Lakefront':'laughingwaters@tluxp.com',"Laura's Overlook Lodge at Northstar":'laurasoverlooklodge@tluxp.com',"Lift and Tee Retreat at Schaffer's Mill":'liftandtee@tluxp.com','Luxury River Retreat':'luxuryriverretreat@tluxp.com','Majestic Waters - Lakefront':'majesticwaters@tluxp.com','Making Memories - Lakeview':'makingmemories@tluxp.com','Manzanita House - Lakeview':'manzanitahouse@tluxp.com','Maybach Lake House - Lakefront':'maybachlakehouse@tluxp.com','McKinney Bay Retreat':'mckinneybay@tluxp.com','Mill Creek Retreat - Incline Village':'millcreekretreat@tluxp.com','Moana Mountain Shack - Lakeview':'moana@tluxp.com','Modern Marvel - Incline Village':'modernmarvel@tluxp.com','Modern Mountain at Palisades':'modernmountain@tluxp.com','Moondance At Tahoe Park':'moondance@tluxp.com','Mountain Bear Lodge At Northstar':'mountainbearlodge@tluxp.com','Mountain Retreat - Lakeview':'mountainretreat@tluxp.com','Palatial Pines - Lakefront':'palatialpines@tluxp.com','Peace of Tahoe - Lakefront':'peaceoftahoe@tluxp.com','Pier Pleasure - Lakefront':'pierpleasure@tluxp.com','Pineland Retreat':'pineland@tluxp.com',"Ramblin' Rose - Lakeview":'ramblinrose@tluxp.com','Reflections - Lakeview':'reflections@tluxp.com','Rise and Shine - Lakefront':'riseandshine@tluxp.com','Rising Sun':'risingsun@tluxp.com','Riverfront Lodge':'riverfrontlodge@tluxp.com','Rubicon Shores - Lakefront':'rubiconshores@tluxp.com','Sail Away - Lakefront':'sailaway@tluxp.com','Sandy Shores - Lakefront':'sandyshores@tluxp.com','Seek No Further - Lakefront':'seeknofurther@tluxp.com','Serendipity - Lakeview':'serendipity@tluxp.com','Shimmering Shores - Lakefront':'shimmeringshores@tluxp.com','Shoshone Chalet at Palisades':'shoshone@tluxp.com','Sierra Sunset Estate - Lakefront':'sierrasunsetestate@tluxp.com','Sierra Vista - Lakeview':'sierravista@tluxp.com','Signature Retreat on the 18th':'signatureretreat@tluxp.com','Silverfell Lodge at Northstar':'silverfelllodge@tluxp.com',"Sittin' on the Dock - Lakefront":'sittinonthedock@tluxp.com',"Skippin' Stones - Lakefront":'skippinstones@tluxp.com','Slopeside At Northstar':'slopeside@tluxp.com','Solitude':'solitude@tluxp.com','Spirit of the Mountain':'spirit@tluxp.com','Stanford Rock Retreat':'stanfordrock@tluxp.com','Starry Nights - Lakefront':'starrynights@tluxp.com','Steeple Cove - Lakefront':'steeplecove@tluxp.com','Stone Crest Estate - Lakefront':'stonecrestestate@tluxp.com','Streams and Dreams':'streamsanddreams@tluxp.com','Sugar Pine Chalet - Lakefront':'sugarpine@tluxp.com','Summer Breeze - Lakefront':'summerbreeze@tluxp.com','Summerhouse - Lakefront':'summerhouse@tluxp.com','Summit Splendor at Martis Camp':'summitsplendor@tluxp.com','Sundance':'sundance@tluxp.com','Sunny Days':'sunnydays@tluxp.com','Sunrise by Sunnyside - Lakefront':'sunrisebysunnyside@tluxp.com','Sunset Blue - Lakefront':'sunsetblue@tluxp.com','Tahoe City Serenity':'tahoecityserenity@tluxp.com','Tahoe Treehouse':'tahoetreehouse@tluxp.com',"Tahoe's Ahwahnee - Lakeview":'tahoesahwahnee@tluxp.com',"Tahoe's Tranquility - Lakeview":'tahoestranquility@tluxp.com','Tall Pines Ski Shack':'tallpines@tluxp.com','Tewesi Manor - Lakefront':'tewesi@tluxp.com','The Duck House':'theduckhouse@tluxp.com','The Frontier':'thefrontier@tluxp.com','The Lodge at Swiss Lane':'thelodgeatswisslane@tluxp.com','The View at Big Pine - Lakeview':'bigpine@tluxp.com','Treetop Lodge':'treetoplodge@tluxp.com','Twilight Ridge':'twilightridge@tluxp.com','Twin Tips At Northstar':'twintips@tluxp.com','Village Walk Skyline At Northstar':'vistaazul@tluxp.com',"Water's Edge - Lakefront":'watersedge@tluxp.com',"Wendy's Wish - Lakefront":'wendyswish@tluxp.com','Whispering Winds':'whisperingwinds@tluxp.com','Wildwood at Dollar Point - Lakeview':'wildwood@tluxp.com','Wolf Ridge':'wolfridge@tluxp.com',"Zoe's North Star at Northstar":'zoesnorthstar@tluxp.com'};
 
-var TYPE_LABELS={spring:'Spring',fall:'Fall',checkin_summer:'Check In Summer',checkin_winter:'Check In Winter',checkout_summer:'Check Out Summer',checkout_winter:'Check Out Winter',kitchen_inv:'Kitchen Inventory',linen_inv:'Linen Inventory',qc_check:'QC Check'};
+var TYPE_LABELS={spring:'Spring',fall:'Fall',checkin_summer:'Check In Summer',checkin_winter:'Check In Winter',checkout_summer:'Check Out Summer',checkout_winter:'Check Out Winter',kitchen_inv:'Kitchen Inventory',linen_inv:'Linen Inventory',qc_check:'QC Check',spot_check:'Spot Check'};
 
 // ── SESSION ───────────────────────────────────────────────────────────────────
 var currentUser=null;
@@ -573,14 +627,24 @@ function renderInspLog(){
     var photoCount=photos.length;
     var photoFailCount=i.photoUploadFailCount||0;
     var safeId=i.id.replace(/[^a-zA-Z0-9]/g,'');
-    var checkinSt=checkinStatusLabels[i.overallStatus];
+    // Auto-resolve display: while unresolved, show the stored Check-In status (Not Ready / Conditional / etc.) with
+    // red issue formatting as-is. Once every issue on this inspection is marked Resolved, automatically DISPLAY the
+    // Check-In Status as "Ready" and flip the Overall Status badge to blue with a "— Resolved" suffix — computed live
+    // from the existing i.resolved flag each render, so nothing new is stored and reopening (unchecking Resolved)
+    // instantly reverts both back to red/Not-Ready automatically. Original overallStatus, issues, notes, photos, and
+    // update history are never modified or hidden by this.
+    var wasAutoReadied=isResolved&&(i.overallStatus==='not-ready'||i.overallStatus==='conditional');
+    var effectiveCheckinStatus=wasAutoReadied?'ready':i.overallStatus;
+    var checkinSt=checkinStatusLabels[effectiveCheckinStatus];
+    var issueBadgeCls=hasIssues?(isResolved?'b-clear':'b-issue'):'b-clear';
+    var issueBadgeTxt=hasIssues?(i.issuesFound+' Issue'+(i.issuesFound!==1?'s':'')+(isResolved?' — Resolved':'')):'All Clear';
     html+='<tr>';
     html+='<td style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td>';
     html+='<td style="font-weight:600;min-width:160px">'+esc(i.property||'')+'</td>';
     html+='<td>'+esc(i.inspector||'')+'</td>';
     html+='<td><span class="badge b-ok">'+esc(TYPE_LABELS[i.formType]||i.formType||'')+'</span></td>';
-    html+='<td>'+(checkinSt?'<span class="badge '+checkinSt.cls+'">'+checkinSt.txt+'</span>'+(isResolved?' <span class="badge b-resolved" style="margin-left:4px">&#10003; Resolved</span>':''):'<span class="no-photo">&mdash;</span>')+'</td>';
-    html+='<td><span class="badge '+(hasIssues?'b-issue':'b-clear')+'">'+(hasIssues?i.issuesFound+' Issue'+(i.issuesFound!==1?'s':''):'All Clear')+'</span></td>';
+    html+='<td>'+(checkinSt?'<span class="badge '+checkinSt.cls+'">'+checkinSt.txt+'</span>'+(wasAutoReadied?' <span class="badge b-resolved" style="margin-left:4px">&#10003; Resolved</span>':''):'<span class="no-photo">&mdash;</span>')+'</td>';
+    html+='<td><span class="badge '+issueBadgeCls+'">'+issueBadgeTxt+'</span></td>';
     html+='<td style="text-align:center">'+( i.itemsOk||0)+'</td>';
     html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( i.issuesFound||0)+'</td>';
     html+='<td style="text-align:center">'+( i.naCount||0)+'</td>';
@@ -784,42 +848,58 @@ function renderQCDash(){
 }
 
 // ── QC LOG ────────────────────────────────────────────────────────────────────
+// QC Log shows both full QC Check inspections and quick Spot Check reports side by
+// side (a Spot Check never requires a full QC checklist) — a Type column and badge
+// clearly label which is which, and Spot Check rows get their own status/history
+// controls in place of the checklist item counts that don't apply to them.
+var SPOT_CHECK_STATUS_BADGES={'Open':{txt:'Open',cls:'b-issue'},'In Progress':{txt:'In Progress',cls:'b-conditional'},'Resolved':{txt:'Resolved',cls:'b-clear'}};
 function renderQCLog(){
   var days=parseInt(document.getElementById('ql-days').value)||0;
   var prop=(document.getElementById('ql-prop').value||'').toLowerCase();
   var mgr=document.getElementById('ql-mgr').value;
   var list=filterDays(_insp,days).filter(function(i){
-    if(i.formType!=='qc_check')return false;
+    if(i.formType!=='qc_check'&&i.formType!=='spot_check')return false;
     if(prop&&!(i.property||'').toLowerCase().includes(prop))return false;
     if(mgr&&i.inspector!==mgr)return false;
     return true;
   });
-  if(!list.length){document.getElementById('qcLogTable').innerHTML='<div class="empty">No QC inspections found</div>';return;}
-  var html='<table><thead><tr><th>Date</th><th>Property</th><th>Manager (POC)</th><th>Checked By</th><th>Items Checked</th><th>Items OK</th><th>Issues Found</th><th>N/A</th><th>Overall Status</th><th>Details</th><th>Photos</th></tr></thead><tbody>';
+  if(!list.length){document.getElementById('qcLogTable').innerHTML='<div class="empty">No QC inspections or Spot Checks found</div>';return;}
+  var html='<table><thead><tr><th>Date</th><th>Type</th><th>Property</th><th>Manager (POC)</th><th>Checked By</th><th>Items Checked</th><th>Items OK</th><th>Issues Found</th><th>N/A</th><th>Overall Status</th><th>Details</th><th>Photos</th></tr></thead><tbody>';
   list.forEach(function(i){
+    var isSC=i.formType==='spot_check';
     var mgr=PROPERTIES.find(function(p){return p.name===i.property;});
     var issueList=i.issues||[];
     var hasIssues=i.issuesFound>0;
     var mgrNotes=(i.managerNotes||'').trim();
     var maintNotes=(i.maintenanceNotes||'').trim();
-    var hasDetails=hasIssues||mgrNotes||maintNotes;
+    var hasDetails=isSC||hasIssues||mgrNotes||maintNotes;
     var photos=normalizePhotoUrls(i.photoUrls,'qcLog:'+i.id);
     var photoCount=photos.length;
     var photoFailCount=i.photoUploadFailCount||0;
     var total=(i.itemsOk||0)+(i.issuesFound||0)+(i.naCount||0);
     var safeId='qc'+i.id.replace(/[^a-zA-Z0-9]/g,'');
+    var scStatus=SPOT_CHECK_STATUS_BADGES[i.status]||SPOT_CHECK_STATUS_BADGES['Open'];
     html+='<tr>';
     html+='<td style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td>';
+    html+='<td><span class="badge b-ok">'+(isSC?'&#128295; Spot Check':'QC Check')+'</span></td>';
     html+='<td style="font-weight:600">'+esc(i.property||'')+'</td>';
     html+='<td>'+esc(mgr?mgr.manager:'')+'</td>';
     html+='<td>'+esc(i.inspector||'')+'</td>';
-    html+='<td style="text-align:center">'+total+'</td>';
-    html+='<td style="text-align:center">'+( i.itemsOk||0)+'</td>';
-    html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( i.issuesFound||0)+'</td>';
-    html+='<td style="text-align:center">'+( i.naCount||0)+'</td>';
-    html+='<td><span class="badge '+(hasIssues?'b-issue':'b-clear')+'">'+(hasIssues?i.issuesFound+' Issue'+(i.issuesFound!==1?'s':''):'All Clear')+'</span></td>';
+    if(isSC){
+      html+='<td style="text-align:center"><span class="no-photo">&mdash;</span></td>';
+      html+='<td style="text-align:center"><span class="no-photo">&mdash;</span></td>';
+      html+='<td style="text-align:center"><span class="no-photo">&mdash;</span></td>';
+      html+='<td style="text-align:center"><span class="no-photo">&mdash;</span></td>';
+      html+='<td><span class="badge '+scStatus.cls+'">'+esc(scStatus.txt)+'</span> <span class="badge b-conditional" style="margin-left:4px">'+esc(i.priority||'')+' Priority</span></td>';
+    } else {
+      html+='<td style="text-align:center">'+total+'</td>';
+      html+='<td style="text-align:center">'+( i.itemsOk||0)+'</td>';
+      html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( i.issuesFound||0)+'</td>';
+      html+='<td style="text-align:center">'+( i.naCount||0)+'</td>';
+      html+='<td><span class="badge '+(hasIssues?'b-issue':'b-clear')+'">'+(hasIssues?i.issuesFound+' Issue'+(i.issuesFound!==1?'s':''):'All Clear')+'</span></td>';
+    }
     if(hasDetails){
-      html+='<td><button class="details-btn'+(hasIssues?'':' no-issues')+'" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
+      html+='<td><button class="details-btn'+((hasIssues||isSC)?'':' no-issues')+'" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
     } else {
       html+='<td><span class="no-photo">&mdash;</span></td>';
     }
@@ -830,27 +910,43 @@ function renderQCLog(){
     }
     html+='</tr>';
     if(hasDetails){
-      html+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="11">';
-      if(hasIssues){
-        html+='<div class="insp-detail-heading">&#128295; '+issueList.length+' Issue'+(issueList.length!==1?'s':'')+' Found</div>';
-        issueList.forEach(function(x){
-          var xPhotos=normalizePhotoUrls(x.photos,'qcLog:'+i.id+':issue');
-          html+='<div class="insp-issue-item"><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div>';
-          if(x.notes)html+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
-          if(x.charge>0)html+='<div class="insp-issue-charge">Charge: $'+Number(x.charge).toFixed(2)+'</div>';
-          if(xPhotos.length){
-            html+='<div class="insp-issue-photos">';
-            xPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
+      html+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="12">';
+      if(isSC){
+        html+='<div class="insp-detail-heading">&#128295; Spot Check Details</div>';
+        html+='<div class="insp-notes-block"><strong>Category:</strong> '+esc(i.category||'')+'<br><strong>Location:</strong> '+esc(i.location||'')+'<br><strong>Priority:</strong> '+esc(i.priority||'')+'<br><strong>Assigned House Manager:</strong> '+esc(i.assignedManagerName||'—')+(i.assignedManagerEmail?' ('+esc(i.assignedManagerEmail)+')':'')+'</div>';
+        html+='<div class="insp-detail-heading">&#128221; Description</div><div class="insp-notes-block">'+esc(i.description||'').replace(/\n/g,'<br>')+'</div>';
+        if((i.notes||'').trim()){
+          html+='<div class="insp-detail-heading">&#128221; Additional Notes</div><div class="insp-notes-block">'+esc(i.notes).replace(/\n/g,'<br>')+'</div>';
+        }
+        var scUpdates=i.updates||[];
+        var scUpdHtml='';
+        scUpdates.forEach(function(u){scUpdHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' · '+esc(u.date)+'</div></div>';});
+        html+='<div class="insp-detail-heading">&#128221; Status &amp; Resolution History</div>';
+        html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><span style="font-size:12px;font-weight:700;color:var(--dark-gray)">Status:</span><select style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px" onchange="setSpotCheckStatus(\''+i.id+'\',this.value)"><option value="Open"'+(i.status==='Open'?' selected':'')+'>Open</option><option value="In Progress"'+(i.status==='In Progress'?' selected':'')+'>In Progress</option><option value="Resolved"'+(i.status==='Resolved'?' selected':'')+'>Resolved</option></select></div>';
+        html+='<div class="updates-log">'+(scUpdHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
+        html+='<div class="add-update-row"><input type="text" id="sc-note-'+safeId+'" placeholder="Add an update…"><button onclick="addSpotCheckUpdate(\''+i.id+'\',\''+safeId+'\')">+ Add</button></div>';
+      } else {
+        if(hasIssues){
+          html+='<div class="insp-detail-heading">&#128295; '+issueList.length+' Issue'+(issueList.length!==1?'s':'')+' Found</div>';
+          issueList.forEach(function(x){
+            var xPhotos=normalizePhotoUrls(x.photos,'qcLog:'+i.id+':issue');
+            html+='<div class="insp-issue-item"><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div>';
+            if(x.notes)html+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
+            if(x.charge>0)html+='<div class="insp-issue-charge">Charge: $'+Number(x.charge).toFixed(2)+'</div>';
+            if(xPhotos.length){
+              html+='<div class="insp-issue-photos">';
+              xPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
+              html+='</div>';
+            }
             html+='</div>';
-          }
-          html+='</div>';
-        });
-      }
-      if(mgrNotes){
-        html+='<div class="insp-detail-heading">&#128221; Manager Notes</div><div class="insp-notes-block">'+esc(mgrNotes).replace(/\n/g,'<br>')+'</div>';
-      }
-      if(maintNotes){
-        html+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
+          });
+        }
+        if(mgrNotes){
+          html+='<div class="insp-detail-heading">&#128221; Manager Notes</div><div class="insp-notes-block">'+esc(mgrNotes).replace(/\n/g,'<br>')+'</div>';
+        }
+        if(maintNotes){
+          html+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
+        }
       }
       html+='</td></tr>';
     }
@@ -859,8 +955,58 @@ function renderQCLog(){
   document.getElementById('qcLogTable').innerHTML=html;
   reopenPreservedDetails();
 }
+// ── SPOT CHECK STATUS / RESOLUTION HISTORY — mirrors the Complaints and Check-In
+// resolved/updates pattern above, writing directly onto the inspection doc so the
+// original submission (description, photos, category, etc.) is never touched.
+function addSpotCheckUpdate(docId,safeId){
+  var input=document.getElementById('sc-note-'+safeId);
+  var text=(input.value||'').trim();
+  if(!text)return;
+  var now=new Date();
+  var entry={text:text,by:currentUser.name,date:now.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
+  db.collection('inspections').doc(docId).update({updates:firebase.firestore.FieldValue.arrayUnion(entry)}).then(function(){
+    var insp=_insp.find(function(x){return x.id===docId;});
+    if(insp){ if(!insp.updates)insp.updates=[]; insp.updates.push(entry); }
+    showToast('Update added');
+    renderQCLog();
+  }).catch(function(){showToast('Error adding update');});
+}
+function setSpotCheckStatus(docId,newStatus){
+  db.collection('inspections').doc(docId).update({status:newStatus,resolved:newStatus==='Resolved'}).then(function(){
+    var insp=_insp.find(function(x){return x.id===docId;});
+    if(insp){ insp.status=newStatus; insp.resolved=(newStatus==='Resolved'); }
+    showToast('Status updated to '+newStatus);
+    renderQCLog();
+  }).catch(function(){showToast('Error updating status');});
+}
 
 // ── TRAININGS ─────────────────────────────────────────────────────────────────
+// Employees can complete the same training category more than once over time. Each
+// completed session is stored as its own dated record in a history_N array so a new
+// session never overwrites an earlier one. module_N (bool, "has this ever been
+// completed") and date_N (string, "most recent completion date") are kept in sync
+// exactly as before for backward compatibility with any existing data/tooling — they
+// just now represent a live summary of history_N instead of being the only record.
+function getTrainingHistory(td, idx){
+  var hf='history_'+idx, f='module_'+idx, df='date_'+idx;
+  var hist = (td && Array.isArray(td[hf])) ? td[hf].slice() : [];
+  // Legacy fallback: docs saved before this feature only have module_N/date_N with no
+  // history_N array. Surface that single legacy completion so no existing data is ever
+  // lost or hidden — it just appears as a one-entry history until a new session is logged.
+  if (!hist.length && td && td[f] && td[df]) {
+    hist = [{date: td[df], legacy: true}];
+  }
+  hist.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+  return hist;
+}
+function fmtTrainDate(d){
+  if (!d) return '';
+  var parts=d.split('-');
+  if (parts.length!==3) return d;
+  var dt=new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10));
+  if (isNaN(dt.getTime())) return d;
+  return dt.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+}
 function renderTraining(){
   var html='<table class="training-table"><thead><tr><th>Manager</th>';
   TRAINING_MODULES.forEach(function(m){html+='<th>'+esc(m)+'</th>';});
@@ -871,11 +1017,16 @@ function renderTraining(){
     var done=0;
     html+='<tr><td title="'+esc(mgr)+'">'+esc(mgr)+'</td>';
     TRAINING_MODULES.forEach(function(m,i){
-      var f='module_'+i, df='date_'+i;
-      var checked=!!td[f];
-      if(checked)done++;
-      html+='<td style="text-align:center"><input type="checkbox" class="train-check" '+(checked?'checked':'')+' onchange="toggleTraining(\''+docId+'\',\''+esc(mgr)+'\','+i+',this.checked)">';
-      if(checked&&td[df]) html+='<div class="train-date">'+esc(td[df])+'</div>';
+      var hist=getTrainingHistory(td,i);
+      var has=hist.length>0;
+      if(has)done++;
+      html+='<td class="train-cell" onclick="openTrainingModal(\''+docId+'\',\''+esc(mgr)+'\','+i+')" title="'+(has?'Click to view full training history':'Click to log a completed training session')+'">';
+      if(has){
+        html+='<div class="train-cell-date">'+esc(fmtTrainDate(hist[0].date))+'</div>';
+        if(hist.length>1) html+='<div class="train-cell-count">'+hist.length+' sessions</div>';
+      } else {
+        html+='<div class="train-cell-empty">+ Log</div>';
+      }
       html+='</td>';
     });
     var pct=Math.round(done/TRAINING_MODULES.length*100);
@@ -885,14 +1036,55 @@ function renderTraining(){
   html+='</tbody></table>';
   document.getElementById('trainingTable').innerHTML=html;
 }
-function toggleTraining(docId,mgr,idx,checked){
-  var f='module_'+idx, df='date_'+idx, u={manager:mgr};
-  u[f]=checked; u[df]=checked?new Date().toISOString().slice(0,10):'';
+var _trainModalCtx=null;
+function openTrainingModal(docId,mgr,idx){
+  _trainModalCtx={docId:docId,mgr:mgr,idx:idx};
+  document.getElementById('trainModalTitle').textContent=mgr+' — '+TRAINING_MODULES[idx];
+  document.getElementById('trainModalDate').value=new Date().toISOString().slice(0,10);
+  renderTrainModalHistory();
+  document.getElementById('trainModalOverlay').classList.add('open');
+}
+function closeTrainingModal(){
+  document.getElementById('trainModalOverlay').classList.remove('open');
+  _trainModalCtx=null;
+}
+function closeTrainModalIfBg(e){
+  if(e.target && e.target.id==='trainModalOverlay') closeTrainingModal();
+}
+function renderTrainModalHistory(){
+  if(!_trainModalCtx) return;
+  var td=_trainings[_trainModalCtx.docId]||{};
+  var hist=getTrainingHistory(td,_trainModalCtx.idx);
+  var el=document.getElementById('trainModalHistory');
+  if(!hist.length){ el.innerHTML='<div class="train-modal-empty">No completed sessions logged yet.</div>'; return; }
+  var html='';
+  hist.forEach(function(h,i){
+    html+='<div class="train-hist-row"><span class="train-hist-date">'+esc(fmtTrainDate(h.date))+'</span>'+(i===0?'<span class="train-hist-tag">Most recent</span>':'')+'</div>';
+  });
+  el.innerHTML=html;
+}
+function addTrainingSession(){
+  if(!_trainModalCtx) return;
+  var dateVal=document.getElementById('trainModalDate').value;
+  if(!dateVal){ showToast('Choose a date first'); return; }
+  var docId=_trainModalCtx.docId, mgr=_trainModalCtx.mgr, idx=_trainModalCtx.idx;
+  var hf='history_'+idx, f='module_'+idx, df='date_'+idx;
+  var existing=_trainings[docId]||{};
+  // Start from the full existing history (legacy single-record docs included) so the
+  // new session is APPENDED, never replacing what was already recorded.
+  var hist=getTrainingHistory(existing,idx);
+  hist.push({date:dateVal, loggedAt:new Date().toISOString(), loggedBy:(typeof currentUser!=='undefined'&&currentUser&&currentUser.name)||''});
+  hist.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+  var mostRecent=hist[0].date;
+  var u={manager:mgr};
+  u[f]=true; u[df]=mostRecent; u[hf]=hist;
   db.collection('trainings').doc(docId).set(u,{merge:true}).then(function(){
     if(!_trainings[docId])_trainings[docId]={};
-    _trainings[docId][f]=checked; _trainings[docId][df]=u[df];
-    renderTraining(); showToast(checked?'Marked complete ✓':'Unmarked');
-  });
+    _trainings[docId][f]=true; _trainings[docId][df]=mostRecent; _trainings[docId][hf]=hist;
+    renderTraining();
+    renderTrainModalHistory();
+    showToast('Training session logged ✓');
+  }).catch(function(){ showToast('Could not save — please try again'); });
 }
 
 // ── PHOTO LIGHTBOX ────────────────────────────────────────────────────────────
