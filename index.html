@@ -70,6 +70,13 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .prop-tag.no-pets{background:#FDECEA;color:var(--red)}
 .prop-tag.contact{background:var(--gray);color:var(--dark-gray)}
 .prop-tag.lockbox{background:#EDE7F6;color:#5B3A8E}
+.prop-open-issues{margin-top:10px;padding:10px 12px;background:#FFF3E0;border-left:3px solid var(--orange);border-radius:8px}
+.prop-open-issues-hdr{font-size:12px;font-weight:800;color:#8a4b00;margin-bottom:6px}
+.prop-issue-row{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:5px 0;border-top:1px solid rgba(0,0,0,.08)}
+.prop-issue-row:first-of-type{border-top:none}
+.prop-issue-txt{font-size:12.5px;color:var(--text);flex:1}
+.prop-issue-txt .prop-issue-sec{display:block;font-size:10.5px;color:var(--dark-gray);text-transform:uppercase;letter-spacing:.3px;font-weight:700}
+.prop-issue-sel{font-size:11px;border:1px solid var(--mid-gray);border-radius:6px;padding:3px 5px;background:white;flex-shrink:0}
 .checklist-wrap{padding:12px 0 0}
 .section-block{margin:0 0 8px}
 .section-head{background:var(--navy);color:white;padding:10px 16px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;display:flex;justify-content:space-between;align-items:center}
@@ -209,7 +216,8 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .dash-filter select{border:2px solid var(--mid-gray);border-radius:8px;padding:7px 10px;font-size:13px;background:white;-webkit-appearance:none;flex-shrink:0}
 .dash-card{background:white;border-radius:var(--radius);padding:14px 16px;margin:0 16px 10px;box-shadow:var(--shadow)}
 /* Manager bottom nav button */
-#managerNavBtns{display:none}</style>
+#managerNavBtns{display:none}
+</style>
 </head>
 <body>
 
@@ -253,6 +261,8 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
     <div class="form-card checkin-winter" onclick="startForm('checkin_winter')"><span class="icon">&#10052;</span><div class="label">Check In &mdash; Winter</div><div class="count">Pre check-in</div></div>
     <div class="form-card checkout-summer" onclick="startForm('checkout_summer')"><span class="icon">&#9728;</span><div class="label">Check Out &mdash; Summer</div><div class="count">Departure inspection</div></div>
     <div class="form-card checkout-winter" onclick="startForm('checkout_winter')"><span class="icon">&#10052;</span><div class="label">Check Out &mdash; Winter</div><div class="count">Departure inspection</div></div>
+    <div class="form-card checkin-summer" onclick="startForm('b2b_summer')"><span class="icon">&#128260;</span><div class="label">Back-to-Back &mdash; Summer</div><div class="count">Check-out + check-in, same day</div></div>
+    <div class="form-card checkin-winter" onclick="startForm('b2b_winter')"><span class="icon">&#128260;</span><div class="label">Back-to-Back &mdash; Winter</div><div class="count">Check-out + check-in, same day</div></div>
     <div class="form-card kitchen-inv" onclick="startForm('kitchen_inv')"><span class="icon">&#127869;</span><div class="label">Kitchen Inventory</div><div class="count">Dishes, flatware &amp; appliances</div></div>
     <div class="form-card linen-inv" onclick="startForm('linen_inv')"><span class="icon">&#128719;</span><div class="label">Linen Inventory</div><div class="count">Sheets, blankets &amp; towels</div></div>
     <div class="form-card qc" style="grid-column:span 2" onclick="startForm('qc_check')"><span class="icon">&#128373;</span><div class="label">QC Check</div><div class="count">Manager spot-check</div></div>
@@ -287,6 +297,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
       <div class="prop-card-addr" id="propCardAddr"></div>
       <div id="propNotes" style="display:none;font-size:11px;color:#555;margin:6px 0 0;padding:8px 10px;background:#FFF8E1;border-radius:6px;border-left:3px solid #F0A500;white-space:pre-wrap;max-height:120px;overflow-y:auto"></div>
       <div class="prop-tags" id="propTags"></div>
+      <div class="prop-open-issues" id="propOpenIssues" style="display:none"></div>
     </div>
     <div class="field-row">
       <div class="field"><label>Date</label><input type="date" id="fieldDate"></div>
@@ -615,7 +626,7 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
   var itemPhotos = uploadResult.itemPhotos || {};
   var sections = state._sections || [];
   var issueList = [];
-  sections.forEach(function(sec,si){ sec.items.forEach(function(txt,ii){ var key=si+'_'+ii; var it=state.items[key]||{}; if(it.status==='issue') issueList.push({section:sec.title,text:txt,notes:it.notes||'',charge:it.charge||0,photos:itemPhotos[key]||[]}); }); });
+  sections.forEach(function(sec,si){ sec.items.forEach(function(txt,ii){ var key=si+'_'+ii; var it=state.items[key]||{}; if(it.status==='issue') issueList.push({section:sec.title,text:txt,notes:it.notes||'',charge:it.charge||0,photos:itemPhotos[key]||[],key:key}); }); });
   var ok=0,issues=0,na=0,charge=0;
   sections.forEach(function(sec,si){ sec.items.forEach(function(_,ii){ var it=state.items[si+'_'+ii]||{}; if(it.status==='ok')ok++; else if(it.status==='issue'){issues++;charge+=it.charge||0;} else if(it.status==='na')na++; }); });
   var info=state.info;
@@ -636,6 +647,49 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
   } else {
     db.collection('inspections').add(docData).catch(function(e){console.warn('[PHOTO-DEBUG] Firebase save error',e);});
   }
+  createPropertyIssues(issueList, inspectionId, docData);
+}
+
+// ── Follow-up issue tracking ──
+// Every flagged checklist Issue also gets its own standalone record in
+// `property_issues`, tied to the property (not just this one inspection), so it
+// can be tracked with its own Open/In Progress/Resolved status and keeps
+// showing up on the property (see loadOpenPropertyIssues() above and the
+// Dashboard's Open Issues tab) until someone actually resolves it — independent
+// of whether the whole check-in/check-out was marked Ready. This needs no
+// manual button — it's created automatically the moment the inspection is
+// submitted.
+function createPropertyIssues(issueList, inspectionId, docData) {
+  if (!db || !issueList || !issueList.length || !inspectionId) return;
+  issueList.forEach(function(iss) {
+    // Guard against creating a duplicate tracked issue if this exact inspection
+    // doc is ever re-saved under the same id (saveInspectionToFirebase uses
+    // .set(), so a resubmit of the same draftId would otherwise double up).
+    db.collection('property_issues').where('sourceInspectionId', '==', inspectionId).where('sourceIssueKey', '==', iss.key).limit(1).get().then(function(snap) {
+      var existing = snap.docs.filter(function(d) { var dd = d.data(); return dd.sourceInspectionId === inspectionId && dd.sourceIssueKey === iss.key; })[0];
+      if (existing) return;
+      db.collection('property_issues').add({
+        property: docData.property || '', address: docData.address || '', formType: docData.formType || '',
+        section: iss.section || '', text: iss.text || '', notes: iss.notes || '',
+        status: 'open', sourceInspectionId: inspectionId, sourceIssueKey: iss.key,
+        reportedByName: docData.inspector || '', reportedById: docData.inspectorId || '',
+        reportedAt: docData.submittedAt || new Date().toISOString(),
+        updates: [], resolvedAt: null, resolvedBy: null
+      }).catch(function(e) { console.warn('[PROPERTY-ISSUE] create failed', e); });
+    }).catch(function() {
+      // If the lookup itself fails (e.g. offline), still create the record rather
+      // than silently dropping a real issue — worst case is a rare duplicate,
+      // which is far better than a follow-up issue never getting tracked at all.
+      db.collection('property_issues').add({
+        property: docData.property || '', address: docData.address || '', formType: docData.formType || '',
+        section: iss.section || '', text: iss.text || '', notes: iss.notes || '',
+        status: 'open', sourceInspectionId: inspectionId, sourceIssueKey: iss.key,
+        reportedByName: docData.inspector || '', reportedById: docData.inspectorId || '',
+        reportedAt: docData.submittedAt || new Date().toISOString(),
+        updates: [], resolvedAt: null, resolvedBy: null
+      }).catch(function(e) { console.warn('[PROPERTY-ISSUE] create failed', e); });
+    });
+  });
 }
 
 // ── Photo download ──
@@ -658,16 +712,35 @@ function downloadAllPhotos(photoUrls, propertyName) {
 
 // ── My Inspections ──
 var _myInspections = [];
+var _myPropIssues = [];
+var _myOpenDetailIds = {};
 function loadMyInspections() {
   if (!db) { showToast('Firebase not configured'); return; }
   showScreen('screenMyInspections');
   setHeader('My Inspections','Your history',false);
   document.getElementById('bottomNav').style.display='none';
   document.getElementById('myInspectionsList').innerHTML='<div style="text-align:center;padding:40px;color:var(--dark-gray)">Loading...</div>';
-  db.collection('inspections').where('inspectorId','==',currentUser.id).orderBy('submittedAt','desc').limit(100).get().then(function(snap){
-    _myInspections = snap.docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
+  Promise.all([
+    db.collection('inspections').where('inspectorId','==',currentUser.id).orderBy('submittedAt','desc').limit(100).get(),
+    db.collection('property_issues').where('reportedById','==',currentUser.id).limit(1000).get()
+  ]).then(function(results){
+    _myInspections = results[0].docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
+    _myPropIssues = results[1].docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
     applyMyFilter();
   }).catch(function(e){ document.getElementById('myInspectionsList').innerHTML='<div style="text-align:center;padding:40px;color:var(--red)">Error loading.</div>'; });
+}
+function toggleMyInspDetail(id) {
+  var el = document.getElementById('mydetail-' + id);
+  if (!el) return;
+  var open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  if (open) delete _myOpenDetailIds[id]; else _myOpenDetailIds[id] = true;
+}
+function reopenMyPreservedDetails() {
+  Object.keys(_myOpenDetailIds).forEach(function(id){
+    var el = document.getElementById('mydetail-' + id);
+    if (el) el.style.display = 'block';
+  });
 }
 function applyMyFilter() {
   var type = document.getElementById('myFilterType').value;
@@ -706,12 +779,35 @@ function renderMyInspections(inspections) {
     if(insp.totalCharge>0) html+=' &bull; <span style="color:var(--red);font-weight:700">$'+Number(insp.totalCharge).toFixed(2)+' charges</span>';
     if(insp.photoCount>0) html+=' &bull; &#128247; '+insp.photoCount;
     html+='</div>';
-    if(insp.issues&&insp.issues.length>0){
-      html+='<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--mid-gray)">';
-      insp.issues.slice(0,3).forEach(function(is){ html+='<div style="font-size:12px;color:var(--text);margin-bottom:2px">&#8226; '+esc(is.text)+(is.notes?' — <em>'+esc(is.notes)+'</em>':'')+'</div>'; });
-      if(insp.issues.length>3) html+='<div style="font-size:11px;color:var(--dark-gray)">+'+(insp.issues.length-3)+' more</div>';
-      html+='</div>';
+    var issueCount = (insp.issues && insp.issues.length) || 0;
+    html+='<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--mid-gray)">';
+    html+='<button onclick="toggleMyInspDetail(\''+insp.id+'\')" style="background:none;border:1px solid var(--mid-gray);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;color:var(--navy);width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center">'
+      +'<span>Details &mdash; '+issueCount+' issue'+(issueCount!==1?'s':'')+'</span><span>&#9662;</span></button>';
+    html+='<div id="mydetail-'+insp.id+'" style="display:none;margin-top:8px">';
+    if (issueCount === 0) {
+      html+='<div style="font-size:12px;color:var(--green);font-weight:600;padding:6px 2px">No issues found.</div>';
+    } else {
+      insp.issues.forEach(function(is){
+        var tracked = _myPropIssues.filter(function(pi){ return pi.sourceInspectionId===insp.id && pi.sourceIssueKey===is.key; })[0];
+        var statusLabels = {open:'&#128308; Open', in_progress:'&#128993; In Progress', resolved:'&#9989; Resolved'};
+        var statusTxt = tracked ? (statusLabels[tracked.status]||tracked.status) : '&#128308; Open';
+        html+='<div style="background:var(--light-gray);border-radius:8px;padding:10px;margin-bottom:8px">';
+        html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">';
+        html+='<div style="font-size:12px;font-weight:700;color:var(--navy)">'+esc(is.section||'')+' &mdash; '+esc(is.text||'')+'</div>';
+        html+='<div style="font-size:11px;white-space:nowrap;flex-shrink:0">'+statusTxt+'</div>';
+        html+='</div>';
+        if (is.notes) html+='<div style="font-size:12px;color:var(--text);margin-top:4px"><em>'+esc(is.notes)+'</em></div>';
+        if (is.charge>0) html+='<div style="font-size:12px;color:var(--red);font-weight:700;margin-top:4px">$'+Number(is.charge).toFixed(2)+' charge</div>';
+        if (is.photos && is.photos.length) {
+          html+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">';
+          is.photos.forEach(function(url){ html+='<img src="'+url+'" style="width:52px;height:52px;border-radius:6px;object-fit:cover;cursor:pointer;border:1.5px solid var(--mid-gray)" onclick="window.open(\''+url+'\',\'_blank\')">'; });
+          html+='</div>';
+        }
+        html+='</div>';
+      });
     }
+    html+='</div>';
+    html+='</div>';
     if(insp.photoUrls&&insp.photoUrls.length>0){
       html+='<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--mid-gray)">';
       html+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">';
@@ -723,6 +819,7 @@ function renderMyInspections(inspections) {
     html+='</div>';
   });
   el.innerHTML=html;
+  reopenMyPreservedDetails();
 }
 
 // ── Dashboard ──
@@ -1661,32 +1758,6 @@ function getSections(type, prop) {
       'Shower curtains in good condition',
       'Towels: 2 of each type per sleeper',
       'Teams Chat updated, reservation notes added, HSK grid updated'
-    ]},
-    {title:'Supply Checklist', items:[
-      'Toilet Paper — Charmin preferred',
-      'Paper Towels — Bounty preferred',
-      'Kleenex (square box in cover)',
-      'Kitchen Bags 13 gal — unscented',
-      'Coffee Filters (type confirmed, reusable present if applicable)',
-      'Small Trash Bags for bathrooms',
-      'Large Black Contractor Bags',
-      'Sponges — blue individually wrapped (no green)',
-      'Hand Soap Refill (clear)',
-      'Dishwashing Soap — Dawn preferred',
-      'Dishwasher Detergent',
-      'Laundry Soap (no Tide, fragrance free preferred)',
-      'Dryer Sheets (fragrance free)',
-      'Olive Oil',
-      'Foil',
-      'Saran Wrap',
-      'Ziploc Bags',
-      'Salt',
-      'Peppercorns for the grinder',
-      'Wand Lighters',
-      'Batteries: 9V, AA, AAA',
-      'Ice Melt and Scoop for bucket',
-      'Light Bulbs (assessed for home)',
-      'Heater Air Filters (read current size)'
     ]}
   ];
 
@@ -1725,7 +1796,7 @@ function getSections(type, prop) {
       'TLUXP Pad, Pen, RE flyer, and Survey set up',
       'Wi-Fi working (speed test completed)',
       'Pool, Ping Pong, Foosball tables and equipment checked',
-      'Temperature set to 68\xb0F',
+      'Did you set heat temp to 70\xb0F for HVAC / 70\xb0F for radiant?',
       'Hot water working on all levels and sinks',
       'All toilets flushed',
       'All fireplace remotes working (gas only)',
@@ -1774,31 +1845,297 @@ function getSections(type, prop) {
       'Shower curtains in good condition',
       'Towels: 2 of each type per sleeper',
       'Teams Chat updated and HSK grid updated'
+    ]}
+  ];
+
+  /* ═══════════════════════════════════════════════════════════
+     BACK-TO-BACK — SUMMER (Check-Out + Check-In combined, same day)
+  ═══════════════════════════════════════════════════════════ */
+  if (type === 'b2b_summer') return [
+    {title:'Before You Start — Office Pre-Check', items:[
+      'Check the house folder',
+      'Check the reservation notes',
+      'Check the website amenities',
+      'Check the photos'
     ]},
-    {title:'Supply Checklist', items:[
-      'Toilet Paper — Charmin preferred',
-      'Paper Towels — Bounty preferred',
+    {title:'Exterior', items:[
+      'Bear Bin checked — pickup scheduled if full and guests arriving before next trash day',
+      'Is the Bear Bin / bear box fully closed and secured?',
+      'Driveway and walkway clear of debris',
+      'Dinghy clean inside (if applicable)',
+      'Oars present (if applicable)',
+      'Dinghy secured and upside down on shore — photo taken (if applicable)',
+      'Pollen wiped off all decks (time stamped)',
+      'Trash and debris removed from yard (cigarettes especially near hot tub)',
+      'Dog waste removed from yard and all decks',
+      'Entry, patios, and decks cleaned of cobwebs',
+      'Lockbox — is key there, does it open easily?',
+      'Does key tag need replacing?',
+      'BBQ clean and working',
+      'Wand lighter present as backup',
+      'Two full propane tanks (if applicable)',
+      'BBQ utensils / brush present and in good condition',
+      'Patio furniture cleaned and straightened',
+      'Is there damage to patio furniture / cushions? (note below)',
+      'Umbrella opens and is in good shape',
+      'All exterior lights working',
+      'Hot tub clean, working (jets and temp set to 102\xb0F), and unlocked',
+      'Does hot tub need dump & scrub?',
+      'Hot tub cover and lift in good condition, easy to open',
+      'House propane tank level noted (if applicable)',
+      'Is there trash in the garage?'
+    ]},
+    {title:'Interior — General', items:[
+      'All interior lights work (welcome lighting on for guests)',
+      'HOA cards / passes counted and numbers noted (lanyard present if applicable)',
+      'Garage openers present and working',
+      'Exterior garage keypad working',
+      'TLUXP Pad, Pen, and RE flyer set up',
+      'Wi-Fi working (speed test completed)',
+      'Pool, Ping Pong, Foosball tables checked',
+      'Pool cues — tips in good condition',
+      'Plenty of balls for pool and foosball',
+      'Paddles in good shape',
+      'Heat set to 55\xb0F, A/C set to 70\xb0F',
+      'Under couch and cushions checked for debris',
+      'Hot water working on all levels and sinks',
+      'All sink drains flowing freely',
+      'Power Outage Kit confirmed in primary closet',
+      'All toilets flushed',
+      'All fireplace remotes working (gas only)',
+      'Wood burning fireplace clean (if applicable)',
+      'Extra wood storage accessible for guests',
+      'Ironing board and iron present',
+      'All blinds set at even levels',
+      'All music / Sonos / Alexa players working',
+      'All TVs working (channels and volume tested)',
+      'Remotes working with batteries and backups',
+      'TV directions clear for guests',
+      'Washer checked (door left open) and dryer checked',
+      'Lint trap emptied',
+      'Hot tub towels in good condition and matching',
+      'Did you check under furniture for lost & found?',
+      'Did you check ALL drawers for lost & found?'
+    ]},
+    {title:'Kitchen', items:[
+      'Bear Bin note present and clean (no trash in garage)',
+      '1 full paper towel roll on counter + 1 underneath',
+      'Full liquid dish soap and hand soap at sink',
+      'Hand soap is ONE color / type (dump and refill if mixed)',
+      'New sponge in wrapper present',
+      'At least 8 kitchen towels that match',
+      'Dishwasher clean and drain clear of debris',
+      'Garbage disposal clean',
+      'Trash bags in bins / compactor',
+      'Ice maker working in freezer',
+      'No smells in refrigerator / freezer',
+      'All major appliances turned on / run and clocks set',
+      'Hood fan, hood light, and oven light working',
+      'Under sink: trash bags, extra dish soap, dishwasher detergent, cleaning products',
+      'Kitchen drawers / cabinets organized and clean',
+      'Potholders checked — replacement needed?',
+      'Salt and pepper grinders filled, olive oil and coffee filters present'
+    ]},
+    {title:'Bedrooms', items:[
+      'All bedding clean and free of debris (2 sleeping pillows per person)',
+      'Under beds and all drawers checked for trash / debris',
+      'All blinds operational and raised to same height',
+      '1 additional pillow with case in closet for each bed',
+      '20 matching hangers in each closet (no plastic)',
+      'Fan in each closet with neatly wrapped cord',
+      'Liquid soap dispensers metal / glass / stone only (no plastic store-bought)',
+      'TLUXP soap / shampoo / conditioner present in every shower',
+      'Are there any stains or damage to bedding or pillows?',
+      'Was power outage kit used / opened? Inventory it if so'
+    ]},
+    {title:'Bathrooms', items:[
+      '4 extra rolls of toilet paper + 1 on holder',
+      'Liquid soap containers full and ONE color / type',
+      'TLUXP soap / shampoo / conditioner in every shower',
+      'Bathroom fan working',
+      'Shower curtains in good condition',
+      'Towels: 2 of each type per sleeper',
+      'Teams Chat updated, reservation notes added, HSK grid updated'
+    ]},
+    {title:'Damage Assessment (if pet on reservation)', items:[
+      'Was there a pet on the reservation? (Y/N)',
+      'Is there excess pet hair requiring extra cleaning?',
+      'Are there any scratches on doors or floors? (note below)',
+      'Are there any stains in carpets or rugs? (note below)',
+      'Are there any stains or tears in upholstery? (note below)',
+      'Is there any damage to the inside of the fridge / freezer?',
+      'Are any pieces missing for pool table / ping pong / foosball?'
+    ]},
+    {title:'Shut Down / Security', items:[
+      'Did you lock ALL doors and test to ensure they\'re locked?',
+      'Did you lock ALL windows?'
+    ]},
+    {title:'Supply Check', isSupply:true, items:[
+      'Toilet Paper (Charmin preferred)',
+      'Paper Towels (Bounty preferred)',
       'Kleenex (square box in cover)',
-      'Kitchen Bags 13 gal — unscented',
-      'Coffee Filters (type confirmed, reusable present)',
-      'Small Trash Bags for bathrooms',
-      'Large Black Contractor Bags',
+      'Tall Kitchen garbage bags 13 gal (unscented)',
+      'Coffee Filters — confirm type, reusable present if applicable',
+      'Small Trash bags for bathrooms',
+      'Large Black contractor bags',
       'Sponges — blue individually wrapped (no green)',
-      'Hand Soap Refill (clear)',
-      'Dishwashing Soap — Dawn preferred',
-      'Dishwasher Detergent',
-      'Laundry Soap (no Tide, fragrance free preferred)',
-      'Dryer Sheets (fragrance free)',
-      'Olive Oil',
+      'Hand Soap refill (clear)',
+      'Dishwashing soap (Dawn preferred)',
+      'Dishwasher detergent',
+      'Laundry Soap — no Tide, fragrance free preferred',
+      'Dryer Sheets — fragrance free',
+      'Olive oil',
       'Foil',
-      'Saran Wrap',
+      'Saran wrap',
       'Ziploc Bags',
       'Salt',
       'Peppercorns for the grinder',
       'Wand Lighters',
       'Batteries: 9V, AA, AAA',
-      'Ice Melt and Scoop for bucket',
-      'Light Bulbs (assessed for home)',
+      'TLUXP Soap / Shampoo / Conditioner',
+      'Light bulbs (assess what home uses)',
+      'Heater Air Filters (read current size)'
+    ]}
+  ];
+
+  /* ═══════════════════════════════════════════════════════════
+     BACK-TO-BACK — WINTER (Check-Out + Check-In combined, same day)
+  ═══════════════════════════════════════════════════════════ */
+  if (type === 'b2b_winter') return [
+    {title:'Before You Start — Office Pre-Check', items:[
+      'Check the house folder',
+      'Check the reservation notes',
+      'Check the website amenities',
+      'Check the photos'
+    ]},
+    {title:'Exterior', items:[
+      'Bear Bin checked — pickup scheduled if full and guests arriving before next trash day',
+      'Is the Bear Bin / bear box fully closed and secured?',
+      'Driveway and walkway clear of debris',
+      'Driveway plowed and shoveling completed',
+      'Ice melt put out on slick areas and stairs',
+      'Ice / snow concerns assessed (ice dams, snow load)',
+      'Does the roof need to be shoveled?',
+      'Trash and debris removed from yard (cigarettes especially near hot tub)',
+      'Dog waste removed from yard and all decks',
+      'Lockbox — is key there, does it open easily?',
+      'Does key tag need replacing?',
+      'BBQ clean and working',
+      'Two full propane tanks present',
+      'BBQ utensils / brush present and in good condition',
+      'All exterior lights working',
+      'Hot tub clean, working (jets and temp set to 102\xb0F), and unlocked',
+      'Does hot tub have any damage?',
+      'Does hot tub need dump & scrub?',
+      'House propane tank level noted (if applicable)',
+      'Propane tank shoveled out (if applicable)',
+      'Is there trash in the garage?'
+    ]},
+    {title:'Interior — General', items:[
+      'All interior lights checked (bulbs replaced as needed)',
+      'HOA cards / passes counted and numbers noted (lanyard present if applicable)',
+      'Garage openers present and working',
+      'TLUXP Pad, Pen, RE flyer, and Survey set up',
+      'Wi-Fi working (speed test completed)',
+      'Pool, Ping Pong, Foosball tables and equipment checked',
+      'Did you set heat temp to 70\xb0F for HVAC / 70\xb0F for radiant?',
+      'Full bucket of ice melt + scoop in the garage',
+      'Hot water working on all levels and sinks',
+      'All toilets flushed',
+      'All fireplace remotes working (gas only)',
+      'Wood burning fireplace clean (if applicable)',
+      'Is extra wood storage accessible for guests?',
+      'Ironing board and iron present',
+      'All damages checked (stained furniture, carpets, comforters — photos taken)',
+      'Any scratches on floors, backs of doors — photos taken',
+      'All blinds set at even levels',
+      'All music / Sonos / Alexa players working',
+      'All TVs working (channels and volume tested)',
+      'Washer checked (door left open) and dryer checked',
+      'Mouse traps checked under everything — removed if found',
+      'Did you check under couches for lost & found?',
+      'Did you check ALL drawers for lost & found?',
+      'Are there still 2 shovels in the garage?',
+      'Do any shovels need to be replaced / bought?',
+      'Is snowmelt system on? (if applicable)'
+    ]},
+    {title:'Kitchen', items:[
+      '1 full paper towel roll on counter + 1 underneath',
+      'Full liquid dish soap and hand soap at sink',
+      'New sponge in wrapper present',
+      'At least 8 kitchen towels that match',
+      'Dishwasher clean and drain clear of debris',
+      'Garbage disposal working and clean',
+      'Trash bags in bins / compactor',
+      'Ice maker working in freezer',
+      'All major appliances turned on / run and clocks set',
+      'All major appliances clean inside and out',
+      'Hood fan, hood light, and oven light working',
+      'Under sink: trash bags, extra dish soap, dishwasher detergent, cleaning products',
+      'Kitchen drawers / cabinets organized and clean',
+      'Dinnerware, flatware, glasses, pot holders, towels checked'
+    ]},
+    {title:'Bedrooms', items:[
+      'All beds made nicely (no wrinkles — use wrinkle remover)',
+      '2 sleeping pillows per person on each bed',
+      'Under beds and all drawers checked for trash / debris',
+      'All blinds operational and raised to same height',
+      '2 additional pillows with cases in each room',
+      '20 matching hangers in each closet (no plastic)',
+      'Heater and fan in each closet with neatly wrapped cord',
+      'Power Outage Kit in primary closet (accessible, zip-tied, and full)',
+      'Are there any stains or damage to bedding or pillows?',
+      'Was power outage kit used / opened? Inventory it if so'
+    ]},
+    {title:'Bathrooms', items:[
+      '4 extra rolls of toilet paper + 1 on holder',
+      'Liquid soap containers full and ONE color / type',
+      'TLUXP soap / shampoo / conditioner in every shower',
+      'Bathroom fan working',
+      'Shower curtains in good condition',
+      'Towels: 2 of each type per sleeper',
+      'Teams Chat updated and HSK grid updated'
+    ]},
+    {title:'Damage Assessment (if pet on reservation)', items:[
+      'Was there a pet on the reservation? (Y/N)',
+      'Is there excess pet hair requiring extra cleaning?',
+      'Are there any scratches on doors or floors? (note below)',
+      'Are there any stains in carpets or rugs? (note below)',
+      'Are there any stains or tears in upholstery? (note below)',
+      'Is there any damage to the inside of the fridge / freezer?',
+      'Are any pieces missing for pool table / ping pong / foosball?',
+      'Are there any stress cracks from snowload on walls / ceiling / beams?',
+      'Are any doors difficult to open due to snowload on roof?'
+    ]},
+    {title:'Shut Down / Security', items:[
+      'Did you lock ALL doors and test to ensure they\'re locked?',
+      'Did you lock ALL windows?'
+    ]},
+    {title:'Supply Check', isSupply:true, items:[
+      'Toilet Paper (Charmin preferred)',
+      'Paper Towels (Bounty preferred)',
+      'Kleenex (square box in cover)',
+      'Tall Kitchen garbage bags 13 gal (unscented)',
+      'Coffee Filters — confirm type, reusable present if applicable',
+      'Small Trash bags for bathrooms',
+      'Large Black contractor bags',
+      'Sponges — blue individually wrapped (no green)',
+      'Hand Soap refill (clear)',
+      'Dishwashing soap (Dawn preferred)',
+      'Dishwasher detergent',
+      'Laundry Soap — no Tide, fragrance free preferred',
+      'Dryer Sheets — fragrance free',
+      'Olive oil',
+      'Foil',
+      'Saran wrap',
+      'Ziploc Bags',
+      'Salt',
+      'Peppercorns for the grinder',
+      'Wand Lighters',
+      'Ice Melt and scooper for the bucket',
+      'Batteries: 9V, AA, AAA',
+      'TLUXP Soap / Shampoo / Conditioner',
+      'Light bulbs (assess what home uses)',
       'Heater Air Filters (read current size)'
     ]}
   ];
@@ -1919,12 +2256,10 @@ function getSections(type, prop) {
       'Is the Bear Bin / bear box fully closed and secured?'
     ]},
     {title:'Interior — General', items:[
-      'If complete, send pic of guest eval to Mgt / Steph',
       'How many HOA cards / passes? — write down pass numbers',
       'Do passes have TLUXP lanyard (if applicable)?',
       'How many garage openers?',
-      'Did you set heat temp to 55\xb0F, A/C to 70\xb0F?',
-      'Firewood, kindling, lighter at each wood burning fireplace',
+      'Did you set heat temp to 55\xb0F, A/C to 82\xb0F?',
       'Is extra wood storage accessible for guests?',
       'Did you check under furniture for lost & found?',
       'Did you check ALL drawers for lost & found?'
@@ -1939,19 +2274,16 @@ function getSections(type, prop) {
       'Are any pieces missing for pool table / ping pong / foosball?'
     ]},
     {title:'Bedrooms', items:[
-      'Did you check under beds and dressers for lost & found?',
-      'Did you check closets and drawers for lost & found?',
       'Are there any stains or damage to bedding or pillows?',
       'Was power outage kit used / opened? Inventory it if so'
     ]},
     {title:'Shut Down / Security', items:[
       'Did you lock ALL doors and test to ensure they\'re locked?',
       'Did you lock ALL windows?',
-      'Did you adjust the heat stated previously? (not for B2Bs)',
       'Did you turn ALL lights off? (not for B2Bs)',
       'Did you set the alarm (if active)? (not for B2Bs)'
     ]},
-    {title:'Supply Check', items:[
+    {title:'Supply Check', isSupply:true, items:[
       'Toilet Paper (Charmin preferred)',
       'Paper Towels (Bounty preferred)',
       'Kleenex (square box in cover)',
@@ -2005,12 +2337,10 @@ function getSections(type, prop) {
       'Is the Bear Bin / bear box fully closed and secured?'
     ]},
     {title:'Interior — General', items:[
-      'If complete, send pic of guest eval to Mgt / Steph',
       'How many HOA cards / passes? — write down pass numbers',
       'Do passes have TLUXP lanyard (if applicable)?',
       'How many garage openers are present?',
-      'Did you set heat temp to 55\xb0F for HVAC / 60\xb0F for radiant?',
-      'Firewood, kindling, lighter at each wood burning fireplace',
+      'Did you set heat temp to 55\xb0F for HVAC / 65\xb0F for radiant?',
       'Is extra wood storage accessible for guests?',
       'Did you check under couches for lost & found?',
       'Did you check ALL drawers for lost & found?',
@@ -2020,19 +2350,16 @@ function getSections(type, prop) {
       'Is snowmelt system on? (if applicable)'
     ]},
     {title:'Bedrooms', items:[
-      'Did you check under beds and dressers for lost & found?',
-      'Did you check closets and drawers for lost & found?',
       'Are there any stains or damage to bedding or pillows?',
       'Was power outage kit used / opened? Inventory it if so'
     ]},
     {title:'Shut Down / Security', items:[
       'Did you lock ALL doors and test to ensure they\'re locked?',
       'Did you lock ALL windows?',
-      'Did you adjust the heat stated previously? (not for B2Bs)',
       'Did you turn ALL lights off? (not for B2Bs)',
       'Did you set the alarm (if active)? (not for B2Bs)'
     ]},
-    {title:'Supply Check', items:[
+    {title:'Supply Check', isSupply:true, items:[
       'Toilet Paper (Charmin preferred)',
       'Paper Towels (Bounty preferred)',
       'Kleenex (square box in cover)',
@@ -2285,8 +2612,53 @@ function selectProperty(p) {
     document.getElementById('fieldBedrooms').value = p.bedrooms;
   }
   document.getElementById('propCard').classList.add('show');
+  loadOpenPropertyIssues(p.name);
 }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Follow-up issues attached to a property (persist across inspections until
+// resolved — see createPropertyIssues() below, which is what writes these docs
+// at submit time). This just surfaces whatever's still open/in-progress for the
+// selected property, right on the setup screen, so whoever inspects it next
+// sees what's outstanding before they even start the checklist. ──
+function loadOpenPropertyIssues(propertyName) {
+  var box = document.getElementById('propOpenIssues');
+  if (!box) return;
+  box.style.display = 'none';
+  box.innerHTML = '';
+  if (!db || !propertyName) return;
+  db.collection('property_issues').where('property', '==', propertyName).get().then(function(snap) {
+    // Re-filter client-side rather than adding a second .where() clause — keeps this
+    // a single-field query (no composite index to provision) and matches the same
+    // "query broad, filter precisely in JS" pattern already used for damage-claim
+    // duplicate checks elsewhere in this file.
+    var open = snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); })
+      .filter(function(x) { return x.status !== 'resolved'; })
+      .sort(function(a, b) { return (a.reportedAt || '').localeCompare(b.reportedAt || ''); });
+    if (!open.length) return;
+    var html = '<div class="prop-open-issues-hdr">&#9888;&#65039; ' + open.length + ' open follow-up issue' + (open.length !== 1 ? 's' : '') + ' at this property</div>';
+    open.forEach(function(iss) {
+      html += '<div class="prop-issue-row"><div class="prop-issue-txt"><span class="prop-issue-sec">' + esc(iss.section || '') + '</span>' + esc(iss.text || '') + '</div>' +
+        '<select class="prop-issue-sel" onchange="updatePropertyIssueStatusFromApp(\'' + iss.id + '\',this.value)">' +
+        '<option value="open"' + (iss.status === 'open' ? ' selected' : '') + '>Open</option>' +
+        '<option value="in_progress"' + (iss.status === 'in_progress' ? ' selected' : '') + '>In Progress</option>' +
+        '<option value="resolved"' + (iss.status === 'resolved' ? ' selected' : '') + '>Resolved</option>' +
+        '</select></div>';
+    });
+    box.innerHTML = html;
+    box.style.display = 'block';
+  }).catch(function(e) { console.warn('[PROPERTY-ISSUE] failed to load open issues for property', propertyName, e); });
+}
+function updatePropertyIssueStatusFromApp(issueId, newStatus) {
+  if (!db) return;
+  var patch = { status: newStatus };
+  if (newStatus === 'resolved') { patch.resolvedAt = new Date().toISOString(); patch.resolvedBy = (currentUser && currentUser.name) || ''; }
+  else { patch.resolvedAt = null; patch.resolvedBy = ''; }
+  db.collection('property_issues').doc(issueId).update(patch).then(function() {
+    showToast('Issue marked ' + (newStatus === 'in_progress' ? 'In Progress' : newStatus.charAt(0).toUpperCase() + newStatus.slice(1)));
+    if (state.selectedProp) loadOpenPropertyIssues(state.selectedProp.name);
+  }).catch(function() { showToast('Error updating issue'); });
+}
 
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
@@ -2334,6 +2706,8 @@ var FORM_META = {
   checkin_winter: {name:'Check In — Winter', icon:'&#10052;'},
   checkout_summer:{name:'Check Out — Summer',  icon:'&#9728;'},
   checkout_winter:{name:'Check Out — Winter',  icon:'&#10052;'},
+  b2b_summer:     {name:'Back-to-Back — Summer', icon:'&#128260;'},
+  b2b_winter:     {name:'Back-to-Back — Winter', icon:'&#128260;'},
   kitchen_inv:    {name:'Kitchen Inventory',     icon:'&#127869;'},
   linen_inv:      {name:'Linen Inventory',       icon:'&#128719;'},
   qc_check:       {name:'Quality Control Check', icon:'&#128373;'},
@@ -2390,7 +2764,7 @@ function startChecklist() {
   document.getElementById('bottomNav').style.display = 'flex';
   document.getElementById('globalProg').style.display = 'block';
   var voidBtn = document.getElementById('voidNavBtn');
-  if (voidBtn) voidBtn.style.display = (state.formType === 'checkin_summer' || state.formType === 'checkin_winter') ? 'flex' : 'none';
+  if (voidBtn) voidBtn.style.display = (state.formType === 'checkin_summer' || state.formType === 'checkin_winter' || state.formType === 'b2b_summer' || state.formType === 'b2b_winter') ? 'flex' : 'none';
   showScreen('screenChecklist');
   updateProgress();
   markActiveDraft(state.draftId);
@@ -2477,6 +2851,7 @@ function buildChecklist() {
     sections = getSections(state.formType, state.selectedProp);
   }
   state._sections = sections;
+  var _itemNum = 0;
   sections.forEach(function(section, si) {
     var block = document.createElement('div');
     block.className = 'section-block';
@@ -2486,15 +2861,33 @@ function buildChecklist() {
     head.title = 'Tap to show/hide completed items in this section';
     head.onclick = (function(blk){ return function(){ blk.classList.toggle('force-show'); }; })(block);
     block.appendChild(head);
+    if (section.isSupply) {
+      var selAllWrap = document.createElement('label');
+      selAllWrap.className = 'select-all-supplies';
+      selAllWrap.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 14px;font-weight:600;font-size:13px;border-bottom:1px solid rgba(0,0,0,0.06);cursor:pointer;';
+      var selAllChk = document.createElement('input');
+      selAllChk.type = 'checkbox';
+      selAllChk.id = 'selall-' + si;
+      selAllChk.style.cssText = 'width:18px;height:18px;';
+      selAllChk.checked = section.items.length > 0 && section.items.every(function(_unused, ii2){ return (state.items[si+'_'+ii2]||{}).status === 'ok'; });
+      selAllChk.onchange = (function(sIdx, chk){ return function(){ toggleSelectAllSupplies(sIdx, chk.checked); }; })(si, selAllChk);
+      selAllWrap.appendChild(selAllChk);
+      var selAllLbl = document.createElement('span');
+      selAllLbl.textContent = 'Select All Supplies';
+      selAllWrap.appendChild(selAllLbl);
+      block.appendChild(selAllWrap);
+    }
     section.items.forEach(function(itemText, ii) {
       var key = si + '_' + ii;
       var saved = state.items[key] || {};
+      _itemNum++;
+      var numberedText = _itemNum + '. ' + itemText;
       if (state.formType === 'kitchen_inv') {
         // Kitchen: item name on its own line, Current + Needed + photo on a compact row below
         var row = document.createElement('div');
         row.className = 'inv-item-card'; row.id = 'row-' + key;
         var lbl = document.createElement('div');
-        lbl.className = 'inv-item-name'; lbl.textContent = itemText;
+        lbl.className = 'inv-item-name'; lbl.textContent = numberedText;
         row.appendChild(lbl);
         var itemRow = document.createElement('div'); itemRow.className = 'inv-item-row';
         var twoCol = document.createElement('div'); twoCol.className = 'inv-two-col';
@@ -2523,7 +2916,7 @@ function buildChecklist() {
         var row = document.createElement('div');
         row.className = 'inv-item-card'; row.id = 'row-' + key;
         var lbl = document.createElement('div');
-        lbl.className = 'inv-item-name'; lbl.textContent = itemText;
+        lbl.className = 'inv-item-name'; lbl.textContent = numberedText;
         row.appendChild(lbl);
         var itemRow = document.createElement('div'); itemRow.className = 'inv-item-row';
         function makeLinField(k, field, label, savedVal) {
@@ -2561,7 +2954,7 @@ function buildChecklist() {
       main.className = 'item-main';
       var text = document.createElement('div');
       text.className = 'item-text';
-      text.textContent = itemText;
+      text.textContent = numberedText;
       var btns = document.createElement('div');
       btns.className = 'item-btns';
       ['ok','issue','na'].forEach(function(s) {
@@ -2659,7 +3052,7 @@ function buildChecklist() {
     mnqBlock.appendChild(mnqWrap);
     wrap.appendChild(mnqBlock);
   }
-  var _maintForms = ['spring','fall','checkin_summer','checkin_winter','checkout_summer','checkout_winter'];
+  var _maintForms = ['spring','fall','checkin_summer','checkin_winter','checkout_summer','checkout_winter','b2b_summer','b2b_winter'];
   if (_maintForms.indexOf(state.formType) !== -1) {
     var mnBlock = document.createElement('div');
     mnBlock.className = 'section-block';
@@ -2705,6 +3098,36 @@ function setStatus(key, status, si) {
     if (status==='issue') { var ex=document.getElementById('extras-'+key); if(!ex.classList.contains('open'))ex.classList.add('open'); }
   }
   saveDraftSilent(); updateProgress(); updateSectionBadge(si);
+  if (state._sections && state._sections[si] && state._sections[si].isSupply) updateSelectAllSupplies(si);
+}
+
+// "Select All Supplies" — checking it marks every item in that supply section as OK;
+// inspectors can still deselect individual items afterward, and the master checkbox
+// stays in sync (re-derived from the items' actual statuses) whenever any one item changes.
+function toggleSelectAllSupplies(si, checked) {
+  var section = state._sections && state._sections[si];
+  if (!section) return;
+  section.items.forEach(function(_unused, ii) {
+    var key = si + '_' + ii;
+    var current = (state.items[key] || {}).status;
+    if (checked && current !== 'ok') {
+      setStatus(key, 'ok', si);
+    } else if (!checked && current === 'ok') {
+      setStatus(key, 'ok', si); // toggles OFF since it's already 'ok'
+    }
+  });
+  updateSelectAllSupplies(si);
+}
+
+function updateSelectAllSupplies(si) {
+  var chk = document.getElementById('selall-' + si);
+  if (!chk) return;
+  var section = state._sections && state._sections[si];
+  if (!section) return;
+  var allOk = section.items.length > 0 && section.items.every(function(_unused, ii) {
+    return (state.items[si + '_' + ii] || {}).status === 'ok';
+  });
+  chk.checked = allOk;
 }
 
 function updateItem(key, field, value) {
@@ -3199,7 +3622,7 @@ function sendSpotCheckEmail(docData) {
 }
 
 function submitReport() {
-  var needsStatus = (state.formType === 'checkin_summer' || state.formType === 'checkin_winter');
+  var needsStatus = (state.formType === 'checkin_summer' || state.formType === 'checkin_winter' || state.formType === 'b2b_summer' || state.formType === 'b2b_winter');
   if (needsStatus && !state.overallStatus) {
     showToast('Please select Ready or Not Ready before submitting');
     var el = document.getElementById('s-ready');
@@ -3276,25 +3699,70 @@ function saveDraftSilent() {
     savedAt:Date.now(),
     userId:currentUser?currentUser.id:null
   };
+  // 1) Try to cache a FULL copy (including photos) on this device. Photos —
+  // stored here as embedded base64 images before upload — are by far the
+  // biggest thing that can fill up a browser's small per-site storage quota
+  // (commonly 5-10MB; this is NOT the same as the phone's actual free
+  // storage, and can fill up even on a phone with plenty of room left).
+  var localOk = true, localFull = true;
   try {
     var drafts=getDrafts();
     drafts[state.draftId]=draftData;
     localStorage.setItem('tlp_drafts',JSON.stringify(drafts));
   } catch (e) {
-    // e.g. localStorage quota exceeded (common with many embedded photos) —
-    // do NOT pretend this succeeded; surface it so the inspector knows to
-    // act (free space, reduce photos, or get a connection to sync via cloud).
-    console.warn('Draft save failed:', e);
-    showSaveError();
-    return false;
+    // Quota exceeded on the full draft. Retry with photos stripped out so
+    // the checklist answers/notes/status/timestamps still get cached on
+    // this device even when there's no room left for the images — the full
+    // copy (photos included) is still sent to the cloud below regardless of
+    // whether this local save succeeds at all.
+    console.warn('Local draft save failed, retrying without photos:', e);
+    localFull = false;
+    try {
+      var lightItems={};
+      Object.keys(draftData.items||{}).forEach(function(k){
+        var it=draftData.items[k];
+        lightItems[k]= it ? Object.assign({},it,{photos:[]}) : it;
+      });
+      var lightData=Object.assign({},draftData,{photos:{},items:lightItems,_photosOmittedLocally:true});
+      var drafts2=getDrafts();
+      drafts2[state.draftId]=lightData;
+      localStorage.setItem('tlp_drafts',JSON.stringify(drafts2));
+    } catch (e2) {
+      // Device storage is completely full — even the lightweight copy has
+      // nowhere to go. The cloud save below is now this draft's only hope.
+      console.warn('Local draft save failed even without photos (device storage is completely full):', e2);
+      localOk=false;
+    }
   }
+
+  // 2) ALWAYS attempt the cloud save too, with the FULL data (photos
+  // included) — independent of whether step 1 above succeeded, so a full
+  // local cache can never prevent this draft from reaching the cloud.
   if (db && currentUser) {
-    db.collection('drafts').doc(currentUser.id+'_'+state.draftId).set(draftData).catch(function(e){
-      console.warn('Cloud draft sync failed (local save still succeeded):', e);
+    db.collection('drafts').doc(currentUser.id+'_'+state.draftId).set(draftData).then(function(){
+      if (!localOk) {
+        markSaved('Saved to the cloud only — this device’s storage is full');
+      } else if (!localFull) {
+        markSaved('Saved — device storage low, photos backed up to the cloud');
+      }
+    }).catch(function(e){
+      console.warn('Cloud draft sync failed:', e);
+      if (!localOk) {
+        // Nothing succeeded anywhere — the one real data-loss risk left.
+        showSaveError('Not saved — device storage is full and there’s no connection to back this up. Free up space or reconnect, then try again.');
+      } else if (!localFull) {
+        showSaveError('Saved locally without photos — no connection yet to back up the photos');
+      }
+      // If localFull is true, the local copy is already complete, so a
+      // cloud failure here is silent and non-fatal, same as before this fix.
     });
+  } else if (!localOk) {
+    showSaveError('Not saved — device storage is full. Free up space and try again.');
   }
-  markSaved();
-  return true;
+
+  if (localOk && localFull) markSaved();
+  else if (localOk) markSaved('Saved — device storage low, backing up photos to the cloud…');
+  return localOk;
 }
 function saveDraft() { var ok = saveDraftSilent(); if (ok) showToast('Draft saved'); }
 function loadCloudDrafts() {
@@ -3308,8 +3776,12 @@ function loadCloudDrafts() {
         local[data.id]=data;
       }
     });
-    localStorage.setItem('tlp_drafts',JSON.stringify(local));
-    renderDrafts();
+    // Persisting this merge back to local storage is a nice-to-have, not a
+    // requirement — if the device's local storage is full, don't let that
+    // stop the merged (cloud-backed) list from rendering below.
+    try { localStorage.setItem('tlp_drafts',JSON.stringify(local)); }
+    catch (e) { console.warn('Could not cache cloud drafts locally (device storage full):', e); }
+    renderDrafts(local);
   }).catch(function(){});
 }
 function loadDraft(id) {
@@ -3352,10 +3824,36 @@ function loadDraft(id) {
   if (d.info&&d.info.time) document.getElementById('fieldTime').value=d.info.time;
   if (d.info&&d.info.inspector) document.getElementById('fieldInspector').value=d.info.inspector;
   if (d.info&&d.info.bedrooms) document.getElementById('fieldBedrooms').value=d.info.bedrooms;
+  // If this draft's local copy had its photos stripped to survive a full
+  // device-storage condition (see saveDraftSilent()), the cloud copy is the
+  // only place those photos still exist. Fetch it in the background and
+  // patch them back into state — if the checklist screen is already built
+  // by the time this resolves, rebuild it so the recovered thumbnails show.
+  if (d._photosOmittedLocally && db && currentUser) {
+    db.collection('drafts').doc(currentUser.id+'_'+id).get().then(function(snap){
+      if (!snap.exists) return;
+      var cloudData = snap.data ? snap.data() : null; if (!cloudData) return;
+      if (cloudData.photos) state.photos = Object.assign({}, cloudData.photos, state.photos);
+      if (cloudData.items) {
+        Object.keys(cloudData.items).forEach(function(k){
+          var ci = cloudData.items[k];
+          if (ci && ci.photos && ci.photos.length) {
+            state.items[k] = state.items[k] || {};
+            if (!state.items[k].photos || !state.items[k].photos.length) state.items[k].photos = ci.photos;
+          }
+        });
+      }
+      var screen = document.getElementById('screenChecklist');
+      if (screen && screen.classList.contains('active') && state.draftId === id) buildChecklist();
+    }).catch(function(e){ console.warn('Could not recover photos from the cloud for draft', id, e); });
+  }
 }
 function getDrafts() { try{return JSON.parse(localStorage.getItem('tlp_drafts')||'{}');}catch(e){return{};} }
-function renderDrafts() {
-  var drafts=getDrafts(), keys=Object.keys(drafts).sort(function(a,b){return drafts[b].savedAt-drafts[a].savedAt;});
+function renderDrafts(draftsOverride) {
+  // draftsOverride lets loadCloudDrafts() render the freshly-merged list
+  // even when it couldn't also persist that merge to local storage (e.g.
+  // device storage full) — see loadCloudDrafts().
+  var drafts=draftsOverride||getDrafts(), keys=Object.keys(drafts).sort(function(a,b){return drafts[b].savedAt-drafts[a].savedAt;});
   var section=document.getElementById('draftsSection'), list=document.getElementById('draftsList');
   if (keys.length===0){section.style.display='none';return;}
   section.style.display='block'; list.innerHTML='';
@@ -3379,7 +3877,10 @@ function deleteDraft(e, id) {
   e.stopPropagation();
   var drafts=getDrafts();
   delete drafts[id];
-  localStorage.setItem('tlp_drafts',JSON.stringify(drafts));
+  // Removing an entry only ever shrinks the stored JSON, so this should
+  // succeed even when storage was too full to save — but don't let a
+  // freak failure here block deleting from the cloud / refreshing the list.
+  try { localStorage.setItem('tlp_drafts',JSON.stringify(drafts)); } catch (e2) { console.warn('Could not update local drafts after delete:', e2); }
   if (db && currentUser) { db.collection('drafts').doc(currentUser.id+'_'+id).delete().catch(function(){}); }
   renderDrafts();
 }
@@ -3392,7 +3893,7 @@ function confirmFinish() {
   uploadPhotosToStorage(inspectionId).then(function(uploadResult) {
     var drafts = getDrafts();
     delete drafts[draftId];
-    localStorage.setItem('tlp_drafts', JSON.stringify(drafts));
+    try { localStorage.setItem('tlp_drafts', JSON.stringify(drafts)); } catch (e2) { console.warn('Could not clear local draft after submit:', e2); }
     if (db && currentUser) { db.collection('drafts').doc(currentUser.id+'_'+draftId).delete().catch(function(){}); }
     saveInspectionToFirebase(uploadResult, inspectionId);
     // Requirement: never let the inspection appear to have saved successfully
@@ -3429,9 +3930,10 @@ function showToast(msg, ms) {
 }
 
 // ── Save confirmation / error indicator (issue #1) ──────────────────────────
-function markSaved() {
+function markSaved(customMsg) {
   var el = document.getElementById('saveStatus'); if (!el) return;
   el.classList.remove('err');
+  if (customMsg) { el.textContent = customMsg; return; }
   var t = new Date();
   var h = t.getHours(), m = t.getMinutes();
   var ampm = h >= 12 ? 'PM' : 'AM';
@@ -3439,10 +3941,11 @@ function markSaved() {
   var mm = (m < 10 ? '0' : '') + m;
   el.textContent = 'Saved ' + h12 + ':' + mm + ' ' + ampm;
 }
-function showSaveError() {
+function showSaveError(customMsg) {
   var el = document.getElementById('saveStatus');
-  if (el) { el.classList.add('err'); el.textContent = 'Save failed — see below'; }
-  showToast('⚠️ Draft could NOT be saved (device storage may be full). Free up space or try again — your latest changes are at risk until this succeeds.');
+  var msg = customMsg || 'Draft could NOT be saved (device storage may be full). Free up space or try again — your latest changes are at risk until this succeeds.';
+  if (el) { el.classList.add('err'); el.textContent = customMsg ? customMsg : 'Save failed — see below'; }
+  showToast('⚠️ ' + msg);
 }
 
 // ── Track the in-progress inspection so it can be restored automatically if
