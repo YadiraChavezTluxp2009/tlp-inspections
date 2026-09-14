@@ -3885,7 +3885,15 @@ function deleteDraft(e, id) {
   renderDrafts();
 }
 function confirmFinish() {
-  if (!confirm('Mark this inspection complete and clear the draft?')) return;
+  // NOTE (2026-09-14 fix): this used to open a second confirm() dialog here
+  // ("Mark this inspection complete and clear the draft?") AFTER the report
+  // had already been emailed via submitReport()/voidInspection(). If that
+  // popup was missed, dismissed, or answered Cancel, this function returned
+  // immediately and the inspection was NEVER saved to Firestore — silently,
+  // with no error — even though the inspector had already seen a "Report &
+  // photos sent!" success toast moments earlier and had no reason to think
+  // anything was still pending. Removed: by the time this runs, the report
+  // has already gone out, so there is nothing left to meaningfully "cancel."
   var draftId = state.draftId;
   var inspectionId = 'insp_' + draftId;
   var photoCount = collectAllPhotos().length;
