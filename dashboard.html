@@ -33,6 +33,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
 .spacer{flex:1}
 .user-pill{background:rgba(255,255,255,.15);border-radius:8px;padding:6px 14px;font-size:13px;font-weight:700}
 .logout-btn{background:none;border:1px solid rgba(255,255,255,.4);color:white;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:600}
+.refresh-btn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);color:white;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:6px}
+.refresh-btn:disabled{opacity:.6;cursor:default}
+.sync-text{font-size:11px;opacity:.75;white-space:nowrap}
 .tab-nav{background:white;border-bottom:2px solid var(--mid-gray);padding:0 24px;display:flex;gap:0;position:sticky;top:54px;z-index:90;box-shadow:0 2px 6px rgba(0,0,0,.05);overflow-x:auto}
 .tab-btn{padding:15px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--dark-gray);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:color .15s}
 .tab-btn:hover{color:var(--navy)}
@@ -58,6 +61,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
 @media (max-width:420px){
   .stats-row-compact .stat-num{font-size:17px}
 }
+/* Open Issues tab has 5 stat tiles instead of the usual 4 — comes after the rules
+   above in the cascade so it wins over .stats-row-compact's column count at every
+   width, while still inheriting its compact padding/font sizing. */
+.stats-row-5{grid-template-columns:repeat(5,1fr)}
+@media (max-width:700px){ .stats-row-5{grid-template-columns:repeat(2,1fr)} }
 /* TABLE CARD */
 .card{background:white;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:20px}
 .card-hdr{padding:14px 20px;border-bottom:1px solid var(--mid-gray);display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:white}
@@ -83,6 +91,16 @@ tr:hover td{background:#fafbfe}
 .b-not-ready{background:#FDECEA;color:var(--red)}
 .b-conditional{background:#FFF3E0;color:var(--orange)}
 .b-void{background:var(--mid-gray);color:var(--dark-gray)}
+.b-dismissed{background:#ECEFF1;color:#546E7A}
+.source-badge{background:#E8EAF6;color:#3949AB}
+.issue-summary-line{font-size:12px;font-weight:700;color:var(--dark-gray);margin-bottom:8px}
+.status-confirm-panel{background:var(--gray);border:1.5px solid var(--mid-gray);border-radius:8px;padding:10px;margin:6px 0 12px;display:flex;flex-direction:column;gap:8px}
+.status-confirm-panel textarea{width:100%;border:1.5px solid var(--mid-gray);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;resize:vertical;min-height:44px}
+.status-confirm-panel .sc-btns{display:flex;gap:8px}
+.status-confirm-panel .sc-btns button{border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer}
+.status-confirm-panel .sc-confirm{background:var(--navy);color:white}
+.status-confirm-panel .sc-cancel{background:var(--mid-gray);color:var(--text)}
+.view-in-openissues-btn{background:none;border:1.5px solid var(--blue);color:var(--blue);border-radius:7px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px}
 /* INSPECTION LOG — expandable issue details */
 .details-btn{display:inline-flex;align-items:center;gap:4px;background:var(--red-light);border:1.5px solid #F5B7B1;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;color:var(--red);cursor:pointer}
 .details-btn.no-issues{background:var(--gray);border-color:var(--mid-gray);color:var(--dark-gray)}
@@ -237,6 +255,8 @@ tr:hover td{background:#fafbfe}
       <div><div class="brand-name">TLP Manager Dashboard</div><div class="brand-sub">Tahoe Luxury Properties</div></div>
     </div>
     <div class="spacer"></div>
+    <span class="sync-text" id="lastSyncedText">Last synced: —</span>
+    <button class="refresh-btn" id="refreshBtn" onclick="refreshDashboardData()">🔄 Refresh</button>
     <div class="user-pill" id="userPill"></div>
     <button class="logout-btn" onclick="doLogout()">Log Out</button>
   </div>
@@ -429,20 +449,23 @@ tr:hover td{background:#fafbfe}
     <!-- OPEN ISSUES (follow-up items flagged during a checklist — persist per-property, independent of that
          inspection's own Ready/Not Ready status, until someone resolves them) -->
     <div class="tab-panel" id="tab-openissues">
-      <div class="stats-row stats-row-compact">
+      <div class="stats-row stats-row-compact stats-row-5">
         <div class="stat-card"><div class="stat-num" id="oi-total">—</div><div class="stat-lbl">Total Tracked</div></div>
         <div class="stat-card red"><div class="stat-num" id="oi-open">—</div><div class="stat-lbl">Open</div></div>
         <div class="stat-card orange"><div class="stat-num" id="oi-progress">—</div><div class="stat-lbl">In Progress</div></div>
         <div class="stat-card navy"><div class="stat-num" id="oi-resolved">—</div><div class="stat-lbl">Resolved</div></div>
+        <div class="stat-card"><div class="stat-num" id="oi-dismissed">—</div><div class="stat-lbl">Dismissed</div></div>
       </div>
       <div class="card">
         <div class="card-hdr">
-          <div><div class="card-title">🛠️ Open Issues</div><div class="card-sub">Every checklist issue flagged in the Inspections App, tracked on its property until resolved — independent of whether that inspection itself was marked Ready</div></div>
+          <div><div class="card-title">🛠️ Open Issues</div><div class="card-sub">Every follow-up issue from every inspection type — QC, Spot Check, Check-In, Check-Out, Back-to-Back — tracked on its property until it's individually resolved or dismissed. This is the only place an issue's status or history is changed; every log elsewhere shows it read-only.</div></div>
           <div class="spacer"></div>
           <div class="filters">
-            <select id="oi-status" onchange="renderOpenIssues()"><option value="">All Statuses</option><option value="open">Open</option><option value="in_progress">In Progress</option><option value="resolved">Resolved</option></select>
+            <select id="oi-status" onchange="renderOpenIssues()"><option value="">All Statuses</option><option value="open">Open</option><option value="in_progress">In Progress</option><option value="resolved">Resolved</option><option value="dismissed">Dismissed</option></select>
+            <select id="oi-source" onchange="renderOpenIssues()"><option value="">All Sources</option><option value="qc_check">QC</option><option value="spot_check">Spot Check</option><option value="checkin_summer">Check-In (Summer)</option><option value="checkin_winter">Check-In (Winter)</option><option value="checkout_summer">Check-Out (Summer)</option><option value="checkout_winter">Check-Out (Winter)</option><option value="b2b_summer">Back-to-Back – Summer</option><option value="b2b_winter">Back-to-Back – Winter</option></select>
             <select id="oi-prop" onchange="renderOpenIssues()"><option value="">All Properties</option></select>
             <input id="oi-search" oninput="renderOpenIssues()" placeholder="🔍 Property or issue…" style="width:220px">
+            <button class="view-in-openissues-btn" onclick="backfillSpotCheckPropertyIssues()" title="Create tracked Open Issues records for any older Spot Checks submitted before this bridge existed. Safe to click more than once — never creates duplicates.">⟳ Backfill Spot Checks</button>
           </div>
         </div>
         <div class="tbl-wrap"><div id="openIssuesTable"><div class="loading">Loading…</div></div></div>
@@ -498,7 +521,7 @@ var MANAGERS=['Andrea Degliantoni','Annie Stryker','Caitlin McDonough','Charli M
 
 var TRAINING_MODULES=['Check In Procedure','Check Out Procedure','Communication w/ Guests & Owners','TLUXP Standards & Branding','Damages Procedure / Claims','Spring / Fall Walkthroughs','Dresscode','Maintenance'];
 
-var PROPERTY_EMAILS={'12th Tee At Northstar':'12thtee@tluxp.com','A Walk In The Woods':'awalkinthewoods@tluxp.com','Above & Beyond - Lakeview':'aboveandbeyond@tluxp.com','Adventure Awaits':'adventureawaits@tluxp.com','Alpen Glow At Northstar':'alpenglow@tluxp.com','Alpine Perfection':'alpineperfection@tluxp.com','Anchors Aweigh - Lakefront':'anchorsaweigh@tluxp.com','Aspen Paradise':'aspenparadise@tluxp.com','Backside 180 at Northstar':'backside180@tluxp.com','Bella Vista Sul Lago - Lakeview':'bellavista@tluxp.com',"Belleview's Beauty - Lakefront":'belleviewsbeauty@tluxp.com','Bellissimo Lago - Lakefront':'bellissimolago@tluxp.com','Big Sky - Lakeview':'bigsky@tluxp.com','Black Bear Cottage - Lakefront':'blackbearcottage@tluxp.com','Blackwood Creek Chalet':'blackwoodcreekchalet@tluxp.com','Blissful Days - Lakefront':'blissfuldays@tluxp.com','Bluebird Days At Palisades':'bluebird@tluxp.com','Boulder Place Lookout At Northstar':'boulderplace@tluxp.com',"Bradley's Bungalow":'bradleysbungalow@tluxp.com','California Sunshine - Lakeview':'californiasunshine@tluxp.com','Candlelight Lodge':'candlelightlodge@tluxp.com','Carnelian Charm - Lakefront':'carneliancharm@tluxp.com','Carnelian Haus - Lakefront':'carnelianhaus@tluxp.com',"Charlie's Den - Lakefront":'charliesden@tluxp.com','Cherry Lodge':'cherrylodge@tluxp.com','Constellation #404 Ski-In & Out At Northstar':'404constellation@tluxp.com','Constellation #407 Ski-In & Out At Northstar':'407constellation@tluxp.com','Creekview':'creekview@tluxp.com','Donner Lake Dreams - Lakefront':'donnerlakedreams@tluxp.com','Enchanted Ridge':'enchantedridge@tluxp.com','Fairest Picture - Lakeview':'fairestpicture@tluxp.com','First Chair @ Palisades (The Bronson)':'firstchair@tluxp.com','Fleur du Lac #1 - Lakefront':'fleurdulac1@tluxp.com','Forever Edgewood - Lakeview':'foreveredgewood@tluxp.com','Fresh Tracks at Northstar':'freshtracks@tluxp.com','Front and Center':'frontandcenter@tluxp.com','Gerry G. - Lakefront':'gerryg@tluxp.com','Gonowabie Lodge - Lakefront':'gonowabielodge@tluxp.com','Granite Chief Lodge At Palisades':'granitechief@tluxp.com','Heavenly View - Lakefront':'heavenlyview@tluxp.com','Hidden Ridge at Northstar':'hiddenridge@tluxp.com','Highlands Holiday':'highlands@tluxp.com','Holly Hideaway':'hollyhideaway@tluxp.com','Home Run at Northstar':'homerun@tluxp.com','Homewood Trifecta - Lakefront':'homewoodtrifecta@tluxp.com','In the Wild Woods':'inthewildwoods@tluxp.com','Incline Oasis - Lakeview':'inclineoasis@tluxp.com','Just Grand':'justgrand@tluxp.com',"King's View Lodge - Lakeview":'jessie@tluxp.com','La Dolce Vita - Lakefront':'ladolcevita@tluxp.com','Lake Escape - Lakefront':'lakeescape@tluxp.com','Lake Of The Sky - Lakeview':'lakeofthesky@tluxp.com','Lakeside Cedars':'lakesidecedars@tluxp.com','Lakeside Grove - Lakefront':'lakesidegrove@tluxp.com','Laughing Waters - Lakefront':'laughingwaters@tluxp.com',"Laura's Overlook Lodge at Northstar":'laurasoverlooklodge@tluxp.com',"Lift and Tee Retreat at Schaffer's Mill":'liftandtee@tluxp.com','Luxury River Retreat':'luxuryriverretreat@tluxp.com','Majestic Waters - Lakefront':'majesticwaters@tluxp.com','Making Memories - Lakeview':'makingmemories@tluxp.com','Manzanita House - Lakeview':'manzanitahouse@tluxp.com','Maybach Lake House - Lakefront':'maybachlakehouse@tluxp.com','McKinney Bay Retreat':'mckinneybay@tluxp.com','Mill Creek Retreat - Incline Village':'millcreekretreat@tluxp.com','Moana Mountain Shack - Lakeview':'moana@tluxp.com','Modern Marvel - Incline Village':'modernmarvel@tluxp.com','Modern Mountain at Palisades':'modernmountain@tluxp.com','Moondance At Tahoe Park':'moondance@tluxp.com','Mountain Bear Lodge At Northstar':'mountainbearlodge@tluxp.com','Mountain Retreat - Lakeview':'mountainretreat@tluxp.com','Palatial Pines - Lakefront':'palatialpines@tluxp.com','Peace of Tahoe - Lakefront':'peaceoftahoe@tluxp.com','Pier Pleasure - Lakefront':'pierpleasure@tluxp.com','Pineland Retreat':'pineland@tluxp.com',"Ramblin' Rose - Lakeview":'ramblinrose@tluxp.com','Reflections - Lakeview':'reflections@tluxp.com','Rise and Shine - Lakefront':'riseandshine@tluxp.com','Rising Sun':'risingsun@tluxp.com','Riverfront Lodge':'riverfrontlodge@tluxp.com','Rubicon Shores - Lakefront':'rubiconshores@tluxp.com','Sail Away - Lakefront':'sailaway@tluxp.com','Sandy Shores - Lakefront':'sandyshores@tluxp.com','Seek No Further - Lakefront':'seeknofurther@tluxp.com','Serendipity - Lakeview':'serendipity@tluxp.com','Shimmering Shores - Lakefront':'shimmeringshores@tluxp.com','Shoshone Chalet at Palisades':'shoshone@tluxp.com','Sierra Sunset Estate - Lakefront':'sierrasunsetestate@tluxp.com','Sierra Vista - Lakeview':'sierravista@tluxp.com','Signature Retreat on the 18th':'signatureretreat@tluxp.com','Silverfell Lodge at Northstar':'silverfelllodge@tluxp.com',"Sittin' on the Dock - Lakefront":'sittinonthedock@tluxp.com',"Skippin' Stones - Lakefront":'skippinstones@tluxp.com','Slopeside At Northstar':'slopeside@tluxp.com','Solitude':'solitude@tluxp.com','Spirit of the Mountain':'spirit@tluxp.com','Stanford Rock Retreat':'stanfordrock@tluxp.com','Starry Nights - Lakefront':'starrynights@tluxp.com','Steeple Cove - Lakefront':'steeplecove@tluxp.com','Stone Crest Estate - Lakefront':'stonecrestestate@tluxp.com','Streams and Dreams':'streamsanddreams@tluxp.com','Sugar Pine Chalet - Lakefront':'sugarpine@tluxp.com','Summer Breeze - Lakefront':'summerbreeze@tluxp.com','Summerhouse - Lakefront':'summerhouse@tluxp.com','Summit Splendor at Martis Camp':'summitsplendor@tluxp.com','Sundance':'sundance@tluxp.com','Sunny Days':'sunnydays@tluxp.com','Sunrise by Sunnyside - Lakefront':'sunrisebysunnyside@tluxp.com','Sunset Blue - Lakefront':'sunsetblue@tluxp.com','Tahoe City Serenity':'tahoecityserenity@tluxp.com','Tahoe Treehouse':'tahoetreehouse@tluxp.com',"Tahoe's Ahwahnee - Lakeview":'tahoesahwahnee@tluxp.com',"Tahoe's Tranquility - Lakeview":'tahoestranquility@tluxp.com','Tall Pines Ski Shack':'tallpines@tluxp.com','Tewesi Manor - Lakefront':'tewesi@tluxp.com','The Duck House':'theduckhouse@tluxp.com','The Frontier':'thefrontier@tluxp.com','The Lodge at Swiss Lane':'thelodgeatswisslane@tluxp.com','The View at Big Pine - Lakeview':'bigpine@tluxp.com','Treetop Lodge':'treetoplodge@tluxp.com','Twilight Ridge':'twilightridge@tluxp.com','Twin Tips At Northstar':'twintips@tluxp.com','Village Walk Skyline At Northstar':'vistaazul@tluxp.com',"Water's Edge - Lakefront":'watersedge@tluxp.com',"Wendy's Wish - Lakefront":'wendyswish@tluxp.com','Whispering Winds':'whisperingwinds@tluxp.com','Wildwood at Dollar Point - Lakeview':'wildwood@tluxp.com','Wolf Ridge':'wolfridge@tluxp.com',"Zoe's North Star at Northstar":'zoesnorthstar@tluxp.com'};
+var PROPERTY_EMAILS={'12th Tee At Northstar':'12thtee@tluxp.com','A Walk In The Woods':'awalkinthewoods@tluxp.com','Above & Beyond - Lakeview':'aboveandbeyond@tluxp.com','Adventure Awaits':'adventureawaits@tluxp.com','Alpen Glow At Northstar':'alpenglow@tluxp.com','Alpine Perfection':'alpineperfection@tluxp.com','Anchors Aweigh - Lakefront':'anchorsaweigh@tluxp.com','Aspen Paradise':'aspenparadise@tluxp.com','Backside 180 at Northstar':'backside180@tluxp.com','Bella Vista Sul Lago - Lakeview':'bellavista@tluxp.com',"Belleview's Beauty - Lakefront":'belleviewsbeauty@tluxp.com','Bellissimo Lago - Lakefront':'bellissimolago@tluxp.com','Big Sky - Lakeview':'bigsky@tluxp.com','Black Bear Cottage - Lakefront':'blackbearcottage@tluxp.com','Blackwood Creek Chalet':'blackwoodcreekchalet@tluxp.com','Blissful Days - Lakefront':'blissfuldays@tluxp.com','Bluebird Days At Palisades':'bluebird@tluxp.com','Boulder Place Lookout At Northstar':'boulderplace@tluxp.com',"Bradley's Bungalow":'bradleysbungalow@tluxp.com','California Sunshine - Lakeview':'californiasunshine@tluxp.com','Candlelight Lodge':'candlelightlodge@tluxp.com','Carnelian Charm - Lakefront':'carneliancharm@tluxp.com','Carnelian Haus - Lakefront':'carnelianhaus@tluxp.com',"Charlie's Den - Lakefront":'charliesden@tluxp.com','Cherry Lodge':'cherrylodge@tluxp.com','Constellation #404 Ski-In & Out At Northstar':'404constellation@tluxp.com','Constellation #407 Ski-In & Out At Northstar':'407constellation@tluxp.com','Creekview':'creekview@tluxp.com','Donner Lake Dreams - Lakefront':'donnerlakedreams@tluxp.com','Enchanted Ridge':'enchantedridge@tluxp.com','Fairest Picture - Lakeview':'fairestpicture@tluxp.com','First Chair @ Palisades (The Bronson)':'firstchair@tluxp.com','Fleur du Lac #1 - Lakefront':'fleurdulac1@tluxp.com','Forever Edgewood - Lakeview':'foreveredgewood@tluxp.com','Fresh Tracks at Northstar':'freshtracks@tluxp.com','Front and Center':'frontandcenter@tluxp.com','Gerry G. - Lakefront':'gerryg@tluxp.com','Gonowabie Lodge - Lakefront':'gonowabielodge@tluxp.com','Granite Chief Lodge At Palisades':'granitechief@tluxp.com','Heavenly View - Lakefront':'heavenlyview@tluxp.com','Hidden Ridge at Northstar':'hiddenridge@tluxp.com','Highlands Holiday':'highlands@tluxp.com','Holly Hideaway':'hollyhideaway@tluxp.com','Home Run at Northstar':'homerun@tluxp.com','Homewood Trifecta - Lakefront':'homewoodtrifecta@tluxp.com','In the Wild Woods':'inthewildwoods@tluxp.com','Incline Oasis - Lakeview':'inclineoasis@tluxp.com','Just Grand':'justgrand@tluxp.com',"King's View Lodge - Lakeview":'kingsview@tluxp.com','La Dolce Vita - Lakefront':'ladolcevita@tluxp.com','Lake Escape - Lakefront':'lakeescape@tluxp.com','Lake Of The Sky - Lakeview':'lakeofthesky@tluxp.com','Lakeside Cedars':'lakesidecedars@tluxp.com','Lakeside Grove - Lakefront':'lakesidegrove@tluxp.com','Laughing Waters - Lakefront':'laughingwaters@tluxp.com',"Laura's Overlook Lodge at Northstar":'laurasoverlooklodge@tluxp.com',"Lift and Tee Retreat at Schaffer's Mill":'liftandtee@tluxp.com','Luxury River Retreat':'luxuryriverretreat@tluxp.com','Majestic Waters - Lakefront':'majesticwaters@tluxp.com','Making Memories - Lakeview':'makingmemories@tluxp.com','Manzanita House - Lakeview':'manzanitahouse@tluxp.com','Maybach Lake House - Lakefront':'maybachlakehouse@tluxp.com','McKinney Bay Retreat':'mckinneybay@tluxp.com','Mill Creek Retreat - Incline Village':'millcreekretreat@tluxp.com','Moana Mountain Shack - Lakeview':'moana@tluxp.com','Modern Marvel - Incline Village':'modernmarvel@tluxp.com','Modern Mountain at Palisades':'modernmountain@tluxp.com','Moondance At Tahoe Park':'moondance@tluxp.com','Mountain Bear Lodge At Northstar':'mountainbearlodge@tluxp.com','Mountain Retreat - Lakeview':'mountainretreat@tluxp.com','Palatial Pines - Lakefront':'palatialpines@tluxp.com','Peace of Tahoe - Lakefront':'peaceoftahoe@tluxp.com','Pier Pleasure - Lakefront':'pierpleasure@tluxp.com','Pineland Retreat':'pineland@tluxp.com',"Ramblin' Rose - Lakeview":'ramblinrose@tluxp.com','Reflections - Lakeview':'reflections@tluxp.com','Rise and Shine - Lakefront':'riseandshine@tluxp.com','Rising Sun':'risingsun@tluxp.com','Riverfront Lodge':'riverfrontlodge@tluxp.com','Rubicon Shores - Lakefront':'rubiconshores@tluxp.com','Sail Away - Lakefront':'sailaway@tluxp.com','Sandy Shores - Lakefront':'sandyshores@tluxp.com','Seek No Further - Lakefront':'seeknofurther@tluxp.com','Serendipity - Lakeview':'serendipity@tluxp.com','Shimmering Shores - Lakefront':'shimmeringshores@tluxp.com','Shoshone Chalet at Palisades':'shoshone@tluxp.com','Sierra Sunset Estate - Lakefront':'sierrasunsetestate@tluxp.com','Sierra Vista - Lakeview':'sierravista@tluxp.com','Signature Retreat on the 18th':'signatureretreat@tluxp.com','Silverfell Lodge at Northstar':'silverfelllodge@tluxp.com',"Sittin' on the Dock - Lakefront":'sittinonthedock@tluxp.com',"Skippin' Stones - Lakefront":'skippinstones@tluxp.com','Slopeside At Northstar':'slopeside@tluxp.com','Solitude':'solitude@tluxp.com','Spirit of the Mountain':'spirit@tluxp.com','Stanford Rock Retreat':'stanfordrock@tluxp.com','Starry Nights - Lakefront':'starrynights@tluxp.com','Steeple Cove - Lakefront':'steeplecove@tluxp.com','Stone Crest Estate - Lakefront':'stonecrestestate@tluxp.com','Streams and Dreams':'streamsanddreams@tluxp.com','Sugar Pine Chalet - Lakefront':'sugarpine@tluxp.com','Summer Breeze - Lakefront':'summerbreeze@tluxp.com','Summerhouse - Lakefront':'summerhouse@tluxp.com','Summit Splendor at Martis Camp':'summitsplendor@tluxp.com','Sundance':'sundance@tluxp.com','Sunny Days':'sunnydays@tluxp.com','Sunrise by Sunnyside - Lakefront':'sunrisebysunnyside@tluxp.com','Sunset Blue - Lakefront':'sunsetblue@tluxp.com','Tahoe City Serenity':'tahoecityserenity@tluxp.com','Tahoe Treehouse':'tahoetreehouse@tluxp.com',"Tahoe's Ahwahnee - Lakeview":'tahoesahwahnee@tluxp.com',"Tahoe's Tranquility - Lakeview":'tahoestranquility@tluxp.com','Tall Pines Ski Shack':'tallpines@tluxp.com','Tewesi Manor - Lakefront':'tewesi@tluxp.com','The Duck House':'theduckhouse@tluxp.com','The Frontier':'thefrontier@tluxp.com','The Lodge at Swiss Lane':'thelodgeatswisslane@tluxp.com','The View at Big Pine - Lakeview':'bigpine@tluxp.com','Treetop Lodge':'treetoplodge@tluxp.com','Twilight Ridge':'twilightridge@tluxp.com','Twin Tips At Northstar':'twintips@tluxp.com','Village Walk Skyline At Northstar':'vistaazul@tluxp.com',"Water's Edge - Lakefront":'watersedge@tluxp.com',"Wendy's Wish - Lakefront":'wendyswish@tluxp.com','Whispering Winds':'whisperingwinds@tluxp.com','Wildwood at Dollar Point - Lakeview':'wildwood@tluxp.com','Wolf Ridge':'wolfridge@tluxp.com',"Zoe's North Star at Northstar":'zoesnorthstar@tluxp.com'};
 
 var TYPE_LABELS={spring:'Spring',fall:'Fall',checkin_summer:'Check In Summer',checkin_winter:'Check In Winter',checkout_summer:'Check Out Summer',checkout_winter:'Check Out Winter',b2b_summer:'Back-to-Back Summer',b2b_winter:'Back-to-Back Winter',kitchen_inv:'Kitchen Inventory',linen_inv:'Linen Inventory',qc_check:'QC Check',spot_check:'Spot Check'};
 
@@ -538,13 +561,24 @@ function showApp(){
     var el=document.getElementById(id);
     MANAGERS.forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m;el.appendChild(o);});
   });
-  loadData();
+  loadData().then(function(){
+    document.getElementById('lastSyncedText').textContent='Last synced: '+fmtDateTime(new Date().toISOString());
+  }).catch(function(e){
+    console.error('[LOAD] initial dashboard load failed',e);
+    showToast('Failed to load dashboard data — check your connection');
+  });
   loadComplaints();
 }
 
 // ── LOAD DATA ─────────────────────────────────────────────────────────────────
+// Returns a single Promise that resolves only once every collection this Dashboard
+// depends on (inspections, trainings, property_issues) has actually been (re)read
+// from Firestore and re-rendered — used both for the initial login load and for
+// the manual Refresh button (refreshDashboardData() below), so "Last synced" is
+// only ever updated after a real, successful reload, never a locally-cached
+// no-op or a partially-failed one.
 function loadData(){
-  db.collection('inspections').orderBy('submittedAt','desc').limit(500).get().then(function(snap){
+  var pInsp=db.collection('inspections').orderBy('submittedAt','desc').limit(500).get().then(function(snap){
     _insp=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
     // [PHOTO-DEBUG] Summarize exactly what photo data came back from Firestore
     // for the most recent inspections, so a "photos missing on Dashboard"
@@ -558,18 +592,46 @@ function loadData(){
     var seen={}, opts='<option value="">All Inspectors</option>';
     _insp.forEach(function(i){if(CHECKIN_CHECKOUT_TYPES.indexOf(i.formType)!==-1&&i.inspector&&!seen[i.inspector]){seen[i.inspector]=1;opts+='<option value="'+esc(i.inspector)+'">'+esc(i.inspector)+'</option>';}});
     document.getElementById('il-insp').innerHTML=opts;
-    renderAll();
-  }).catch(function(e){console.error('[PHOTO-DEBUG] Failed to load inspections from Firestore',e);});
-  db.collection('trainings').get().then(function(snap){
-    snap.docs.forEach(function(d){_trainings[d.id]=d.data();});
-    renderTraining();
-  }).catch(function(){renderTraining();});
-  db.collection('property_issues').orderBy('reportedAt','desc').limit(1000).get().then(function(snap){
+  });
+  var pTrain=db.collection('trainings').get().then(function(snap){
+    var t={}; snap.docs.forEach(function(d){t[d.id]=d.data();}); _trainings=t;
+  });
+  var pIssues=db.collection('property_issues').orderBy('reportedAt','desc').limit(1000).get().then(function(snap){
     _propIssues = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
-    renderOpenIssues();
-  }).catch(function(e){ console.warn('[PROPERTY-ISSUE] failed to load property_issues', e); });
+  });
+  // Note: each promise above is allowed to reject on its own (no per-query .catch here) —
+  // that's intentional. A failed collection must fail the whole Promise.all so
+  // refreshDashboardData() can show a real error and skip updating "Last synced",
+  // rather than silently rendering with stale/partial data as if the refresh succeeded.
+  return Promise.all([pInsp,pTrain,pIssues]).then(function(){
+    renderAll();
+    renderTraining();
+  });
 }
 function renderAll(){renderInspLog();renderSeasonal();renderSeaDash();renderQCDash();renderQCLog();renderOpenIssues();}
+
+// ── MANUAL REFRESH ────────────────────────────────────────────────────────────
+// Re-queries every collection the currently-displayed Dashboard tabs depend on
+// (inspections, trainings, property_issues via loadData(); complaints via
+// loadComplaints()) directly from Firestore — never just re-rendering the
+// locally-cached _insp/_propIssues/_complaints arrays — and only updates "Last
+// synced" once all of them have actually succeeded.
+var _dashRefreshing=false;
+function refreshDashboardData(){
+  if(_dashRefreshing)return;
+  _dashRefreshing=true;
+  var btn=document.getElementById('refreshBtn');
+  btn.disabled=true; btn.textContent='⏳ Refreshing…';
+  Promise.all([loadData(),loadComplaints()]).then(function(){
+    document.getElementById('lastSyncedText').textContent='Last synced: '+fmtDateTime(new Date().toISOString());
+    showToast('Dashboard refreshed ✓');
+  }).catch(function(e){
+    console.error('[REFRESH] failed',e);
+    showToast('Refresh failed — check your connection and try again');
+  }).finally(function(){
+    _dashRefreshing=false; btn.disabled=false; btn.innerHTML='🔄 Refresh';
+  });
+}
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -594,6 +656,77 @@ function normalizePhotoUrls(raw, ctx){
   });
   if(out.length!==list.length) console.warn('[PHOTO-DEBUG] Filtered invalid photo URL(s)',{ctx:ctx,kept:out.length,original:list.length});
   return out;
+}
+// ── Issue-status helpers shared by the Check-Ins/Check-Outs Log, QC Log, and Open
+// Issues tab. Individual issue status is edited in exactly one place — the Open
+// Issues tab (setPropertyIssueStatus()) — everywhere else just displays it
+// read-only, using these helpers, so the same status/history is never edited
+// from two different UI surfaces. ──
+var ISSUE_STATUS_LABELS={
+  open:{txt:'Open',cls:'b-issue'},
+  in_progress:{txt:'In Progress',cls:'b-conditional'},
+  resolved:{txt:'Resolved',cls:'b-clear'},
+  dismissed:{txt:'Dismissed',cls:'b-dismissed'}
+};
+// Friendly "Source" label for an issue's originating inspection type — shown in the
+// Open Issues tab and anywhere else an issue's origin needs to be legible at a
+// glance. The underlying formType is always kept as the stored/authoritative value;
+// this is a display-only translation.
+var SOURCE_LABELS={
+  qc_check:'QC', spot_check:'Spot Check',
+  checkin_summer:'Check-In', checkin_winter:'Check-In',
+  checkout_summer:'Check-Out', checkout_winter:'Check-Out',
+  b2b_summer:'Back-to-Back – Summer', b2b_winter:'Back-to-Back – Winter',
+  spring:'Spring', fall:'Fall'
+};
+function sourceLabel(formType){ return SOURCE_LABELS[formType] || (TYPE_LABELS[formType]||formType||'—'); }
+// Read-only status badge for one issue, given its tied property_issues record (or
+// null/undefined when no tracked record exists — a historical issue saved before
+// individual issue tracking existed; see the backward-compatibility notes on
+// renderInspLog()/renderQCLog()).
+function issueStatusBadgeHtml(tied){
+  if(!tied) return '<span class="badge b-never" title="No tracked follow-up record for this issue — likely saved before individual issue tracking existed. It cannot be individually resolved/dismissed.">Historical</span>';
+  var st=ISSUE_STATUS_LABELS[tied.status]||ISSUE_STATUS_LABELS.open;
+  return '<span class="badge '+st.cls+'">'+st.txt+'</span>';
+}
+function findTiedIssue(inspId,issueKey){
+  return _propIssues.find(function(p){return p.sourceInspectionId===inspId&&p.sourceIssueKey===issueKey;});
+}
+// Builds the "3 issues: 1 Open, 1 Resolved, 1 Dismissed" summary line shown in place
+// of the old plain "N Issues Found" heading, so the historical log still shows how
+// many issues were originally reported alongside each one's current follow-up status.
+function buildIssueStatusSummary(issueList,inspId){
+  var counts={open:0,in_progress:0,resolved:0,dismissed:0,historical:0};
+  (issueList||[]).forEach(function(x,xi){
+    var key=x.key||('legacyidx_'+xi);
+    var tied=findTiedIssue(inspId,key);
+    if(!tied){counts.historical++;return;}
+    var st=tied.status||'open';
+    if(counts.hasOwnProperty(st))counts[st]++;else counts.open++;
+  });
+  var parts=[];
+  if(counts.open)parts.push(counts.open+' Open');
+  if(counts.in_progress)parts.push(counts.in_progress+' In Progress');
+  if(counts.resolved)parts.push(counts.resolved+' Resolved');
+  if(counts.dismissed)parts.push(counts.dismissed+' Dismissed');
+  if(counts.historical)parts.push(counts.historical+' Historical (untracked)');
+  var n=(issueList||[]).length;
+  return n+' issue'+(n!==1?'s':'')+(parts.length?': '+parts.join(', '):'');
+}
+// Switches to the Open Issues tab and filters it down to the given property, so a
+// "View in Open Issues" link from a historical log's Details panel lands the viewer
+// on the right records instead of the unfiltered full list.
+function jumpToOpenIssues(propertyName){
+  var tabBtn=document.querySelector('.tab-btn[onclick*="openissues"]');
+  document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.getElementById('tab-openissues').classList.add('active');
+  if(tabBtn)tabBtn.classList.add('active');
+  var propSel=document.getElementById('oi-prop');
+  if(propSel)propSel.value=propertyName||'';
+  document.getElementById('oi-status').value='';
+  document.getElementById('oi-search').value='';
+  renderOpenIssues();
 }
 function showToast(m){var t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(function(){t.style.display='none';},2500);}
 function filterDays(insp,days){if(!days)return insp;var cut=Date.now()-days*86400000;return insp.filter(function(i){return new Date(i.submittedAt)>=cut;});}
@@ -690,11 +823,12 @@ function renderInspLog(){
     if(hasDetails){
       html+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="11">';
       if(hasIssues){
-        html+='<div class="insp-detail-heading">&#128295; '+issueList.length+' Issue'+(issueList.length!==1?'s':'')+' Found</div>';
+        html+='<div class="insp-detail-heading">&#128295; '+buildIssueStatusSummary(issueList,i.id)+'</div>';
         issueList.forEach(function(x,xi){
           var xPhotos=normalizePhotoUrls(x.photos,'inspLog:'+i.id+':issue');
           var xKey=x.key||('legacyidx_'+xi);
-          html+='<div class="insp-issue-item"><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div>';
+          var tied=findTiedIssue(i.id,xKey);
+          html+='<div class="insp-issue-item"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div></div>'+issueStatusBadgeHtml(tied)+'</div>';
           if(x.notes)html+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
           if(x.charge>0)html+='<div class="insp-issue-charge">Charge: $'+Number(x.charge).toFixed(2)+'</div>';
           if(xPhotos.length){
@@ -704,6 +838,7 @@ function renderInspLog(){
           }
           html+='</div>';
         });
+        html+='<button class="view-in-openissues-btn" data-prop="'+esc(i.property||'')+'" onclick="jumpToOpenIssues(this.getAttribute(\'data-prop\'))">View issues in Open Issues &rarr;</button>';
       }
       if(mgrNotes){
         html+='<div class="insp-detail-heading">&#128221; Manager Notes</div><div class="insp-notes-block">'+esc(mgrNotes).replace(/\n/g,'<br>')+'</div>';
@@ -712,17 +847,18 @@ function renderInspLog(){
         html+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
       }
       if(needsResolution||isResolved||updates.length){
-        html+='<div class="insp-detail-heading">&#128295; Check-In Status</div>';
+        html+='<div class="insp-detail-heading">&#128295; Overall Resolution</div>';
         if(isResolved){
-          html+='<div class="insp-resolved-banner">&#9989; Marked Resolved</div>';
-        } else {
-          html+='<div class="insp-unresolved-banner">'+(i.overallStatus==='not-ready'?'&#10060; Not Ready':'&#9888;&#65039; Conditional')+' &mdash; not yet marked resolved</div>';
+          html+='<div class="insp-resolved-banner">&#9989; Resolved &mdash; every issue on this inspection is Resolved or Dismissed</div>';
+        } else if(hasIssues){
+          html+='<div class="insp-unresolved-banner">&#9888;&#65039; Not yet resolved &mdash; one or more issues are still Open or In Progress. Manage each issue\'s status from the Open Issues tab.</div>';
+        } else if(needsResolution){
+          html+='<div class="insp-unresolved-banner">'+(i.overallStatus==='not-ready'?'&#10060; Not Ready':'&#9888;&#65039; Conditional')+'</div>';
         }
         var updHtml='';
         updates.forEach(function(u){updHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
         html+='<div class="updates-log">'+(updHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
-        html+='<div class="add-update-row"><input type="text" id="insp-note-'+safeId+'" placeholder="Add an update&hellip; (e.g. all items addressed)"><button onclick="addInspUpdate(\''+i.id+'\',\''+safeId+'\')">+ Add</button></div>';
-        html+='<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer"><input type="checkbox" class="res-check" '+(isResolved?'checked':'')+' onchange="toggleInspResolved(\''+i.id+'\',this.checked)"> Mark Resolved</label>';
+        html+='<div class="add-update-row"><input type="text" id="insp-note-'+safeId+'" placeholder="Add an inspection-level note&hellip;"><button onclick="addInspUpdate(\''+i.id+'\',\''+safeId+'\')">+ Add</button></div>';
       }
       html+='</td></tr>';
     }
@@ -879,9 +1015,10 @@ function renderQCDash(){
 // ── QC LOG ────────────────────────────────────────────────────────────────────
 // QC Log shows both full QC Check inspections and quick Spot Check reports side by
 // side (a Spot Check never requires a full QC checklist) — a Type column and badge
-// clearly label which is which, and Spot Check rows get their own status/history
-// controls in place of the checklist item counts that don't apply to them.
-var SPOT_CHECK_STATUS_BADGES={'Open':{txt:'Open',cls:'b-issue'},'In Progress':{txt:'In Progress',cls:'b-conditional'},'Resolved':{txt:'Resolved',cls:'b-clear'}};
+// clearly label which is which. Status is read-only here (via its tied
+// property_issues record, see scEffectiveStatus below) — all status/note editing
+// for a Spot Check's tracked issue happens on the Open Issues tab, same as every
+// other issue source.
 function renderQCLog(){
   var days=parseInt(document.getElementById('ql-days').value)||0;
   var prop=(document.getElementById('ql-prop').value||'').toLowerCase();
@@ -909,7 +1046,15 @@ function renderQCLog(){
     var photoFailCount=i.photoUploadFailCount||0;
     var total=(i.itemsOk||0)+(i.issuesFound||0)+(i.naCount||0);
     var safeId='qc'+i.id.replace(/[^a-zA-Z0-9]/g,'');
-    var scStatus=SPOT_CHECK_STATUS_BADGES[i.status]||SPOT_CHECK_STATUS_BADGES['Open'];
+    // Once a Spot Check has a tracked property_issues record (every Spot Check submitted
+    // going forward, plus any older one run through "Backfill Spot Checks"), that record
+    // is the source of truth for status — kept in sync onto this inspections doc's own
+    // status/resolved fields by setPropertyIssueStatus() whenever it's changed from the
+    // Open Issues tab. Fall back to the inspection doc's own legacy Title-Case status
+    // only when no tracked record exists yet.
+    var scTiedForBadge=isSC?findTiedIssue(i.id,'spotcheck'):null;
+    var scEffectiveStatus=scTiedForBadge?scTiedForBadge.status:(i.status==='In Progress'?'in_progress':i.status==='Resolved'?'resolved':i.status==='Dismissed'?'dismissed':'open');
+    var scStatus=ISSUE_STATUS_LABELS[scEffectiveStatus]||ISSUE_STATUS_LABELS.open;
     html+='<tr>';
     html+='<td style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td>';
     html+='<td><span class="badge b-ok">'+(isSC?'&#128295; Spot Check':'QC Check')+'</span></td>';
@@ -943,27 +1088,32 @@ function renderQCLog(){
     if(hasDetails){
       html+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="12">';
       if(isSC){
+        var scTied=findTiedIssue(i.id,'spotcheck');
         html+='<div class="insp-detail-heading">&#128295; Spot Check Details</div>';
         html+='<div class="insp-notes-block"><strong>Category:</strong> '+esc(i.category||'')+'<br><strong>Location:</strong> '+esc(i.location||'')+'<br><strong>Priority:</strong> '+esc(i.priority||'')+'<br><strong>Assigned House Manager:</strong> '+esc(i.assignedManagerName||'—')+(i.assignedManagerEmail?' ('+esc(i.assignedManagerEmail)+')':'')+'</div>';
         html+='<div class="insp-detail-heading">&#128221; Description</div><div class="insp-notes-block">'+esc(i.description||'').replace(/\n/g,'<br>')+'</div>';
         if((i.notes||'').trim()){
           html+='<div class="insp-detail-heading">&#128221; Additional Notes</div><div class="insp-notes-block">'+esc(i.notes).replace(/\n/g,'<br>')+'</div>';
         }
-        var scUpdates=i.updates||[];
-        var scUpdHtml='';
-        scUpdates.forEach(function(u){scUpdHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' · '+esc(u.date)+'</div></div>';});
-        html+='<div class="insp-detail-heading">&#128221; Status &amp; Resolution History</div>';
-        html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><span style="font-size:12px;font-weight:700;color:var(--dark-gray)">Status:</span><select style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px" onchange="setSpotCheckStatus(\''+i.id+'\',this.value)"><option value="Open"'+(i.status==='Open'?' selected':'')+'>Open</option><option value="In Progress"'+(i.status==='In Progress'?' selected':'')+'>In Progress</option><option value="Resolved"'+(i.status==='Resolved'?' selected':'')+'>Resolved</option></select></div>';
-        html+='<div class="updates-log">'+(scUpdHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
-        html+='<div class="add-update-row"><input type="text" id="sc-note-'+safeId+'" placeholder="Add an update…"><button onclick="addSpotCheckUpdate(\''+i.id+'\',\''+safeId+'\')">+ Add</button></div>';
+        html+='<div class="insp-detail-heading">&#128221; Status</div>';
+        html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:12px;font-weight:700;color:var(--dark-gray)">Current status:</span>'+issueStatusBadgeHtml(scTied)+'</div>';
+        if(scTied){
+          html+='<button class="view-in-openissues-btn" data-prop="'+esc(i.property||'')+'" onclick="jumpToOpenIssues(this.getAttribute(\'data-prop\'))">Manage in Open Issues &rarr;</button>';
+        } else {
+          // Pre-existing Spot Check submitted before the property_issues bridge was added
+          // (or before this Spot Check was backfilled — see the "Backfill Spot Checks"
+          // button on the Open Issues tab). No tracked record yet, so there's nothing to
+          // manage here until it's backfilled.
+          html+='<div style="font-size:12px;color:var(--dark-gray)">This Spot Check has no tracked Open Issues record yet — use "Backfill Spot Checks" on the Open Issues tab to create one.</div>';
+        }
       } else {
         if(hasIssues){
-          html+='<div class="insp-detail-heading">&#128295; '+issueList.length+' Issue'+(issueList.length!==1?'s':'')+' Found</div>';
+          html+='<div class="insp-detail-heading">&#128295; '+buildIssueStatusSummary(issueList,i.id)+'</div>';
           issueList.forEach(function(x,xi){
             var xPhotos=normalizePhotoUrls(x.photos,'qcLog:'+i.id+':issue');
             var xKey=x.key||('legacyidx_'+xi);
-            var tiedIssue=_propIssues.find(function(p){return p.sourceInspectionId===i.id&&p.sourceIssueKey===xKey;});
-            html+='<div class="insp-issue-item"><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div>';
+            var tiedIssue=findTiedIssue(i.id,xKey);
+            html+='<div class="insp-issue-item"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div></div>'+issueStatusBadgeHtml(tiedIssue)+'</div>';
             if(x.notes)html+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
             if(x.charge>0)html+='<div class="insp-issue-charge">Charge: $'+Number(x.charge).toFixed(2)+'</div>';
             if(xPhotos.length){
@@ -971,17 +1121,9 @@ function renderQCLog(){
               xPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
               html+='</div>';
             }
-            if(tiedIssue){
-              var piSafe='qcpi'+tiedIssue.id.replace(/[^a-zA-Z0-9]/g,'');
-              var piUpdates=tiedIssue.updates||[];
-              var piUpdHtml='';
-              piUpdates.forEach(function(u){piUpdHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
-              html+='<div style="display:flex;align-items:center;gap:8px;margin:8px 0 6px"><span style="font-size:12px;font-weight:700;color:var(--dark-gray)">Issue Status:</span><select style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px" onchange="setPropertyIssueStatus(\''+tiedIssue.id+'\',this.value)"><option value="open"'+(tiedIssue.status==='open'?' selected':'')+'>Open</option><option value="in_progress"'+(tiedIssue.status==='in_progress'?' selected':'')+'>In Progress</option><option value="resolved"'+(tiedIssue.status==='resolved'?' selected':'')+'>Resolved</option></select></div>';
-              if(piUpdHtml)html+='<div class="updates-log">'+piUpdHtml+'</div>';
-              html+='<div class="add-update-row"><input type="text" id="qcpi-note-'+piSafe+'" placeholder="Add an update or resolution note&hellip;"><button onclick="addPropertyIssueUpdateFromQC(\''+tiedIssue.id+'\',\''+piSafe+'\')">+ Add</button></div>';
-            }
             html+='</div>';
           });
+          html+='<button class="view-in-openissues-btn" data-prop="'+esc(i.property||'')+'" onclick="jumpToOpenIssues(this.getAttribute(\'data-prop\'))">View issues in Open Issues &rarr;</button>';
         }
         if(mgrNotes){
           html+='<div class="insp-detail-heading">&#128221; Manager Notes</div><div class="insp-notes-block">'+esc(mgrNotes).replace(/\n/g,'<br>')+'</div>';
@@ -990,17 +1132,16 @@ function renderQCLog(){
           html+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
         }
         if(hasIssues||qcIsResolved||qcUpdates.length){
-          html+='<div class="insp-detail-heading">&#128295; QC Record Status</div>';
+          html+='<div class="insp-detail-heading">&#128295; Overall Resolution</div>';
           if(qcIsResolved){
-            html+='<div class="insp-resolved-banner">&#9989; Marked Resolved</div>';
+            html+='<div class="insp-resolved-banner">&#9989; Resolved &mdash; every issue on this inspection is Resolved or Dismissed</div>';
           } else if(hasIssues){
-            html+='<div class="insp-unresolved-banner">&#9888;&#65039; Not yet marked resolved</div>';
+            html+='<div class="insp-unresolved-banner">&#9888;&#65039; Not yet resolved &mdash; one or more issues are still Open or In Progress. Manage each issue\'s status from the Open Issues tab.</div>';
           }
           var qcUpdHtml='';
           qcUpdates.forEach(function(u){qcUpdHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
           html+='<div class="updates-log">'+(qcUpdHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
-          html+='<div class="add-update-row"><input type="text" id="insp-note-'+safeId+'" placeholder="Add an update&hellip; (e.g. all items addressed)"><button onclick="addQCInspUpdate(\''+i.id+'\',\''+safeId+'\')">+ Add</button></div>';
-          html+='<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer"><input type="checkbox" class="res-check" '+(qcIsResolved?'checked':'')+' onchange="toggleQCInspResolved(\''+i.id+'\',this.checked)"> Mark Resolved</label>';
+          html+='<div class="add-update-row"><input type="text" id="insp-note-'+safeId+'" placeholder="Add an inspection-level note&hellip;"><button onclick="addQCInspUpdate(\''+i.id+'\',\''+safeId+'\')">+ Add</button></div>';
         }
       }
       html+='</td></tr>';
@@ -1010,40 +1151,29 @@ function renderQCLog(){
   document.getElementById('qcLogTable').innerHTML=html;
   reopenPreservedDetails();
 }
-// ── SPOT CHECK STATUS / RESOLUTION HISTORY — mirrors the Complaints and Check-In
-// resolved/updates pattern above, writing directly onto the inspection doc so the
-// original submission (description, photos, category, etc.) is never touched.
-function addSpotCheckUpdate(docId,safeId){
-  var input=document.getElementById('sc-note-'+safeId);
-  var text=(input.value||'').trim();
-  if(!text)return;
-  var now=new Date();
-  var entry={text:text,by:currentUser.name,date:now.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
-  db.collection('inspections').doc(docId).update({updates:firebase.firestore.FieldValue.arrayUnion(entry)}).then(function(){
-    var insp=_insp.find(function(x){return x.id===docId;});
-    if(insp){ if(!insp.updates)insp.updates=[]; insp.updates.push(entry); }
-    showToast('Update added');
-    renderQCLog();
-  }).catch(function(){showToast('Error adding update');});
-}
-function setSpotCheckStatus(docId,newStatus){
-  db.collection('inspections').doc(docId).update({status:newStatus,resolved:newStatus==='Resolved'}).then(function(){
-    var insp=_insp.find(function(x){return x.id===docId;});
-    if(insp){ insp.status=newStatus; insp.resolved=(newStatus==='Resolved'); }
-    showToast('Status updated to '+newStatus);
-    renderQCLog();
-  }).catch(function(){showToast('Error updating status');});
-}
+// NOTE: Spot Check status/updates used to be edited directly here in the QC Log
+// (formerly addSpotCheckUpdate()/setSpotCheckStatus(), writing straight onto the
+// inspections doc). As of the issue-management workflow update, every issue
+// (Spot Checks included) is edited in exactly one place — the Open Issues tab,
+// via setPropertyIssueStatus()/addPropertyIssueUpdate() below — which then mirrors
+// the result back onto this Spot Check's own inspections doc automatically. Those
+// two functions were removed so there's no second, divergent way to edit the same
+// data; see renderQCLog()'s isSC branch above for the resulting read-only display.
 
 // ── OPEN ISSUES ───────────────────────────────────────────────────────────────
 // Lists every `property_issues` record — one per checklist Issue flagged in the
-// Inspections App (see createPropertyIssues() there). Unlike the Check-Ins/
-// Check-Outs Log's own per-inspection "Mark Resolved" checkbox (which only ever
-// flips that one inspection's Ready/Not Ready display), each of these tracks a
-// single issue's own Open/In Progress/Resolved lifecycle, tied to the property
-// rather than to any one inspection — so a "missing hangers" issue keeps
-// showing up here (and on the property card in the app) across every future
-// inspection at that property until someone actually marks it resolved.
+// Inspections App (see createPropertyIssues() there), plus one per Spot Check
+// (see createSpotCheckPropertyIssue() there). This is the ONLY place any issue's
+// status, resolution note, or follow-up history is edited — the Check-Ins/
+// Check-Outs Log, QC Log, and the Inspections App's own property-card issue list
+// all just display these same records read-only (see issueStatusBadgeHtml() and
+// buildIssueStatusSummary() above) so an issue is never edited from two different
+// places with two different histories. Each record tracks a single issue's own
+// Open/In Progress/Resolved/Dismissed lifecycle, tied to the property rather than
+// to any one inspection — so a "missing hangers" issue keeps showing up here (and
+// on the property card in the app) across every future inspection at that
+// property until someone actually resolves or dismisses it.
+var STATUS_DISPLAY_NAMES={open:'Open',in_progress:'In Progress',resolved:'Resolved',dismissed:'Dismissed / Not an Issue'};
 function renderOpenIssues(){
   var propSel=document.getElementById('oi-prop');
   if(propSel && propSel.options.length<=1){
@@ -1051,10 +1181,12 @@ function renderOpenIssues(){
     Object.keys(props).sort().forEach(function(p){var o=document.createElement('option');o.value=p;o.textContent=p;propSel.appendChild(o);});
   }
   var status=document.getElementById('oi-status').value;
+  var source=document.getElementById('oi-source').value;
   var prop=document.getElementById('oi-prop').value;
   var search=(document.getElementById('oi-search').value||'').toLowerCase();
   var list=_propIssues.filter(function(x){
     if(status && x.status!==status) return false;
+    if(source && x.formType!==source) return false;
     if(prop && x.property!==prop) return false;
     if(search && !((x.property||'').toLowerCase().indexOf(search)!==-1 || (x.text||'').toLowerCase().indexOf(search)!==-1)) return false;
     return true;
@@ -1063,29 +1195,55 @@ function renderOpenIssues(){
   document.getElementById('oi-open').textContent=_propIssues.filter(function(x){return x.status==='open'||!x.status;}).length;
   document.getElementById('oi-progress').textContent=_propIssues.filter(function(x){return x.status==='in_progress';}).length;
   document.getElementById('oi-resolved').textContent=_propIssues.filter(function(x){return x.status==='resolved';}).length;
+  document.getElementById('oi-dismissed').textContent=_propIssues.filter(function(x){return x.status==='dismissed';}).length;
   var tableEl=document.getElementById('openIssuesTable');
   if(!list.length){ tableEl.innerHTML='<div class="empty">No follow-up issues found</div>'; return; }
   list.sort(function(a,b){return (b.reportedAt||'').localeCompare(a.reportedAt||'');});
-  var statusLabels={open:{txt:'Open',cls:'b-issue'},in_progress:{txt:'In Progress',cls:'b-conditional'},resolved:{txt:'Resolved',cls:'b-clear'}};
-  var html='<table><thead><tr><th>Reported</th><th>Property</th><th>Section</th><th>Issue</th><th>Reported By</th><th>Status</th><th></th></tr></thead><tbody>';
+  var html='<table><thead><tr><th>Reported</th><th>Property</th><th>Source</th><th>Section / Location</th><th>Issue</th><th>Reported By</th><th>Status</th><th>Photos</th><th></th></tr></thead><tbody>';
   list.forEach(function(x){
-    var st=statusLabels[x.status]||statusLabels.open;
     var safeId='oi'+x.id.replace(/[^a-zA-Z0-9]/g,'');
+    var xPhotos=normalizePhotoUrls(x.photos,'openIssues:'+x.id);
     html+='<tr>';
     html+='<td style="white-space:nowrap">'+esc(x.reportedAt?fmtDateTime(x.reportedAt):'')+'</td>';
     html+='<td style="font-weight:600;min-width:160px">'+esc(x.property||'')+'</td>';
-    html+='<td>'+esc(x.section||'')+'</td>';
+    html+='<td><span class="badge source-badge">'+esc(sourceLabel(x.formType))+'</span></td>';
+    html+='<td>'+esc(x.section||x.location||'')+'</td>';
     html+='<td style="min-width:220px">'+esc(x.text||'')+'</td>';
     html+='<td>'+esc(x.reportedByName||'')+'</td>';
-    html+='<td><span class="badge '+st.cls+'">'+esc(st.txt)+'</span></td>';
+    html+='<td>'+issueStatusBadgeHtml(x)+'</td>';
+    html+='<td>'+(xPhotos.length?'<span class="badge b-ok">&#128247; '+xPhotos.length+'</span>':'<span class="no-photo">&mdash;</span>')+'</td>';
     html+='<td><button class="details-btn" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
     html+='</tr>';
-    html+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="7">';
+    html+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="9">';
     if((x.notes||'').trim()){
       html+='<div class="insp-detail-heading">&#128221; Inspector\'s Note</div><div class="insp-notes-block">'+esc(x.notes).replace(/\n/g,'<br>')+'</div>';
     }
+    if(x.priority||x.category||x.assignedManagerName){
+      html+='<div class="insp-detail-heading">&#128295; Details</div><div class="insp-notes-block">'+
+        (x.category?'<strong>Category:</strong> '+esc(x.category)+'<br>':'')+
+        (x.location?'<strong>Location:</strong> '+esc(x.location)+'<br>':'')+
+        (x.priority?'<strong>Priority:</strong> '+esc(x.priority)+'<br>':'')+
+        (x.assignedManagerName?'<strong>Assigned House Manager:</strong> '+esc(x.assignedManagerName):'')+
+        '</div>';
+    }
+    if(xPhotos.length){
+      html+='<div class="insp-detail-heading">&#128247; Photos</div><div class="insp-issue-photos">';
+      xPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
+      html+='</div>';
+    }
     html+='<div class="insp-detail-heading">&#128295; Status &amp; Follow-Up History</div>';
-    html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><span style="font-size:12px;font-weight:700;color:var(--dark-gray)">Status:</span><select style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px" onchange="setPropertyIssueStatus(\''+x.id+'\',this.value)"><option value="open"'+(x.status==='open'||!x.status?' selected':'')+'>Open</option><option value="in_progress"'+(x.status==='in_progress'?' selected':'')+'>In Progress</option><option value="resolved"'+(x.status==='resolved'?' selected':'')+'>Resolved</option></select></div>';
+    html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap"><span style="font-size:12px;font-weight:700;color:var(--dark-gray)">Status:</span>'+issueStatusBadgeHtml(x)+
+      '<select id="oi-sel-'+safeId+'" style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px" onchange="stageIssueStatusChange(\''+safeId+'\',this.value)">'+
+      '<option value="open"'+(x.status==='open'||!x.status?' selected':'')+'>Open</option>'+
+      '<option value="in_progress"'+(x.status==='in_progress'?' selected':'')+'>In Progress</option>'+
+      '<option value="resolved"'+(x.status==='resolved'?' selected':'')+'>Resolved</option>'+
+      '<option value="dismissed"'+(x.status==='dismissed'?' selected':'')+'>Dismissed / Not an Issue</option>'+
+      '</select></div>';
+    html+='<div class="status-confirm-panel" id="oi-confirm-'+safeId+'" style="display:none">'+
+      '<div style="font-size:12px;color:var(--dark-gray)">Changing status to <strong id="oi-confirm-label-'+safeId+'"></strong>. Add an optional note (e.g. why it was dismissed, or what was done to resolve it) — it will be saved to this issue\'s history:</div>'+
+      '<textarea id="oi-confirm-note-'+safeId+'" placeholder="Optional note…"></textarea>'+
+      '<div class="sc-btns"><button class="sc-confirm" onclick="confirmIssueStatusChange(\''+x.id+'\',\''+safeId+'\')">Confirm</button><button class="sc-cancel" onclick="cancelIssueStatusChange(\''+safeId+'\',\''+(x.status||'open')+'\')">Cancel</button></div>'+
+      '</div>';
     var updates=x.updates||[];
     var updHtml='';
     updates.forEach(function(u){updHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
@@ -1097,17 +1255,73 @@ function renderOpenIssues(){
   tableEl.innerHTML=html;
   reopenPreservedDetails();
 }
-function setPropertyIssueStatus(docId,newStatus){
+// ── Staged status change (requirement: let the user attach a note BEFORE confirming
+// a status change, in one action, rather than changing status then having to add a
+// separate update). Selecting a new status just reveals a small confirm panel with an
+// optional note field; nothing is written until "Confirm" is clicked. "Cancel" reverts
+// the <select> to the issue's current status and hides the panel again. ──
+function stageIssueStatusChange(safeId,newStatus){
+  var panel=document.getElementById('oi-confirm-'+safeId);
+  var label=document.getElementById('oi-confirm-label-'+safeId);
+  if(!panel)return;
+  panel.setAttribute('data-pending-status',newStatus);
+  if(label)label.textContent=STATUS_DISPLAY_NAMES[newStatus]||newStatus;
+  panel.style.display='flex';
+}
+function cancelIssueStatusChange(safeId,prevStatus){
+  var sel=document.getElementById('oi-sel-'+safeId);
+  var panel=document.getElementById('oi-confirm-'+safeId);
+  if(sel)sel.value=prevStatus;
+  if(panel)panel.style.display='none';
+}
+function confirmIssueStatusChange(docId,safeId){
+  var panel=document.getElementById('oi-confirm-'+safeId);
+  var newStatus=panel?panel.getAttribute('data-pending-status'):null;
+  if(!newStatus)return;
+  var noteInput=document.getElementById('oi-confirm-note-'+safeId);
+  var note=(noteInput&&noteInput.value||'').trim();
+  setPropertyIssueStatus(docId,newStatus,note);
+}
+// ── The single write path for every issue's status, wherever it's staged from (today,
+// only the Open Issues tab's <select>+confirm panel above). Records a statusHistory
+// entry (from/to/by/date/note — date stored as ISO, same convention as reportedAt/
+// resolvedAt/dismissedAt; display formatting happens at render time via fmtDateTime()),
+// keeps resolvedAt/resolvedBy or dismissedAt/dismissedBy/dismissalNote in sync with the
+// new status, optionally appends the note into the existing updates[] log too (so it
+// shows up in the same "Updates & History" list as a plain manual update), then syncs
+// the overall inspection's computed resolution (syncInspectionResolution) and, for a
+// Spot Check issue, mirrors the status back onto its own inspections doc
+// (syncSpotCheckMirror) so the two records never visibly disagree. ──
+function setPropertyIssueStatus(docId,newStatus,note){
+  var iss=_propIssues.find(function(x){return x.id===docId;});
+  var prevStatus=iss?(iss.status||'open'):'open';
+  var nowIso=new Date().toISOString();
+  var byName=currentUser?currentUser.name:'';
   var patch={status:newStatus};
-  if(newStatus==='resolved'){patch.resolvedAt=new Date().toISOString();patch.resolvedBy=currentUser?currentUser.name:'';}
-  else {patch.resolvedAt=null;patch.resolvedBy='';}
+  if(newStatus==='resolved'){ patch.resolvedAt=nowIso; patch.resolvedBy=byName; patch.dismissedAt=null; patch.dismissedBy=null; patch.dismissalNote=''; }
+  else if(newStatus==='dismissed'){ patch.dismissedAt=nowIso; patch.dismissedBy=byName; patch.dismissalNote=note||''; patch.resolvedAt=null; patch.resolvedBy=null; }
+  else { patch.resolvedAt=null; patch.resolvedBy=null; patch.dismissedAt=null; patch.dismissedBy=null; patch.dismissalNote=''; }
+  var historyEntry={from:prevStatus,to:newStatus,by:byName,date:nowIso,note:note||''};
+  patch.statusHistory=firebase.firestore.FieldValue.arrayUnion(historyEntry);
+  var noteEntry=null;
+  if(note){
+    noteEntry={text:note,by:byName,date:new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
+    patch.updates=firebase.firestore.FieldValue.arrayUnion(noteEntry);
+  }
   db.collection('property_issues').doc(docId).update(patch).then(function(){
-    var iss=_propIssues.find(function(x){return x.id===docId;});
-    if(iss){ iss.status=newStatus; iss.resolvedAt=patch.resolvedAt; iss.resolvedBy=patch.resolvedBy; }
-    showToast('Issue marked '+(newStatus==='in_progress'?'In Progress':newStatus.charAt(0).toUpperCase()+newStatus.slice(1)));
-    syncQCRecordResolution(iss);
+    if(iss){
+      iss.status=newStatus; iss.resolvedAt=patch.resolvedAt; iss.resolvedBy=patch.resolvedBy;
+      iss.dismissedAt=patch.dismissedAt; iss.dismissedBy=patch.dismissedBy; iss.dismissalNote=patch.dismissalNote;
+      if(!iss.statusHistory)iss.statusHistory=[];
+      iss.statusHistory.push(historyEntry);
+      if(noteEntry){ if(!iss.updates)iss.updates=[]; iss.updates.push(noteEntry); }
+    }
+    showToast('Issue marked '+(STATUS_DISPLAY_NAMES[newStatus]||newStatus));
+    syncSpotCheckMirror(iss);
+    syncInspectionResolution(iss);
     renderOpenIssues();
     renderQCLog();
+    renderInspLog();
   }).catch(function(){showToast('Error updating issue');});
 }
 function addPropertyIssueUpdate(docId,safeId){
@@ -1119,45 +1333,102 @@ function addPropertyIssueUpdate(docId,safeId){
   db.collection('property_issues').doc(docId).update({updates:firebase.firestore.FieldValue.arrayUnion(entry)}).then(function(){
     var iss=_propIssues.find(function(x){return x.id===docId;});
     if(iss){ if(!iss.updates)iss.updates=[]; iss.updates.push(entry); }
+    input.value='';
     showToast('Update added');
     renderOpenIssues();
   }).catch(function(){showToast('Error adding update');});
 }
-// Same write as addPropertyIssueUpdate above, targeting the per-issue "Add update" box
-// rendered inside the QC Log's expandable Details row (a separate DOM id namespace —
-// 'qcpi-note-*' — so it never collides with the identically-purposed input in the Open
-// Issues tab, which is always present in the DOM at the same time, just hidden).
-function addPropertyIssueUpdateFromQC(docId,safeId){
-  var input=document.getElementById('qcpi-note-'+safeId);
-  var text=(input.value||'').trim();
-  if(!text)return;
-  var now=new Date();
-  var entry={text:text,by:currentUser.name,date:now.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
-  db.collection('property_issues').doc(docId).update({updates:firebase.firestore.FieldValue.arrayUnion(entry)}).then(function(){
-    var iss=_propIssues.find(function(x){return x.id===docId;});
-    if(iss){ if(!iss.updates)iss.updates=[]; iss.updates.push(entry); }
-    showToast('Update added');
-    renderQCLog();
-    renderOpenIssues();
-  }).catch(function(){showToast('Error adding update');});
+// Spot Check is the one issue source whose "issue" is also a full standalone document
+// in `inspections` (every other source's issue only ever existed inside that
+// inspection's issues[] array). Once a Spot Check's tracked property_issues record
+// changes status here, mirror the human-readable Title-Case equivalent back onto that
+// same Spot Check's own `inspections` doc `status` field, so the QC Log's read-only
+// display (see renderQCLog()'s isSC branch) never disagrees with Open Issues. The
+// inspections doc's `resolved` flag is handled uniformly for every source, Spot Check
+// included, by syncInspectionResolution() right after this is called.
+function syncSpotCheckMirror(iss){
+  if(!iss||iss.formType!=='spot_check'||!iss.sourceInspectionId)return;
+  var insp=_insp.find(function(x){return x.id===iss.sourceInspectionId;});
+  if(!insp)return;
+  var titleCase={open:'Open',in_progress:'In Progress',resolved:'Resolved',dismissed:'Dismissed'};
+  var newTitle=titleCase[iss.status]||'Open';
+  if(insp.status===newTitle)return;
+  db.collection('inspections').doc(insp.id).update({status:newTitle}).then(function(){
+    insp.status=newTitle;
+  }).catch(function(){});
 }
-// When every property_issues record tied to a QC-Check inspection reaches 'resolved',
-// automatically flip that inspection's own `resolved` flag to true (and back to false the
-// moment any tied issue is reopened) — this is the "overall QC record reflects resolved"
-// requirement. Purely additive: doesn't touch issue text/photos/notes, and the manual
-// "Mark Resolved" checkbox (toggleQCInspResolved) can still always override it by hand.
-function syncQCRecordResolution(iss){
-  if(!iss||!iss.sourceInspectionId||iss.formType!=='qc_check')return;
+// Keeps an inspection's own computed `resolved` flag (used by the Check-Ins/Check-Outs
+// Log and QC Log's auto-Ready-flip display, plus the Overall Resolution banner) in sync
+// with its individually-tracked issues: unresolved while ANY tied property_issues
+// record is still Open or In Progress, automatically resolved once every tied issue is
+// either Resolved or Dismissed, and automatically reopened the moment any of them is
+// reopened. Works for every inspection type that can create tracked issues — QC Check,
+// Check-In, Check-Out, Back-to-Back Summer/Winter, and Spot Check — not just QC (hence
+// the rename from the original QC-only syncQCRecordResolution()). Never touches the
+// inspector's own original `overallStatus` — that continues to reflect what was
+// actually found at inspection time; `resolved` is a separate, purely computed
+// follow-up field.
+function syncInspectionResolution(iss){
+  if(!iss||!iss.sourceInspectionId)return;
   var insp=_insp.find(function(x){return x.id===iss.sourceInspectionId;});
   if(!insp)return;
   var tied=_propIssues.filter(function(p){return p.sourceInspectionId===insp.id;});
   if(!tied.length)return;
-  var allResolved=tied.every(function(p){return p.status==='resolved';});
-  if(!!insp.resolved===allResolved)return;
-  db.collection('inspections').doc(insp.id).update({resolved:allResolved}).then(function(){
-    insp.resolved=allResolved;
+  var allClosed=tied.every(function(p){return p.status==='resolved'||p.status==='dismissed';});
+  if(!!insp.resolved===allClosed)return;
+  db.collection('inspections').doc(insp.id).update({resolved:allClosed}).then(function(){
+    insp.resolved=allClosed;
     renderQCLog();
+    renderInspLog();
   }).catch(function(){});
+}
+// ── Backfill: creates tracked property_issues records for any Spot Checks submitted
+// before the Spot Check -> property_issues bridge existed (see createSpotCheckPropertyIssue()
+// in index.html for the normal, automatic path every new Spot Check now goes through).
+// Duplicate-safe by design — re-checks for an existing record (by sourceInspectionId +
+// sourceIssueKey:'spotcheck') immediately before each write, so running this more than
+// once, or clicking it twice in a row, never creates a second record for the same
+// Spot Check. Processes one at a time (rather than a batch) so a single failure doesn't
+// need to be treated as an all-or-nothing outcome — the toast reports created vs failed.
+function backfillSpotCheckPropertyIssues(){
+  var candidates=_insp.filter(function(i){ return i.formType==='spot_check' && !findTiedIssue(i.id,'spotcheck'); });
+  if(!candidates.length){ showToast('No Spot Checks need backfilling — all are already tracked.'); return; }
+  if(!confirm('Create tracked Open Issues records for '+candidates.length+' older Spot Check'+(candidates.length!==1?'s':'')+'?\n\nThis is safe to run more than once — it never creates duplicate records.')) return;
+  var statusMap={'Open':'open','In Progress':'in_progress','Resolved':'resolved','Dismissed':'dismissed'};
+  var created=0, failed=0;
+  function next(idx){
+    if(idx>=candidates.length){
+      showToast(created+' Spot Check'+(created!==1?'s':'')+' backfilled'+(failed?', '+failed+' failed':'')+'.');
+      loadData().then(function(){
+        document.getElementById('lastSyncedText').textContent='Last synced: '+fmtDateTime(new Date().toISOString());
+      }).catch(function(){});
+      return;
+    }
+    var i=candidates[idx];
+    var status=statusMap[i.status]||'open';
+    var record={
+      property:i.property||'', address:i.address||'', formType:'spot_check',
+      section:i.category||'', text:i.description||'', notes:i.notes||'',
+      category:i.category||'', location:i.location||'', priority:i.priority||'',
+      photos:i.photoUrls||[],
+      assignedManagerName:i.assignedManagerName||'', assignedManagerEmail:i.assignedManagerEmail||'',
+      status:status, sourceInspectionId:i.id, sourceIssueKey:'spotcheck',
+      reportedByName:i.inspector||'', reportedById:i.inspectorId||'',
+      reportedAt:i.submittedAt||new Date().toISOString(),
+      updates:[], statusHistory:[],
+      resolvedAt:status==='resolved'?(i.submittedAt||new Date().toISOString()):null,
+      resolvedBy:status==='resolved'?(i.inspector||''):null,
+      dismissedAt:null, dismissedBy:null, dismissalNote:''
+    };
+    // Re-check right before writing (not just at candidate-selection time above) in case
+    // this is run twice in quick succession before the page has reloaded in between.
+    db.collection('property_issues').where('sourceInspectionId','==',i.id).where('sourceIssueKey','==','spotcheck').limit(1).get().then(function(snap){
+      var exists=snap.docs.some(function(d){var dd=d.data();return dd.sourceInspectionId===i.id&&dd.sourceIssueKey==='spotcheck';});
+      if(exists){ next(idx+1); return; }
+      db.collection('property_issues').add(record).then(function(){ created++; next(idx+1); }).catch(function(){ failed++; next(idx+1); });
+    }).catch(function(){ failed++; next(idx+1); });
+  }
+  next(0);
 }
 
 // ── TRAININGS ─────────────────────────────────────────────────────────────────
@@ -1393,7 +1664,7 @@ function submitComplaint(sendEmail){
 }
 
 function loadComplaints(){
-  db.collection('complaints').orderBy('submittedAt','desc').limit(200).get().then(function(snap){
+  return db.collection('complaints').orderBy('submittedAt','desc').limit(200).get().then(function(snap){
     _complaints=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
     renderComplaints();
   });
@@ -1489,18 +1760,16 @@ function addInspUpdate(docId,safeId){
   }).catch(function(){showToast('Error adding update');});
 }
 
-function toggleInspResolved(docId,checked){
-  db.collection('inspections').doc(docId).update({resolved:checked}).then(function(){
-    var insp=_insp.find(function(x){return x.id===docId;});
-    if(insp) insp.resolved=checked;
-    showToast(checked?'Marked resolved ✓':'Reopened');
-    renderInspLog();
-  }).catch(function(){showToast('Error updating status');});
-}
+// NOTE: the manual inspection-level "Mark Resolved" checkbox (formerly
+// toggleInspResolved()/toggleQCInspResolved() here) was removed — an inspection's
+// `resolved` flag is now always computed automatically from its individual tracked
+// issues by syncInspectionResolution() above, so a manual override could no longer
+// disagree with reality (e.g. checking "Resolved" while an issue was still Open).
 
-// QC Log equivalents of addInspUpdate/toggleInspResolved above — identical writes against
-// the same `inspections` collection/fields, just re-rendering the QC Log instead of the
-// Check-Ins/Check-Outs Log so a manual override there doesn't require switching tabs.
+// QC Log equivalent of addInspUpdate above — identical write against the same
+// `inspections` collection/field, just re-rendering the QC Log instead of the
+// Check-Ins/Check-Outs Log so adding an inspection-level note there doesn't require
+// switching tabs.
 function addQCInspUpdate(docId,safeId){
   var input=document.getElementById('insp-note-'+safeId);
   var text=(input.value||'').trim();
@@ -1513,14 +1782,6 @@ function addQCInspUpdate(docId,safeId){
     showToast('Update added');
     renderQCLog();
   }).catch(function(){showToast('Error adding update');});
-}
-function toggleQCInspResolved(docId,checked){
-  db.collection('inspections').doc(docId).update({resolved:checked}).then(function(){
-    var insp=_insp.find(function(x){return x.id===docId;});
-    if(insp) insp.resolved=checked;
-    showToast(checked?'Marked resolved ✓':'Reopened');
-    renderQCLog();
-  }).catch(function(){showToast('Error updating status');});
 }
 
 function saveVerified(docId,val){
