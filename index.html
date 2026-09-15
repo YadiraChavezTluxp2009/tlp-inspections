@@ -76,7 +76,9 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .prop-issue-row:first-of-type{border-top:none}
 .prop-issue-txt{font-size:12.5px;color:var(--text);flex:1}
 .prop-issue-txt .prop-issue-sec{display:block;font-size:10.5px;color:var(--dark-gray);text-transform:uppercase;letter-spacing:.3px;font-weight:700}
-.prop-issue-sel{font-size:11px;border:1px solid var(--mid-gray);border-radius:6px;padding:3px 5px;background:white;flex-shrink:0}
+.prop-issue-status{display:inline-block;border-radius:20px;padding:3px 10px;font-size:10.5px;font-weight:700;flex-shrink:0;white-space:nowrap}
+.prop-issue-status.open{background:#FDECEA;color:#CC0000}
+.prop-issue-status.in_progress{background:#FFF3E0;color:#CC6600}
 .checklist-wrap{padding:12px 0 0}
 .section-block{margin:0 0 8px}
 .section-head{background:var(--navy);color:white;padding:10px 16px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;display:flex;justify-content:space-between;align-items:center}
@@ -671,10 +673,15 @@ function createPropertyIssues(issueList, inspectionId, docData) {
       db.collection('property_issues').add({
         property: docData.property || '', address: docData.address || '', formType: docData.formType || '',
         section: iss.section || '', text: iss.text || '', notes: iss.notes || '',
+        // Status lifecycle: open -> in_progress -> resolved, or open/in_progress -> dismissed
+        // ("Not an Issue"). dismissedAt/dismissedBy/dismissalNote mirror resolvedAt/resolvedBy
+        // and are only ever set once a manager dismisses this specific issue from the
+        // Dashboard's Open Issues tab (see setPropertyIssueStatus() there) — never set here.
         status: 'open', sourceInspectionId: inspectionId, sourceIssueKey: iss.key,
         reportedByName: docData.inspector || '', reportedById: docData.inspectorId || '',
         reportedAt: docData.submittedAt || new Date().toISOString(),
-        updates: [], resolvedAt: null, resolvedBy: null
+        updates: [], statusHistory: [], resolvedAt: null, resolvedBy: null,
+        dismissedAt: null, dismissedBy: null, dismissalNote: ''
       }).catch(function(e) { console.warn('[PROPERTY-ISSUE] create failed', e); });
     }).catch(function() {
       // If the lookup itself fails (e.g. offline), still create the record rather
@@ -686,7 +693,8 @@ function createPropertyIssues(issueList, inspectionId, docData) {
         status: 'open', sourceInspectionId: inspectionId, sourceIssueKey: iss.key,
         reportedByName: docData.inspector || '', reportedById: docData.inspectorId || '',
         reportedAt: docData.submittedAt || new Date().toISOString(),
-        updates: [], resolvedAt: null, resolvedBy: null
+        updates: [], statusHistory: [], resolvedAt: null, resolvedBy: null,
+        dismissedAt: null, dismissedBy: null, dismissalNote: ''
       }).catch(function(e) { console.warn('[PROPERTY-ISSUE] create failed', e); });
     });
   });
@@ -1006,7 +1014,7 @@ var PROPERTIES = [
 {"name": "In the Wild Woods", "address": "6415 Wildwood Road  - Tahoe Vista, CA 96148 US", "occupancy": 10, "bedrooms": 4, "bathrooms": "2 + 1 half", "size": "3011 sq. ft.", "pets": false, "contact": "Annie Stryker", "lockbox": "8413", "bear": "No", "checkinNotes": "The magnetic keys are used to access the supply cabinets throughout the home. Call the office if you are having trouble unlocking--it can be a bit tricky.", "email": "inthewildwoods@tluxp.com"},
 {"name": "Incline Oasis - Lakeview", "address": "707 Cristina Drive  - Incline Village, NV 89451 US", "occupancy": 10, "bedrooms": 5, "bathrooms": "5 + 1 half", "size": "4371 sq. ft.", "pets": true, "contact": "Andrea Degliantoni", "lockbox": "2930", "bear": "No", "checkinNotes": "Check that all smart features are in operation. \"Alexa\" and then any operation.  There are smart features in all rooms as well as outside at hot tub.\n\nEnsure that indoor basketball hoop is folded up with pins engaged in legs and that all signage is intact.\n\nDouble check that the side door headed out to upper deck is closed. It only locks on the handle and can blow open if not secured.\n\nAlways set alarm when home is empty for more than 3 days.", "email": "inclineoasis@tluxp.com"},
 {"name": "Just Grand", "address": "450 Grand Avenue  - Homewood, CA 96141 US", "occupancy": 10, "bedrooms": 5, "bathrooms": "4", "size": "2835 sq. ft.", "pets": false, "contact": "Kayla Cox", "lockbox": "8414", "bear": "Yes", "checkinNotes": "None", "email": "justgrand@tluxp.com"},
-{"name": "King's View Lodge - Lakeview", "address": "371 Mountain Lake Court  - Incline Village, NV 89541 US", "occupancy": 10, "bedrooms": 5, "bathrooms": "4 + 1 half", "size": "4008 sq. ft.", "pets": true, "contact": "Andrea Degliantoni", "lockbox": "2822", "bear": "Yes", "checkinNotes": "None", "email": "jessie@tluxp.com"},
+{"name": "King's View Lodge - Lakeview", "address": "371 Mountain Lake Court  - Incline Village, NV 89541 US", "occupancy": 10, "bedrooms": 5, "bathrooms": "4 + 1 half", "size": "4008 sq. ft.", "pets": true, "contact": "Andrea Degliantoni", "lockbox": "2822", "bear": "Yes", "checkinNotes": "None", "email": "kingsview@tluxp.com"},
 {"name": "La Dolce Vita - Lakefront", "address": "5520 West Lake Boulevard  - Homewood, CA 96141 US", "occupancy": 10, "bedrooms": 4, "bathrooms": "4", "size": "2565 sq. ft.", "pets": true, "contact": "Kobe Robbin", "lockbox": "#1960", "bear": "Yes", "checkinNotes": "AT CHECK-OUT:\nâ€¢IMPORTANT! please confirm the wall heaters are turned off in all bathrooms and the game room.\nâ€¢IMPORTANT! LOCK patio furniture on top of boat house together with cable lock (so it doesn't blow away)", "email": "ladolcevita@tluxp.com"},
 {"name": "Lago Azul - Lakefront", "address": "5256 North Lake Blvd.  - Carnelian Bay, CA 96140 US", "occupancy": 10, "bedrooms": 5, "bathrooms": "5 + 1 half", "size": "4064 sq. ft.", "pets": false, "contact": "", "bear": "No", "checkinNotes": "None", "email": "lagoazul@tluxp.com"},
 {"name": "Lake Escape - Lakefront", "address": "5440 North Lake Boulevard  - Carnelian Bay, CA 96140 US", "occupancy": 12, "bedrooms": 5, "bathrooms": "4 + 1 half", "size": "3995 sq. ft.", "pets": false, "contact": "Tina Geilenfeldt", "lockbox": "8414", "bear": "No", "checkinNotes": "All 3 Radiant heat thermostats should always be at 68 degrees unless there are 2+ weeks between guests. If that is the case, turn down to 55.", "email": "lakeescape@tluxp.com"},
@@ -2507,7 +2515,7 @@ var state = {};
 function newState() { return {formType:null, selectedProp:null, info:{}, items:{}, draftId:Date.now(), overallStatus:null, _sections:null, maintenanceNotes:'', managerNotes:'', invNotes:'', startTime:null, endTime:null, photos:{}, isVoided:false}; }
 state = newState();
 
-// ── Power Automate HTTP endpoint — paste your flow URL here after setup ──
+// ── Make.com HTTP endpoint — paste your scenario's webhook URL here after setup ──
 var HTTP_ENDPOINT = 'https://hook.us2.make.com/e84hk918jv76ces27d5eqrmqkq2875gu';
 var INSPECTION_EMAIL = 'inspections@tluxp.com';
 
@@ -2548,13 +2556,13 @@ function sendViaHTTP(payload, mailtoFallback, onSuccess) {
         showToast('Report & photos sent!');
         if (onSuccess) setTimeout(onSuccess, 600);
       } else {
-        var msg = 'Power Automate returned error ' + r.status + '.\n\nCheck that your flow is saved and turned ON in Power Automate.\n\nFalling back to email app.';
+        var msg = 'Make.com returned an error (' + r.status + ').\n\nPlease confirm the scenario is saved and active in Make.com.\n\nFalling back to email app.';
         alert(msg);
         window.location.href = mailtoFallback;
       }
     }).catch(function(err) {
       if (document.getElementById('sendingOverlay')) document.body.removeChild(ov);
-      var msg = 'Could not reach Power Automate.\n\nThis usually means:\n1. The flow is not saved/enabled, OR\n2. A CORS or network error.\n\nCheck your flow in Power Automate, then try again.\n\nFalling back to email app.';
+      var msg = 'Could not connect to Make.com.\n\nThis usually means:\n1. The scenario is not saved/active, OR\n2. A CORS or network error.\n\nPlease confirm the scenario in Make.com, then try again.\n\nFalling back to email app.';
       alert(msg);
       window.location.href = mailtoFallback;
     });
@@ -2617,10 +2625,15 @@ function selectProperty(p) {
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // ── Follow-up issues attached to a property (persist across inspections until
-// resolved — see createPropertyIssues() below, which is what writes these docs
-// at submit time). This just surfaces whatever's still open/in-progress for the
-// selected property, right on the setup screen, so whoever inspects it next
-// sees what's outstanding before they even start the checklist. ──
+// resolved/dismissed — see createPropertyIssues() below, which is what writes
+// these docs at submit time). This just surfaces whatever's still open/in-progress
+// for the selected property, right on the setup screen, so whoever inspects it
+// next sees what's outstanding before they even start the checklist.
+// READ-ONLY as of the issue-management workflow update: the Manager Dashboard's
+// Open Issues tab is now the single place any issue's status is changed, so this
+// box only displays status — it never offers a control to change it. This avoids
+// the same issue being editable from two different places with two different
+// histories. ──
 function loadOpenPropertyIssues(propertyName) {
   var box = document.getElementById('propOpenIssues');
   if (!box) return;
@@ -2633,31 +2646,19 @@ function loadOpenPropertyIssues(propertyName) {
     // "query broad, filter precisely in JS" pattern already used for damage-claim
     // duplicate checks elsewhere in this file.
     var open = snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); })
-      .filter(function(x) { return x.status !== 'resolved'; })
+      .filter(function(x) { return x.status !== 'resolved' && x.status !== 'dismissed'; })
       .sort(function(a, b) { return (a.reportedAt || '').localeCompare(b.reportedAt || ''); });
     if (!open.length) return;
     var html = '<div class="prop-open-issues-hdr">&#9888;&#65039; ' + open.length + ' open follow-up issue' + (open.length !== 1 ? 's' : '') + ' at this property</div>';
     open.forEach(function(iss) {
+      var stLabel = iss.status === 'in_progress' ? 'In Progress' : 'Open';
       html += '<div class="prop-issue-row"><div class="prop-issue-txt"><span class="prop-issue-sec">' + esc(iss.section || '') + '</span>' + esc(iss.text || '') + '</div>' +
-        '<select class="prop-issue-sel" onchange="updatePropertyIssueStatusFromApp(\'' + iss.id + '\',this.value)">' +
-        '<option value="open"' + (iss.status === 'open' ? ' selected' : '') + '>Open</option>' +
-        '<option value="in_progress"' + (iss.status === 'in_progress' ? ' selected' : '') + '>In Progress</option>' +
-        '<option value="resolved"' + (iss.status === 'resolved' ? ' selected' : '') + '>Resolved</option>' +
-        '</select></div>';
+        '<span class="prop-issue-status ' + esc(iss.status || 'open') + '">' + esc(stLabel) + '</span></div>';
     });
+    html += '<div style="font-size:11px;color:#8a4b00;margin-top:6px;font-style:italic">Status is managed from the Manager Dashboard\'s Open Issues tab.</div>';
     box.innerHTML = html;
     box.style.display = 'block';
   }).catch(function(e) { console.warn('[PROPERTY-ISSUE] failed to load open issues for property', propertyName, e); });
-}
-function updatePropertyIssueStatusFromApp(issueId, newStatus) {
-  if (!db) return;
-  var patch = { status: newStatus };
-  if (newStatus === 'resolved') { patch.resolvedAt = new Date().toISOString(); patch.resolvedBy = (currentUser && currentUser.name) || ''; }
-  else { patch.resolvedAt = null; patch.resolvedBy = ''; }
-  db.collection('property_issues').doc(issueId).update(patch).then(function() {
-    showToast('Issue marked ' + (newStatus === 'in_progress' ? 'In Progress' : newStatus.charAt(0).toUpperCase() + newStatus.slice(1)));
-    if (state.selectedProp) loadOpenPropertyIssues(state.selectedProp.name);
-  }).catch(function() { showToast('Error updating issue'); });
 }
 
 function showScreen(id) {
@@ -3218,7 +3219,7 @@ function showSummary() {
       if (nKeys.length > 0) { html += '<div style="background:#FFF8E1;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);margin-bottom:10px;border-left:3px solid #F0A500"><strong style="color:#7A5000;font-size:13px">&#128219; Linen Needed — Summary</strong><table style="width:100%;margin-top:8px;border-collapse:collapse">'; nKeys.forEach(function(nm){ html+='<tr><td style="font-size:13px;padding:3px 0;color:var(--dark-gray)">'+esc(nm)+'</td><td style="font-size:13px;font-weight:700;color:var(--red);text-align:right">'+needMap[nm]+'</td></tr>'; }); html += '</table></div>'; }
     }
     var pCnt = Object.keys(state.photos||{}).length;
-    if (pCnt > 0) { html += '<div style="background:#E8F5E9;border-radius:var(--radius);padding:10px 14px;margin-bottom:10px;font-size:13px;color:#2E7D32"><strong>&#128247; '+pCnt+' photo'+(pCnt>1?'s':'')+' captured</strong> — will be attached via Power Automate when Premium is configured.</div>'; }
+    if (pCnt > 0) { html += '<div style="background:#E8F5E9;border-radius:var(--radius);padding:10px 14px;margin-bottom:10px;font-size:13px;color:#2E7D32"><strong>&#128247; '+pCnt+' photo'+(pCnt>1?'s':'')+' captured</strong> — will be attached via Make.com when Premium is configured.</div>'; }
     html += '<div class="action-btns"><button class="btn-outline" onclick="showScreen(\'screenChecklist\');document.getElementById(\'bottomNav\').style.display=\'flex\'">Back to Checklist</button><button class="btn-green" onclick="submitReport()">Submit &amp; Send Email</button></div><div style="height:20px"></div></div>';
     document.getElementById('summaryWrap').innerHTML = html;
     showScreen('screenSummary');
@@ -3573,6 +3574,7 @@ function submitSpotCheck() {
       submittedAt: new Date().toISOString()
     };
     if (db) db.collection('inspections').doc(inspectionId).set(docData).catch(function(e){ console.warn('[SPOT-CHECK] Save error', e); });
+    createSpotCheckPropertyIssue(inspectionId, docData);
     sendSpotCheckEmail(docData);
     if (uploadResult.failCount > 0) {
       showToast('Spot Check submitted, but ' + uploadResult.failCount + ' of ' + uploadResult.total + ' photo(s) failed to upload.', 6000);
@@ -3619,6 +3621,54 @@ function sendSpotCheckEmail(docData) {
   } else {
     window.location.href = mailtoSc;
   }
+}
+// ── Spot Check → property_issues bridge ──
+// A Spot Check has always been its own standalone `inspections` doc (formType:
+// 'spot_check'), but — unlike every checklist-based inspection type — it never
+// created a matching `property_issues` record, so it never showed up in the
+// Manager Dashboard's Open Issues tab (the central place every other follow-up
+// issue lives). This creates that one record the moment a Spot Check is
+// submitted, using the same sourceInspectionId+sourceIssueKey duplicate-guard
+// pattern as createPropertyIssues() above. A Spot Check only ever has exactly
+// one "issue" (itself), so sourceIssueKey is always the fixed string
+// 'spotcheck' rather than a section/item positional key.
+// Status is intentionally lowercased/normalized to match every other
+// property_issues record ('Open'/'In Progress'/'Resolved' -> 'open'/
+// 'in_progress'/'resolved') — 'Dismissed' is not offered as an initial Spot
+// Check status; dismissal only ever happens later, from the Dashboard's Open
+// Issues tab, same as any other tracked issue.
+function spotCheckStatusToPropertyIssueStatus(scStatus) {
+  if (scStatus === 'In Progress') return 'in_progress';
+  if (scStatus === 'Resolved') return 'resolved';
+  return 'open';
+}
+function createSpotCheckPropertyIssue(inspectionId, docData) {
+  if (!db || !inspectionId) return;
+  var status = spotCheckStatusToPropertyIssueStatus(docData.status);
+  var record = {
+    property: docData.property || '', address: docData.address || '', formType: 'spot_check',
+    section: docData.category || '', text: docData.description || '', notes: docData.notes || '',
+    category: docData.category || '', location: docData.location || '', priority: docData.priority || '',
+    photos: docData.photoUrls || [],
+    assignedManagerName: docData.assignedManagerName || '', assignedManagerEmail: docData.assignedManagerEmail || '',
+    status: status, sourceInspectionId: inspectionId, sourceIssueKey: 'spotcheck',
+    reportedByName: docData.inspector || '', reportedById: docData.inspectorId || '',
+    reportedAt: docData.submittedAt || new Date().toISOString(),
+    updates: [], statusHistory: [],
+    resolvedAt: status === 'resolved' ? (docData.submittedAt || new Date().toISOString()) : null,
+    resolvedBy: status === 'resolved' ? (docData.inspector || '') : null,
+    dismissedAt: null, dismissedBy: null, dismissalNote: ''
+  };
+  db.collection('property_issues').where('sourceInspectionId', '==', inspectionId).where('sourceIssueKey', '==', 'spotcheck').limit(1).get().then(function(snap) {
+    var existing = snap.docs.filter(function(d) { var dd = d.data(); return dd.sourceInspectionId === inspectionId && dd.sourceIssueKey === 'spotcheck'; })[0];
+    if (existing) return;
+    db.collection('property_issues').add(record).catch(function(e) { console.warn('[PROPERTY-ISSUE] spot check create failed', e); });
+  }).catch(function() {
+    // Same reasoning as createPropertyIssues() above: if the duplicate-check query
+    // itself fails (e.g. offline), still create the record rather than silently
+    // dropping this Spot Check from Open Issues.
+    db.collection('property_issues').add(record).catch(function(e) { console.warn('[PROPERTY-ISSUE] spot check create failed', e); });
+  });
 }
 
 function submitReport() {
