@@ -109,6 +109,13 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .sc-photo-thumb-wrap img{width:64px;height:64px;border-radius:8px;object-fit:cover;cursor:pointer;border:2px solid var(--mid-gray);display:block}
 .sc-photo-del{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--red,#CC0000);color:white;border:2px solid white;font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
 .sc-manager-card{background:var(--gray);border-radius:10px;padding:12px 14px;font-size:14px}
+.sc-issues-wrap{display:flex;flex-direction:column;gap:14px}
+.sc-issue-block{background:white;border:1.5px solid var(--mid-gray);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px}
+.sc-issue-block-hdr{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sc-issue-block-title{font-size:12px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.5px}
+.sc-remove-issue-btn{background:none;border:none;color:var(--red);font-size:12.5px;font-weight:700;cursor:pointer;padding:4px 6px;display:flex;align-items:center;gap:4px;flex-shrink:0}
+.sc-add-issue-btn{background:white;color:var(--navy);border:2px dashed var(--blue);border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:6px}
+.sc-add-issue-btn:active{background:var(--light-blue)}
 .sc-manager-name{font-weight:700;color:var(--navy)}
 .sc-manager-email{font-size:12px;color:var(--dark-gray);margin-top:2px}
 .inv-photo-btns{display:flex;gap:6px;flex-shrink:0;margin-left:auto}
@@ -311,55 +318,14 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
   </div>
 </div>
 
-<!-- SPOT CHECK — lightweight standalone maintenance-issue report; no full QC checklist required -->
+<!-- SPOT CHECK — lightweight standalone maintenance-issue report; no full QC checklist required.
+     Supports reporting multiple issues in one Spot Check — see scIssuesWrap below, populated
+     dynamically by renderSpotCheckIssues() (one .sc-issue-block per issue). -->
 <div class="screen" id="screenSpotCheck">
   <div class="setup-form">
     <div class="setup-banner"><span>&#128295;</span><div><strong id="scSummaryProp"></strong><br><span style="font-size:12px;color:var(--dark-gray)" id="scSummaryMeta"></span></div></div>
-    <div class="field">
-      <label>Maintenance Issue Category</label>
-      <select id="scCategory"></select>
-    </div>
-    <div class="field">
-      <label>Description</label>
-      <textarea id="scDescription" class="note-input" style="width:100%;min-height:90px;box-sizing:border-box" placeholder="Describe the issue..."></textarea>
-    </div>
-    <div class="field">
-      <label>Location Within the Home</label>
-      <input type="text" id="scLocation" placeholder="e.g. Master bathroom, garage, back deck...">
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label>Priority Level</label>
-        <select id="scPriority">
-          <option value="Low">Low</option>
-          <option value="Medium" selected>Medium</option>
-          <option value="High">High</option>
-          <option value="Urgent">Urgent</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Status</label>
-        <select id="scStatus">
-          <option value="Open" selected>Open</option>
-          <option value="In Progress">In Progress</option>
-          <option value="Resolved">Resolved</option>
-        </select>
-      </div>
-    </div>
-    <div class="field">
-      <label>Photos</label>
-      <div class="photo-row">
-        <div class="photo-add" onclick="document.getElementById('scPhotoTake').click()"><span class="photo-add-ic">&#128247;</span><span class="photo-add-lbl">Take Photo</span></div>
-        <input type="file" accept="image/*" capture="environment" id="scPhotoTake" class="photo-file" onchange="addSpotCheckPhoto(event)">
-        <div class="photo-upload" onclick="document.getElementById('scPhotoUpload').click()"><span class="photo-add-ic">&#128444;&#65039;</span><span class="photo-add-lbl">Upload Photo</span></div>
-        <input type="file" accept="image/*" id="scPhotoUpload" class="photo-file" onchange="addSpotCheckPhoto(event)">
-        <div class="photo-row" id="scPhotoThumbs" style="margin-top:0"></div>
-      </div>
-    </div>
-    <div class="field">
-      <label>Additional Notes</label>
-      <textarea id="scNotes" class="note-input" style="width:100%;min-height:70px;box-sizing:border-box" placeholder="Optional..."></textarea>
-    </div>
+    <div class="sc-issues-wrap" id="scIssuesWrap"></div>
+    <button type="button" class="sc-add-issue-btn" onclick="addAnotherSpotCheckIssue()"><span>&#65291;</span> Add Another Issue</button>
     <div class="field">
       <label>Assigned House Manager</label>
       <div class="sc-manager-card">
@@ -3468,25 +3434,31 @@ function emailReport(onSuccess) {
 // ── SPOT CHECK — lightweight standalone maintenance-issue report. Reuses the normal
 // Property/Date/Time/Inspector setup screen (state.info / state.selectedProp) but
 // otherwise has its own short form, its own photo list, and its own submit flow —
-// inspectors never have to complete a full QC checklist to report a single issue.
+// inspectors never have to complete a full QC checklist to report an issue.
+//
+// A single Spot Check visit can turn up more than one issue, so the form supports
+// adding any number of issue blocks (spotCheck.issues[]) rather than exactly one.
+// Each block has the identical set of fields (category, description, location,
+// priority, status, photos, notes). Every field writes straight into
+// spotCheck.issues[idx] on input/change (same pattern as the main checklist's
+// per-item oninput handlers) — the DOM is only fully rebuilt (renderSpotCheckIssues)
+// when an issue is ADDED or REMOVED, never on every keystroke, so typing in one
+// block can never disturb — or lose — anything already entered in another block.
 var SPOT_CHECK_CATEGORIES = ['Plumbing','Electrical','HVAC / Heating & Cooling','Appliance','Structural / Exterior','Furniture / Interior','Pool / Hot Tub','Landscaping / Grounds','Safety Hazard','Pest / Wildlife','Other'];
-var spotCheck = { photos: [] };
+var spotCheck = { issues: [] };
+function newSpotCheckIssue() {
+  return { category: '', description: '', location: '', priority: 'Medium', status: 'Open', notes: '', photos: [] };
+}
 function showSpotCheckForm() {
-  spotCheck = { photos: [] };
+  spotCheck = { issues: [ newSpotCheckIssue() ] };
   var prop = state.selectedProp, info = state.info;
   document.getElementById('scSummaryProp').textContent = prop ? prop.name : '';
   document.getElementById('scSummaryMeta').textContent = formatDate(info.date) + (info.time ? ' at ' + info.time : '') + ' • ' + (info.inspector || '');
-  var catSel = document.getElementById('scCategory');
-  catSel.innerHTML = '<option value="">Select category...</option>' + SPOT_CHECK_CATEGORIES.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join('');
-  document.getElementById('scDescription').value = '';
-  document.getElementById('scLocation').value = '';
-  document.getElementById('scPriority').value = 'Medium';
-  document.getElementById('scStatus').value = 'Open';
-  document.getElementById('scNotes').value = '';
-  renderSpotCheckPhotos();
+  renderSpotCheckIssues();
   // Assigned House Manager is auto-filled from the property's existing contact/email
   // and is not editable here (matches the property's contact used everywhere else in
-  // this app) — it always reflects whichever property was selected on the setup screen.
+  // this app) — it always reflects whichever property was selected on the setup screen,
+  // and applies to every issue in this Spot Check (they're all the same property visit).
   var mgrName = (prop && prop.contact) || '';
   var mgrEmail = (prop && prop.email) || '';
   document.getElementById('scManagerName').textContent = mgrName || 'No contact on file';
@@ -3495,41 +3467,107 @@ function showSpotCheckForm() {
   document.getElementById('bottomNav').style.display = 'none';
   showScreen('screenSpotCheck');
 }
-function addSpotCheckPhoto(e) {
+// Rebuilds the whole issue-block list from spotCheck.issues. Only called when the
+// NUMBER of issues changes (add/remove) — every field inside a block updates the
+// model directly via oninput/onchange without triggering this, so no re-render ever
+// happens mid-keystroke and no already-entered block is ever touched or cleared by
+// adding/removing a different one.
+function renderSpotCheckIssues() {
+  var wrap = document.getElementById('scIssuesWrap');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  spotCheck.issues.forEach(function(iss, idx) {
+    var block = document.createElement('div');
+    block.className = 'sc-issue-block';
+    var removeBtnHtml = idx > 0 ? '<button type="button" class="sc-remove-issue-btn" onclick="removeSpotCheckIssue(' + idx + ')">&times; Remove Issue</button>' : '';
+    block.innerHTML =
+      '<div class="sc-issue-block-hdr"><span class="sc-issue-block-title">Issue ' + (idx + 1) + '</span>' + removeBtnHtml + '</div>' +
+      '<div class="field"><label>Maintenance Issue Category</label><select id="sc-category-' + idx + '"></select></div>' +
+      '<div class="field"><label>Description</label><textarea id="sc-description-' + idx + '" class="note-input" style="width:100%;min-height:90px;box-sizing:border-box" placeholder="Describe the issue..."></textarea></div>' +
+      '<div class="field"><label>Location Within the Home</label><input type="text" id="sc-location-' + idx + '" placeholder="e.g. Master bathroom, garage, back deck..."></div>' +
+      '<div class="field-row">' +
+        '<div class="field"><label>Priority Level</label><select id="sc-priority-' + idx + '"><option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option><option value="Urgent">Urgent</option></select></div>' +
+        '<div class="field"><label>Status</label><select id="sc-status-' + idx + '"><option value="Open">Open</option><option value="In Progress">In Progress</option><option value="Resolved">Resolved</option></select></div>' +
+      '</div>' +
+      '<div class="field"><label>Photos</label><div class="photo-row">' +
+        '<div class="photo-add" onclick="document.getElementById(\'sc-phototake-' + idx + '\').click()"><span class="photo-add-ic">&#128247;</span><span class="photo-add-lbl">Take Photo</span></div>' +
+        '<input type="file" accept="image/*" capture="environment" id="sc-phototake-' + idx + '" class="photo-file" onchange="addSpotCheckPhoto(event,' + idx + ')">' +
+        '<div class="photo-upload" onclick="document.getElementById(\'sc-photoupload-' + idx + '\').click()"><span class="photo-add-ic">&#128444;&#65039;</span><span class="photo-add-lbl">Upload Photo</span></div>' +
+        '<input type="file" accept="image/*" id="sc-photoupload-' + idx + '" class="photo-file" onchange="addSpotCheckPhoto(event,' + idx + ')">' +
+        '<div class="photo-row" id="sc-photothumbs-' + idx + '" style="margin-top:0"></div>' +
+      '</div></div>' +
+      '<div class="field"><label>Additional Notes</label><textarea id="sc-notes-' + idx + '" class="note-input" style="width:100%;min-height:70px;box-sizing:border-box" placeholder="Optional..."></textarea></div>';
+    wrap.appendChild(block);
+    var catSel = document.getElementById('sc-category-' + idx);
+    catSel.innerHTML = '<option value="">Select category...</option>' + SPOT_CHECK_CATEGORIES.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join('');
+    catSel.value = iss.category;
+    catSel.onchange = function(){ iss.category = catSel.value; };
+    var descEl = document.getElementById('sc-description-' + idx);
+    descEl.value = iss.description;
+    descEl.oninput = function(){ iss.description = descEl.value; };
+    var locEl = document.getElementById('sc-location-' + idx);
+    locEl.value = iss.location;
+    locEl.oninput = function(){ iss.location = locEl.value; };
+    var priEl = document.getElementById('sc-priority-' + idx);
+    priEl.value = iss.priority;
+    priEl.onchange = function(){ iss.priority = priEl.value; };
+    var statEl = document.getElementById('sc-status-' + idx);
+    statEl.value = iss.status;
+    statEl.onchange = function(){ iss.status = statEl.value; };
+    var notesEl = document.getElementById('sc-notes-' + idx);
+    notesEl.value = iss.notes;
+    notesEl.oninput = function(){ iss.notes = notesEl.value; };
+    renderSpotCheckIssuePhotos(idx);
+  });
+}
+function addAnotherSpotCheckIssue() {
+  spotCheck.issues.push(newSpotCheckIssue());
+  renderSpotCheckIssues();
+  var blocks = document.querySelectorAll('#scIssuesWrap .sc-issue-block');
+  var last = blocks[blocks.length - 1];
+  if (last) last.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function removeSpotCheckIssue(idx) {
+  if (idx === 0) return; // the original issue can never be removed
+  if (!confirm('Remove this issue? Any details entered for it will be lost.')) return;
+  spotCheck.issues.splice(idx, 1);
+  renderSpotCheckIssues();
+}
+function addSpotCheckPhoto(e, idx) {
   var file = e.target.files[0]; if (!file) return;
   var reader = new FileReader();
-  reader.onload = function(ev) { spotCheck.photos.push(ev.target.result); renderSpotCheckPhotos(); };
+  reader.onload = function(ev) { spotCheck.issues[idx].photos.push(ev.target.result); renderSpotCheckIssuePhotos(idx); };
   reader.readAsDataURL(file);
   e.target.value = '';
 }
-function removeSpotCheckPhoto(i) {
-  spotCheck.photos.splice(i, 1);
-  renderSpotCheckPhotos();
+function removeSpotCheckPhoto(idx, i) {
+  spotCheck.issues[idx].photos.splice(i, 1);
+  renderSpotCheckIssuePhotos(idx);
 }
-function renderSpotCheckPhotos() {
-  var row = document.getElementById('scPhotoThumbs');
+function renderSpotCheckIssuePhotos(idx) {
+  var row = document.getElementById('sc-photothumbs-' + idx);
   if (!row) return;
   row.innerHTML = '';
-  spotCheck.photos.forEach(function(dataUrl, i) {
+  spotCheck.issues[idx].photos.forEach(function(dataUrl, i) {
     var wrap = document.createElement('div'); wrap.className = 'sc-photo-thumb-wrap';
     var img = document.createElement('img'); img.src = dataUrl; img.onclick = function(){ window.open(dataUrl, '_blank'); };
     var del = document.createElement('button'); del.type = 'button'; del.className = 'sc-photo-del'; del.innerHTML = '&times;'; del.title = 'Remove photo';
-    del.onclick = function(ev){ ev.stopPropagation(); removeSpotCheckPhoto(i); };
+    del.onclick = function(ev){ ev.stopPropagation(); removeSpotCheckPhoto(idx, i); };
     wrap.appendChild(img); wrap.appendChild(del);
     row.appendChild(wrap);
   });
 }
-// Uploads Spot Check photos the same fault-tolerant way as the main checklist flow —
-// each photo succeeds/fails independently so one bad upload never wipes out the rest.
-function uploadSpotCheckPhotos(inspectionId) {
-  var photos = spotCheck.photos || [];
+// Uploads the photos for ONE issue block the same fault-tolerant way as the main
+// checklist flow — each photo succeeds/fails independently so one bad upload never
+// wipes out the rest, and one issue's failed upload never affects another issue's.
+function uploadSpotCheckIssuePhotos(inspectionId, idx, photos) {
   var out = { photoUrls: [], failCount: 0, total: photos.length };
   if (!photos.length) return Promise.resolve(out);
   if (!storage) { out.failCount = photos.length; return Promise.resolve(out); }
   var uploads = photos.map(function(dataUrl, i) {
     var isJpg = dataUrl.indexOf('image/jpeg') >= 0 || dataUrl.indexOf('image/jpg') >= 0;
     var ext = isJpg ? 'jpg' : 'png';
-    var path = 'inspections/' + inspectionId + '/photo_' + i + '.' + ext;
+    var path = 'inspections/' + inspectionId + '/issue' + idx + '_photo_' + i + '.' + ext;
     var ref = storage.ref(path);
     return ref.putString(dataUrl, 'data_url').then(function(){ return ref.getDownloadURL(); })
       .then(function(url){ return { ok: true, url: url }; })
@@ -3540,46 +3578,70 @@ function uploadSpotCheckPhotos(inspectionId) {
     return out;
   });
 }
+// Uploads every issue's photos in parallel and returns one result per issue, in the
+// same order as spotCheck.issues — one issue's photo failures never block or discard
+// another issue's uploads (or the Spot Check submission itself).
+function uploadAllSpotCheckPhotos(inspectionId) {
+  return Promise.all(spotCheck.issues.map(function(iss, idx) {
+    return uploadSpotCheckIssuePhotos(inspectionId, idx, iss.photos || []);
+  }));
+}
 function submitSpotCheck() {
-  var category = document.getElementById('scCategory').value;
-  var description = document.getElementById('scDescription').value.trim();
-  var location = document.getElementById('scLocation').value.trim();
-  var priority = document.getElementById('scPriority').value;
-  var status = document.getElementById('scStatus').value;
-  var notes = document.getElementById('scNotes').value.trim();
-  if (!category) { showToast('Please select a maintenance issue category'); return; }
-  if (!description) { showToast('Please describe the issue'); document.getElementById('scDescription').focus(); return; }
-  if (!location) { showToast('Please note the location within the home'); document.getElementById('scLocation').focus(); return; }
+  if (!spotCheck.issues.length) { showToast('Please add at least one issue'); return; }
+  for (var vi = 0; vi < spotCheck.issues.length; vi++) {
+    var v = spotCheck.issues[vi];
+    var label = spotCheck.issues.length > 1 ? ' for Issue ' + (vi + 1) : '';
+    if (!v.category) { showToast('Please select a maintenance issue category' + label); return; }
+    if (!v.description || !v.description.trim()) { showToast('Please describe the issue' + label); document.getElementById('sc-description-' + vi).focus(); return; }
+    if (!v.location || !v.location.trim()) { showToast('Please note the location within the home' + label); document.getElementById('sc-location-' + vi).focus(); return; }
+  }
   var prop = state.selectedProp, info = state.info;
   var mgrName = (prop && prop.contact) || '';
   var mgrEmail = (prop && prop.email) || '';
   var inspectionId = 'spotcheck_' + Date.now();
-  showToast(spotCheck.photos.length ? 'Uploading photo(s)...' : 'Submitting Spot Check...');
-  uploadSpotCheckPhotos(inspectionId).then(function(uploadResult) {
+  var totalPhotosQueued = spotCheck.issues.reduce(function(sum, iss){ return sum + (iss.photos ? iss.photos.length : 0); }, 0);
+  showToast(totalPhotosQueued ? 'Uploading photo(s)...' : 'Submitting Spot Check...');
+  uploadAllSpotCheckPhotos(inspectionId).then(function(perIssueUploads) {
+    var totalFail = 0, totalAttempted = 0;
+    var allPhotoUrls = [];
+    var issuesOut = spotCheck.issues.map(function(iss, idx) {
+      var up = perIssueUploads[idx];
+      totalFail += up.failCount; totalAttempted += up.total;
+      allPhotoUrls = allPhotoUrls.concat(up.photoUrls);
+      return {
+        key: 'spotcheck_' + idx,
+        category: iss.category, description: iss.description.trim(), location: iss.location.trim(),
+        priority: iss.priority, notes: (iss.notes || '').trim(), status: iss.status,
+        photos: up.photoUrls, photoCount: up.photoUrls.length, photoUploadFailCount: up.failCount
+      };
+    });
     var docData = {
       formType: 'spot_check',
       property: prop ? prop.name : '', address: prop ? prop.address : '',
       inspector: info.inspector || '', inspectorId: currentUser ? currentUser.id : '',
       date: info.date || '', time: info.time || '',
-      category: category, description: description, location: location,
-      priority: priority, notes: notes, status: status,
       assignedManagerName: mgrName, assignedManagerEmail: mgrEmail,
-      photoUrls: uploadResult.photoUrls, photoCount: uploadResult.photoUrls.length,
-      photoUploadFailCount: uploadResult.failCount,
+      issues: issuesOut, issuesCount: issuesOut.length,
+      // Aggregate top-level photo fields (every issue's photos combined) are kept
+      // alongside the per-issue photos above purely for backward compatibility with
+      // the Dashboard's generic per-inspection photo count/lightbox, which — same as
+      // every checklist inspection type — reads one flat photoUrls list regardless
+      // of how many individual issues it's actually made up of.
+      photoUrls: allPhotoUrls, photoCount: allPhotoUrls.length, photoUploadFailCount: totalFail,
       // Mirrors the resolved/updates history pattern already used for Complaints and
       // Check-In Status elsewhere in this app, so the Dashboard can update status and
       // keep a full resolution history without inventing a new mechanism.
-      resolved: status === 'Resolved',
+      resolved: issuesOut.every(function(x){ return x.status === 'Resolved'; }),
       updates: [],
       submittedAt: new Date().toISOString()
     };
     if (db) db.collection('inspections').doc(inspectionId).set(docData).catch(function(e){ console.warn('[SPOT-CHECK] Save error', e); });
-    createSpotCheckPropertyIssue(inspectionId, docData);
+    createSpotCheckPropertyIssues(inspectionId, docData);
     sendSpotCheckEmail(docData);
-    if (uploadResult.failCount > 0) {
-      showToast('Spot Check submitted, but ' + uploadResult.failCount + ' of ' + uploadResult.total + ' photo(s) failed to upload.', 6000);
+    if (totalFail > 0) {
+      showToast('Spot Check submitted, but ' + totalFail + ' of ' + totalAttempted + ' photo(s) failed to upload.', 6000);
     } else {
-      showToast('Spot Check submitted!');
+      showToast('Spot Check submitted with ' + issuesOut.length + ' issue' + (issuesOut.length !== 1 ? 's' : '') + '!');
     }
     setTimeout(function(){ resetToHome(); }, 900);
   }).catch(function(e){
@@ -3589,24 +3651,33 @@ function submitSpotCheck() {
 }
 function sendSpotCheckEmail(docData) {
   var toEmail = docData.assignedManagerEmail || INSPECTION_EMAIL;
-  var subj = 'Spot Check — ' + docData.priority + ' Priority — ' + docData.property;
+  var issues = docData.issues || [];
+  var n = issues.length;
+  var subj = 'Spot Check — ' + n + ' Issue' + (n !== 1 ? 's' : '') + ' — ' + docData.property;
   var body = 'TAHOE LUXURY PROPERTIES — SPOT CHECK REPORT\n==================================================\n';
   body += 'Property: ' + docData.property + '\n';
-  body += 'Location: ' + docData.location + '\n';
-  body += 'Category: ' + docData.category + '\n';
-  body += 'Priority: ' + docData.priority + '\n';
   body += 'Submitted: ' + formatDate(docData.date) + (docData.time ? ' at ' + docData.time : '') + '\n';
-  body += 'Submitted By: ' + docData.inspector + '\n\n';
-  body += 'DESCRIPTION\n' + docData.description + '\n';
-  if (docData.notes) body += '\nADDITIONAL NOTES\n' + docData.notes + '\n';
-  if (docData.photoUrls && docData.photoUrls.length) {
-    body += '\nPHOTOS\n';
-    docData.photoUrls.forEach(function(url, i){ body += '  ' + (i+1) + '. ' + url + '\n'; });
-  }
+  body += 'Submitted By: ' + docData.inspector + '\n';
+  body += 'Total Issues Reported: ' + n + '\n';
+  issues.forEach(function(iss, i) {
+    body += '\n==================================================\n';
+    body += 'ISSUE ' + (i + 1) + ' OF ' + n + '\n';
+    body += '==================================================\n';
+    body += 'Category: ' + iss.category + '\n';
+    body += 'Location: ' + iss.location + '\n';
+    body += 'Priority: ' + iss.priority + '\n';
+    body += '\nDescription:\n' + iss.description + '\n';
+    if (iss.notes) body += '\nAdditional Notes:\n' + iss.notes + '\n';
+    if (iss.photos && iss.photos.length) {
+      body += '\nPhotos:\n';
+      iss.photos.forEach(function(url, pi){ body += '  ' + (pi + 1) + '. ' + url + '\n'; });
+    }
+  });
   body += '\n--\nSent from TLP Inspection App';
   var mailtoSc = 'mailto:' + encodeURIComponent(toEmail) + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
   if (HTTP_ENDPOINT) {
     var htmlBody = body.replace(/\n/g, '<br>');
+    var first = issues[0] || {};
     sendViaHTTP({
       formType: 'spot_check',
       subject: subj,
@@ -3614,8 +3685,14 @@ function sendSpotCheckEmail(docData) {
       to: toEmail,
       cc: (toEmail !== INSPECTION_EMAIL) ? INSPECTION_EMAIL : '',
       property: docData.property, inspector: docData.inspector, date: docData.date,
-      category: docData.category, location: docData.location, priority: docData.priority,
-      description: docData.description, photoUrls: docData.photoUrls || [],
+      issueCount: n,
+      issues: issues.map(function(iss){ return { category: iss.category, location: iss.location, priority: iss.priority, description: iss.description, notes: iss.notes || '', photoUrls: iss.photos || [] }; }),
+      // Backward-compat top-level fields mirroring the FIRST issue, in case an
+      // existing Make.com scenario maps these individually rather than reading the
+      // structured `issues` array above — the fully numbered listing is always in
+      // `body`/`subject` regardless, so the email itself is correct either way.
+      category: first.category || '', location: first.location || '', priority: first.priority || '',
+      description: first.description || '', photoUrls: docData.photoUrls || [],
       photos: []
     }, mailtoSc);
   } else {
@@ -3625,13 +3702,17 @@ function sendSpotCheckEmail(docData) {
 // ── Spot Check → property_issues bridge ──
 // A Spot Check has always been its own standalone `inspections` doc (formType:
 // 'spot_check'), but — unlike every checklist-based inspection type — it never
-// created a matching `property_issues` record, so it never showed up in the
+// created matching `property_issues` records, so it never showed up in the
 // Manager Dashboard's Open Issues tab (the central place every other follow-up
-// issue lives). This creates that one record the moment a Spot Check is
+// issue lives). This creates one record PER issue the moment a Spot Check is
 // submitted, using the same sourceInspectionId+sourceIssueKey duplicate-guard
-// pattern as createPropertyIssues() above. A Spot Check only ever has exactly
-// one "issue" (itself), so sourceIssueKey is always the fixed string
-// 'spotcheck' rather than a section/item positional key.
+// pattern as createPropertyIssues() above. Each issue gets its own key —
+// 'spotcheck_0', 'spotcheck_1', ... (matching docData.issues[].key) — so every
+// issue can be found, displayed, and resolved/dismissed independently, the same
+// way a QC Check's individual checklist issues already work. The old fixed
+// 'spotcheck' key (no suffix, no index) is used ONLY by Spot Checks submitted
+// before this multi-issue update shipped — see findTiedIssue(id,'spotcheck') in
+// the Dashboard's backward-compatible rendering for those older records.
 // Status is intentionally lowercased/normalized to match every other
 // property_issues record ('Open'/'In Progress'/'Resolved' -> 'open'/
 // 'in_progress'/'resolved') — 'Dismissed' is not offered as an initial Spot
@@ -3642,16 +3723,22 @@ function spotCheckStatusToPropertyIssueStatus(scStatus) {
   if (scStatus === 'Resolved') return 'resolved';
   return 'open';
 }
-function createSpotCheckPropertyIssue(inspectionId, docData) {
+function createSpotCheckPropertyIssues(inspectionId, docData) {
   if (!db || !inspectionId) return;
-  var status = spotCheckStatusToPropertyIssueStatus(docData.status);
+  (docData.issues || []).forEach(function(iss) {
+    createOneSpotCheckPropertyIssue(inspectionId, docData, iss);
+  });
+}
+function createOneSpotCheckPropertyIssue(inspectionId, docData, iss) {
+  var status = spotCheckStatusToPropertyIssueStatus(iss.status);
+  var key = iss.key;
   var record = {
     property: docData.property || '', address: docData.address || '', formType: 'spot_check',
-    section: docData.category || '', text: docData.description || '', notes: docData.notes || '',
-    category: docData.category || '', location: docData.location || '', priority: docData.priority || '',
-    photos: docData.photoUrls || [],
+    section: iss.category || '', text: iss.description || '', notes: iss.notes || '',
+    category: iss.category || '', location: iss.location || '', priority: iss.priority || '',
+    photos: iss.photos || [],
     assignedManagerName: docData.assignedManagerName || '', assignedManagerEmail: docData.assignedManagerEmail || '',
-    status: status, sourceInspectionId: inspectionId, sourceIssueKey: 'spotcheck',
+    status: status, sourceInspectionId: inspectionId, sourceIssueKey: key,
     reportedByName: docData.inspector || '', reportedById: docData.inspectorId || '',
     reportedAt: docData.submittedAt || new Date().toISOString(),
     updates: [], statusHistory: [],
@@ -3659,14 +3746,14 @@ function createSpotCheckPropertyIssue(inspectionId, docData) {
     resolvedBy: status === 'resolved' ? (docData.inspector || '') : null,
     dismissedAt: null, dismissedBy: null, dismissalNote: ''
   };
-  db.collection('property_issues').where('sourceInspectionId', '==', inspectionId).where('sourceIssueKey', '==', 'spotcheck').limit(1).get().then(function(snap) {
-    var existing = snap.docs.filter(function(d) { var dd = d.data(); return dd.sourceInspectionId === inspectionId && dd.sourceIssueKey === 'spotcheck'; })[0];
+  db.collection('property_issues').where('sourceInspectionId', '==', inspectionId).where('sourceIssueKey', '==', key).limit(1).get().then(function(snap) {
+    var existing = snap.docs.filter(function(d) { var dd = d.data(); return dd.sourceInspectionId === inspectionId && dd.sourceIssueKey === key; })[0];
     if (existing) return;
     db.collection('property_issues').add(record).catch(function(e) { console.warn('[PROPERTY-ISSUE] spot check create failed', e); });
   }).catch(function() {
     // Same reasoning as createPropertyIssues() above: if the duplicate-check query
     // itself fails (e.g. offline), still create the record rather than silently
-    // dropping this Spot Check from Open Issues.
+    // dropping this issue from Open Issues.
     db.collection('property_issues').add(record).catch(function(e) { console.warn('[PROPERTY-ISSUE] spot check create failed', e); });
   });
 }
@@ -3724,6 +3811,18 @@ function voidInspection() {
   }
   setTimeout(function() { confirmFinish(); }, 800);
 }
+// Every checkbox tap / keystroke on the checklist calls saveDraftSilent(),
+// which fires its own independent network write to the cloud. Nothing
+// guarantees those requests arrive at Firestore in the same order they were
+// sent, so a burst of rapid edits could — purely from network timing — let
+// an EARLIER (lower-progress) write land at the server AFTER a LATER
+// (higher-progress) one, silently reverting the cloud copy of the draft to
+// an older state. _draftCloudChain forces every cloud draft write to wait
+// for the previous one to finish before it is even issued, so writes can
+// only ever arrive in the order they were queued, and the last save always
+// wins. It always resolves (even when a write fails) so one bad write can
+// never permanently block later saves from going out.
+var _draftCloudChain = Promise.resolve();
 function saveDraftSilent() {
   if (!state.formType) return true;
   // Persist EVERY field needed to fully restore this inspection on reopen:
@@ -3789,13 +3888,22 @@ function saveDraftSilent() {
   // included) — independent of whether step 1 above succeeded, so a full
   // local cache can never prevent this draft from reaching the cloud.
   if (db && currentUser) {
-    db.collection('drafts').doc(currentUser.id+'_'+state.draftId).set(draftData).then(function(){
+    var _draftDocId = currentUser.id+'_'+state.draftId;
+    // Chain onto the shared queue instead of firing an independent write —
+    // see _draftCloudChain above. Using the two-argument form of .then()
+    // (rather than a separate .catch()) means a failed write here is fully
+    // handled right here and does NOT propagate a rejection onto
+    // _draftCloudChain, so the very next queued draft save still goes out
+    // normally instead of being stuck behind a permanently-rejected chain.
+    _draftCloudChain = _draftCloudChain.then(function(){
+      return db.collection('drafts').doc(_draftDocId).set(draftData);
+    }).then(function(){
       if (!localOk) {
         markSaved('Saved to the cloud only — this device’s storage is full');
       } else if (!localFull) {
         markSaved('Saved — device storage low, photos backed up to the cloud');
       }
-    }).catch(function(e){
+    }, function(e){
       console.warn('Cloud draft sync failed:', e);
       if (!localOk) {
         // Nothing succeeded anywhere — the one real data-loss risk left.
