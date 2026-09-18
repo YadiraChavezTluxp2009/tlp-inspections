@@ -28,13 +28,19 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .home-logo{font-size:13px;letter-spacing:2px;text-transform:uppercase;opacity:.8;margin-bottom:6px}
 .home-title{font-size:26px;font-weight:800;margin-bottom:4px}
 .home-sub{font-size:14px;opacity:.75}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:20px 16px}
-.form-card{background:white;border-radius:var(--radius);padding:20px 14px;box-shadow:var(--shadow);cursor:pointer;text-align:center;transition:transform .15s,box-shadow .15s;border:2px solid transparent}
+/* Compact inspection menu (2026-09-18): reduced card padding/gaps and a smaller icon so
+   more of the menu fits on screen without scrolling, while keeping every card
+   comfortably tappable (still well above the ~44px minimum touch target) and every
+   label/description fully legible — including longer two-line titles like
+   "Back-to-Back — Summer", which still wrap and grow the card's height naturally
+   rather than clipping, since no fixed card height or overflow:hidden is set. */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:16px 16px 12px}
+.form-card{background:white;border-radius:var(--radius);padding:13px 10px;box-shadow:var(--shadow);cursor:pointer;text-align:center;transition:transform .15s,box-shadow .15s;border:2px solid transparent}
 .form-card:active{transform:scale(.97);box-shadow:none}
-.form-card .icon{font-size:32px;margin-bottom:10px;display:block}
-.form-card .label{font-size:13px;font-weight:700;color:var(--navy);line-height:1.3}
-.form-card .count{font-size:11px;color:var(--dark-gray);margin-top:4px}
-.form-card.spring{border-color:#0D7EA6}.form-card.fall{border-color:#CC6600}.form-card.checkin-summer{border-color:var(--blue)}.form-card.checkin-winter{border-color:#5B9FD4}.form-card.checkout-summer{border-color:var(--red)}.form-card.checkout-winter{border-color:#063461}.form-card.kitchen-inv{border-color:#D4870A}.form-card.linen-inv{border-color:#8B5CF6}.form-card.qc{border-color:#7B2D8B}
+.form-card .icon{font-size:25px;margin-bottom:5px;display:block}
+.form-card .label{font-size:12.5px;font-weight:700;color:var(--navy);line-height:1.25}
+.form-card .count{font-size:10px;color:var(--dark-gray);margin-top:3px}
+.form-card.spring{border-color:#0D7EA6}.form-card.fall{border-color:#CC6600}.form-card.checkin-summer{border-color:var(--blue)}.form-card.checkin-winter{border-color:#5B9FD4}.form-card.checkout-summer{border-color:var(--red)}.form-card.checkout-winter{border-color:#063461}.form-card.kitchen-inv{border-color:#D4870A}.form-card.linen-inv{border-color:#8B5CF6}.form-card.qc{border-color:#7B2D8B}.form-card.supply-inv{border-color:#1A7A3F}
 .section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--dark-gray);padding:0 16px 8px;margin-top:4px}
 .drafts-list{padding:0 16px;display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
 .draft-card{background:white;border-radius:10px;padding:14px 16px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;cursor:pointer}
@@ -276,6 +282,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
     <div class="form-card linen-inv" onclick="startForm('linen_inv')"><span class="icon">&#128719;</span><div class="label">Linen Inventory</div><div class="count">Sheets, blankets &amp; towels</div></div>
     <div class="form-card qc" style="grid-column:span 2" onclick="startForm('qc_check')"><span class="icon">&#128373;</span><div class="label">QC Check</div><div class="count">Manager spot-check</div></div>
     <div class="form-card qc" style="grid-column:span 2" onclick="startForm('spot_check')"><span class="icon">&#128295;</span><div class="label">Spot Check</div><div class="count">Quickly report a single maintenance issue</div></div>
+    <div class="form-card supply-inv" style="grid-column:span 2" onclick="startForm('supply_inventory')"><span class="icon">&#128230;</span><div class="label">Supply Inventory</div><div class="count">Report supplies that need restocking — any visit</div></div>
   </div>
   <div id="allUserNavBtns" style="display:none;padding:0 16px 4px;flex-direction:column;gap:8px">
     <button class="btn-primary" style="background:linear-gradient(135deg,#063461,#2E75B6)" onclick="loadMyInspections()">&#128203; My Inspections</button>
@@ -336,6 +343,54 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
     <button class="btn-primary" onclick="submitSpotCheck()">Submit Spot Check &#8594;</button>
     <div style="height:20px"></div>
   </div>
+</div>
+
+<!-- SUPPLY INVENTORY — standalone form usable during any visit (Check-In, Check-Out,
+     Walkthrough, QC, or a dedicated supply-inventory visit). Reuses the same
+     Property/Date/Time/Inspector setup screen. Inspectors only mark items that actually
+     need restocking — nothing here is required to be filled in — and can record "no
+     restocking needed" instead of selecting any items. Populated by
+     renderSupplyInvList(). -->
+<div class="screen" id="screenSupplyInv">
+  <div class="setup-form">
+    <div class="setup-banner"><span>&#128230;</span><div><strong id="siSummaryProp"></strong><br><span style="font-size:12px;color:var(--dark-gray)" id="siSummaryMeta"></span></div></div>
+    <label class="select-all-supplies" style="display:flex;align-items:center;gap:10px;background:white;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);cursor:pointer;font-weight:700;font-size:14px;color:var(--navy)">
+      <input type="checkbox" id="siNoneNeeded" onchange="toggleSupplyNoneNeeded(this.checked)" style="width:20px;height:20px;flex-shrink:0">
+      <span>Inventory completed — no restocking needed</span>
+    </label>
+    <div id="siFormBody">
+      <div class="field">
+        <label>Standard Supply List — select anything that needs restocking</label>
+        <div id="siSupplyList"></div>
+      </div>
+      <div class="field" id="siOthersField">
+        <label>Other Supplies (not on the standard list)</label>
+        <div id="siOthersWrap"></div>
+        <button type="button" class="sc-add-issue-btn" onclick="addOtherSupplyRow()"><span>&#65291;</span> Add Another Supply</button>
+      </div>
+      <div class="field">
+        <label>General Notes</label>
+        <textarea id="siNotes" class="note-input" style="width:100%;min-height:70px;box-sizing:border-box" placeholder="Optional — anything else worth noting..." oninput="siState.notes=this.value"></textarea>
+      </div>
+      <div class="field">
+        <label>Photos</label>
+        <div class="photo-row">
+          <div class="photo-add" onclick="document.getElementById('siPhotoTake').click()"><span class="photo-add-ic">&#128247;</span><span class="photo-add-lbl">Take Photo</span></div>
+          <input type="file" accept="image/*" capture="environment" id="siPhotoTake" class="photo-file" onchange="addSupplyInvPhoto(event)">
+          <div class="photo-upload" onclick="document.getElementById('siPhotoUpload').click()"><span class="photo-add-ic">&#128444;&#65039;</span><span class="photo-add-lbl">Upload Photo</span></div>
+          <input type="file" accept="image/*" id="siPhotoUpload" class="photo-file" onchange="addSupplyInvPhoto(event)">
+          <div class="photo-row" id="siPhotoThumbs" style="margin-top:0"></div>
+        </div>
+      </div>
+    </div>
+    <button class="btn-primary" id="siReviewBtn" onclick="reviewSupplyInventory()">Review Submission &#8594;</button>
+    <div style="height:20px"></div>
+  </div>
+</div>
+
+<!-- SUPPLY INVENTORY — REVIEW / SUMMARY (required before submission) -->
+<div class="screen" id="screenSupplySummary">
+  <div class="summary-wrap" id="supplySummaryWrap"></div>
 </div>
 
 <!-- CHECKLIST -->
@@ -616,6 +671,7 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
     db.collection('inspections').add(docData).catch(function(e){console.warn('[PHOTO-DEBUG] Firebase save error',e);});
   }
   createPropertyIssues(issueList, inspectionId, docData);
+  createSupplyRequestFromInspection(sections, inspectionId, docData);
 }
 
 // ── Follow-up issue tracking ──
@@ -1124,46 +1180,9 @@ function getSections(type, prop) {
     return linSecs;
   }
 
-  /* ── SHARED: Supply Inventory ── */
-  var supplyInv = {title:'Supply Inventory', items:[
-    'Toilet Paper — Charmin preferred',
-    'Paper Towels — Bounty preferred',
-    'Kleenex — square box in cover',
-    'Kitchen Bags 13 gal — unscented',
-    'Small Trash Bags — for bathrooms',
-    'Large Black Contractor Bags',
-    'Blue Sponges — individually wrapped (no green)',
-    'Hand Soap Refill — clear/unscented',
-    'Dish Soap — Dawn preferred',
-    'Dishwasher Detergent',
-    'Laundry Soap — fragrance free, no Tide',
-    'Dryer Sheets — fragrance free',
-    'TLUXP Soaps',
-    'TLUXP Shampoo',
-    'TLUXP Conditioner',
-    'Window Cleaner',
-    'All Purpose Cleaner',
-    'Foil',
-    'Saran Wrap',
-    'Ziploc Bags — assorted sizes',
-    'Salt (refilled)',
-    'Peppercorns for grinder',
-    'Cooking Oil and Spray',
-    'Coffee Filters — correct type, reusable checked if applicable',
-    'Olive Oil',
-    'Wand Lighters or Long Matches',
-    'Firestarters — if applicable',
-    'Batteries: AA',
-    'Batteries: AAA',
-    'Batteries: C',
-    'Batteries: 9V',
-    'Batteries: Other as needed',
-    'Light Bulbs — all types assessed and restocked',
-    'Heater Air Filters — current sizes read and replaced if needed',
-    'Ice Melt and Scoop in bucket',
-    'Propane Spare Tank — if applicable',
-    'Wastebasket Bags 4 gal'
-  ]};
+  /* ── SHARED: Supply Inventory — single source of truth is the top-level SUPPLY_LIST
+     array (see near HTTP_ENDPOINT above), reused here rather than duplicated. ── */
+  var supplyInv = {title:'Supply Inventory', items: SUPPLY_LIST.slice()};
 
   /* ── SHARED: Kitchen Inventory ── */
   var kitchenDishes = {title:'Kitchen Inventory — Dishes & Glassware', items:[
@@ -2484,6 +2503,58 @@ state = newState();
 // ── Make.com HTTP endpoint — paste your scenario's webhook URL here after setup ──
 var HTTP_ENDPOINT = 'https://hook.us2.make.com/e84hk918jv76ces27d5eqrmqkq2875gu';
 var INSPECTION_EMAIL = 'inspections@tluxp.com';
+// Supply Inventory shopping-list notifications go here (cc'd alongside the property's own
+// contact email, same convention as INSPECTION_EMAIL above). Configurable in ONE place —
+// change this single constant to redirect where shopping-list emails land; nothing else in
+// this feature hard-codes an individual address. If more than one person needs a copy, point
+// this at a distribution list / group address rather than adding more constants here.
+var SUPPLY_INVENTORY_EMAIL = INSPECTION_EMAIL;
+
+// ── SUPPLY INVENTORY — single source of truth for the standard supply list ──
+// Reused by: (1) the standalone "Supply Inventory" form below, and (2) the "Supply
+// Inventory"/"Supply Check" checklist sections inside Spring, Fall, Check-Out, and
+// Back-to-Back inspections (see getSections() — its local `supplyInv` now just points
+// at this same array instead of keeping its own separate copy). Edit supply names in
+// exactly this one place.
+var SUPPLY_LIST = [
+  'Toilet Paper — Charmin preferred',
+  'Paper Towels — Bounty preferred',
+  'Kleenex — square box in cover',
+  'Kitchen Bags 13 gal — unscented',
+  'Small Trash Bags — for bathrooms',
+  'Large Black Contractor Bags',
+  'Blue Sponges — individually wrapped (no green)',
+  'Hand Soap Refill — clear/unscented',
+  'Dish Soap — Dawn preferred',
+  'Dishwasher Detergent',
+  'Laundry Soap — fragrance free, no Tide',
+  'Dryer Sheets — fragrance free',
+  'TLUXP Soaps',
+  'TLUXP Shampoo',
+  'TLUXP Conditioner',
+  'Window Cleaner',
+  'All Purpose Cleaner',
+  'Foil',
+  'Saran Wrap',
+  'Ziploc Bags — assorted sizes',
+  'Salt (refilled)',
+  'Peppercorns for grinder',
+  'Cooking Oil and Spray',
+  'Coffee Filters — correct type, reusable checked if applicable',
+  'Olive Oil',
+  'Wand Lighters or Long Matches',
+  'Firestarters — if applicable',
+  'Batteries: AA',
+  'Batteries: AAA',
+  'Batteries: C',
+  'Batteries: 9V',
+  'Batteries: Other as needed',
+  'Light Bulbs — all types assessed and restocked',
+  'Heater Air Filters — current sizes read and replaced if needed',
+  'Ice Melt and Scoop in bucket',
+  'Propane Spare Tank — if applicable',
+  'Wastebasket Bags 4 gal'
+];
 
 function getPhotosPayload() {
   var photos = []; var idx = 0;
@@ -2643,10 +2714,15 @@ function goBack() {
     showScreen('screenChecklist');
     document.getElementById('bottomNav').style.display = 'flex';
     setHeader(FORM_META[state.formType].name, state.selectedProp ? state.selectedProp.name : '', true);
+  } else if (document.getElementById('screenSupplySummary').classList.contains('active')) {
+    showScreen('screenSupplyInv');
+    setHeader('Supply Inventory', state.selectedProp ? state.selectedProp.name : '', true);
   } else if (document.getElementById('screenChecklist').classList.contains('active')) {
     if (confirm('Go back? Progress will be saved as a draft.')) { saveDraft(); resetToHome(); }
   } else if (document.getElementById('screenSpotCheck').classList.contains('active')) {
     if (confirm('Discard this Spot Check?')) resetToHome();
+  } else if (document.getElementById('screenSupplyInv').classList.contains('active')) {
+    if (confirm('Discard this Supply Inventory report?')) resetToHome();
   } else if (document.getElementById('screenSetup').classList.contains('active')) {
     resetToHome();
   }
@@ -2678,7 +2754,8 @@ var FORM_META = {
   kitchen_inv:    {name:'Kitchen Inventory',     icon:'&#127869;'},
   linen_inv:      {name:'Linen Inventory',       icon:'&#128719;'},
   qc_check:       {name:'Quality Control Check', icon:'&#128373;'},
-  spot_check:     {name:'Spot Check',            icon:'&#128295;'}
+  spot_check:     {name:'Spot Check',            icon:'&#128295;'},
+  supply_inventory: {name:'Supply Inventory',    icon:'&#128230;'}
 };
 
 function startForm(type, draftId) {
@@ -2724,6 +2801,13 @@ function startChecklist() {
   // entirely and goes straight to its own short form instead.
   if (state.formType === 'spot_check') {
     showSpotCheckForm();
+    return;
+  }
+  // Supply Inventory is a second lightweight standalone form (alongside Spot Check) that
+  // reuses this same Property/Date/Time/Inspector setup screen but has its own short
+  // form — no full checklist — for reporting which standard supplies need restocking.
+  if (state.formType === 'supply_inventory') {
+    showSupplyInventoryForm();
     return;
   }
   buildChecklist();
@@ -3638,6 +3722,22 @@ function submitSpotCheck() {
     if (db) db.collection('inspections').doc(inspectionId).set(docData).catch(function(e){ console.warn('[SPOT-CHECK] Save error', e); });
     createSpotCheckPropertyIssues(inspectionId, docData);
     sendSpotCheckEmail(docData);
+    // BUGFIX (2026-09-18): the global beforeunload/visibilitychange/pagehide safety-net
+    // listeners below (see startAutosave() section) call saveDraftSilent() any time
+    // state.formType is truthy — including while sitting on the Spot Check screen, which
+    // has no autosave timer of its own but IS still covered by those global listeners.
+    // That silently created a "Spot Check • 0%" draft (0% because Spot Check doesn't use
+    // state.items) the moment the tab lost focus or the page was about to unload, and —
+    // unlike every checklist type's confirmFinish(), which deletes its draft on successful
+    // submit — submitSpotCheck() never cleaned it up, leaving a stale, permanently-stuck
+    // "completed" draft cluttering the inspector's Saved Drafts list. Mirror confirmFinish()'s
+    // cleanup here so a successful Spot Check submit removes any such draft, same as every
+    // other inspection type.
+    var scDraftId = state.draftId;
+    var scDrafts = getDrafts();
+    delete scDrafts[scDraftId];
+    try { localStorage.setItem('tlp_drafts', JSON.stringify(scDrafts)); } catch (e3) { console.warn('Could not clear local Spot Check draft after submit:', e3); }
+    if (db && currentUser) { db.collection('drafts').doc(currentUser.id + '_' + scDraftId).delete().catch(function(){}); }
     if (totalFail > 0) {
       showToast('Spot Check submitted, but ' + totalFail + ' of ' + totalAttempted + ' photo(s) failed to upload.', 6000);
     } else {
@@ -3756,6 +3856,357 @@ function createOneSpotCheckPropertyIssue(inspectionId, docData, iss) {
     // dropping this issue from Open Issues.
     db.collection('property_issues').add(record).catch(function(e) { console.warn('[PROPERTY-ISSUE] spot check create failed', e); });
   });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SUPPLY INVENTORY — standalone form (second lightweight form alongside Spot
+// Check, reusing the same Property/Date/Time/Inspector setup screen). Every
+// submission — standalone OR reported through a Check-Out inspection (see
+// createSupplyRequestFromInspection() near saveInspectionToFirebase()) — writes
+// into the SAME `supply_requests` Firestore collection, which is what the
+// Manager Dashboard's "Supply Inventory" tab reads from.
+//
+// supply_requests document shape:
+//   property, address, inspector, inspectorId, submittedAt (ISO)
+//   source: 'Supply Inventory' | 'Check-Out'
+//   sourceFormType: the originating formType (e.g. 'supply_inventory', 'checkout_summer')
+//   sourceInspectionId: this doc's own deterministic id-of-origin, used purely so a
+//     retried/duplicate submission overwrites the SAME document instead of creating a
+//     second one (see submitSupplyInventory() and createSupplyRequestFromInspection())
+//   noneNeeded: true when an inspector explicitly recorded "no restocking needed"
+//   items: [{ name, qty, isOther }]  — only items that were actually marked as needed
+//   notes, photoUrls, photoCount
+//   status: 'Needs Shopping' | 'Purchased' | 'Delivered' | 'Completed' | 'Dismissed'
+//     (initial status is 'Needs Shopping' whenever items.length > 0; a "no restocking
+//     needed" record is saved with status 'Completed' and an empty items list, purely
+//     as a completion record — it never appears as an active need on the Dashboard)
+//   updates: [], statusHistory: [] — same shape/pattern as property_issues
+//   lastUpdatedAt, lastUpdatedBy
+// ═══════════════════════════════════════════════════════════════════════════
+var siState = null;
+function newSupplyInvState() {
+  return {
+    // requestId is generated ONCE per form session and reused as this record's
+    // deterministic Firestore doc id (via .doc(id).set(), not .add()) — so even if the
+    // Submit button is tapped more than once, or a network retry resends the same
+    // request, it overwrites the same document instead of creating a duplicate.
+    requestId: 'supplyinv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+    items: SUPPLY_LIST.map(function(name) { return { name: name, needed: false, qty: '' }; }),
+    others: [],
+    notes: '',
+    photos: [],
+    noneNeeded: false
+  };
+}
+function showSupplyInventoryForm() {
+  siState = newSupplyInvState();
+  var prop = state.selectedProp, info = state.info;
+  document.getElementById('siSummaryProp').textContent = prop ? prop.name : '';
+  document.getElementById('siSummaryMeta').textContent = formatDate(info.date) + (info.time ? ' at ' + info.time : '') + ' • ' + (info.inspector || '');
+  document.getElementById('siNoneNeeded').checked = false;
+  document.getElementById('siNotes').value = '';
+  document.getElementById('siFormBody').style.display = '';
+  document.getElementById('siReviewBtn').textContent = 'Review Submission →';
+  renderSupplyInvList();
+  renderOtherSupplyRows();
+  renderSupplyInvPhotos();
+  setHeader('Supply Inventory', prop ? prop.name : '', true);
+  document.getElementById('bottomNav').style.display = 'none';
+  showScreen('screenSupplyInv');
+}
+function renderSupplyInvList() {
+  var wrap = document.getElementById('siSupplyList');
+  wrap.innerHTML = '';
+  siState.items.forEach(function(it, idx) {
+    var row = document.createElement('div');
+    row.className = 'inv-item-card';
+    var top = document.createElement('label');
+    top.style.cssText = 'display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text)';
+    var chk = document.createElement('input');
+    chk.type = 'checkbox'; chk.style.cssText = 'width:19px;height:19px;flex-shrink:0';
+    chk.checked = it.needed;
+    chk.onchange = (function(i, c) { return function() { toggleSupplyItemNeeded(i, c.checked); }; })(idx, chk);
+    var lbl = document.createElement('span'); lbl.textContent = it.name;
+    top.appendChild(chk); top.appendChild(lbl);
+    row.appendChild(top);
+    if (it.needed) {
+      var qtyRow = document.createElement('div');
+      qtyRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:8px;padding-left:29px';
+      var qtyLbl = document.createElement('span'); qtyLbl.className = 'inv-field-lbl'; qtyLbl.textContent = 'Qty Needed';
+      var qtyInp = document.createElement('input');
+      qtyInp.type = 'number'; qtyInp.min = '0'; qtyInp.className = 'inv-qty'; qtyInp.placeholder = '—';
+      qtyInp.value = it.qty || '';
+      qtyInp.oninput = (function(i, el) { return function() { siState.items[i].qty = el.value; }; })(idx, qtyInp);
+      qtyRow.appendChild(qtyLbl); qtyRow.appendChild(qtyInp);
+      row.appendChild(qtyRow);
+    }
+    wrap.appendChild(row);
+  });
+}
+function toggleSupplyItemNeeded(idx, checked) {
+  siState.items[idx].needed = checked;
+  if (!checked) siState.items[idx].qty = '';
+  renderSupplyInvList();
+}
+function addOtherSupplyRow() {
+  siState.others.push({ name: '', qty: '' });
+  renderOtherSupplyRows();
+}
+function removeOtherSupplyRow(idx) {
+  siState.others.splice(idx, 1);
+  renderOtherSupplyRows();
+}
+function renderOtherSupplyRows() {
+  var wrap = document.getElementById('siOthersWrap');
+  wrap.innerHTML = '';
+  if (!siState.others.length) {
+    wrap.innerHTML = '<div style="font-size:12.5px;color:var(--dark-gray);padding:2px 2px 8px">No unlisted supplies added.</div>';
+    return;
+  }
+  siState.others.forEach(function(o, idx) {
+    var row = document.createElement('div');
+    row.className = 'sc-issue-block'; row.style.padding = '10px 12px';
+    var hdr = document.createElement('div');
+    hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px';
+    var lbl = document.createElement('span'); lbl.style.cssText = 'font-size:11px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.5px'; lbl.textContent = 'Other Supply ' + (idx + 1);
+    var rm = document.createElement('button'); rm.type = 'button'; rm.className = 'sc-remove-issue-btn'; rm.innerHTML = '&times; Remove';
+    rm.onclick = (function(i) { return function() { removeOtherSupplyRow(i); }; })(idx);
+    hdr.appendChild(lbl); hdr.appendChild(rm);
+    row.appendChild(hdr);
+    var fieldRow = document.createElement('div'); fieldRow.className = 'field-row';
+    var nameField = document.createElement('div'); nameField.className = 'field';
+    nameField.innerHTML = '<label>Supply Name</label>';
+    var nameInp = document.createElement('input'); nameInp.type = 'text'; nameInp.placeholder = 'e.g. Espresso pods';
+    nameInp.value = o.name;
+    nameInp.oninput = (function(i, el) { return function() { siState.others[i].name = el.value; }; })(idx, nameInp);
+    nameField.appendChild(nameInp);
+    var qtyField = document.createElement('div'); qtyField.className = 'field'; qtyField.style.maxWidth = '110px';
+    qtyField.innerHTML = '<label>Qty Needed</label>';
+    var qtyInp = document.createElement('input'); qtyInp.type = 'number'; qtyInp.min = '0'; qtyInp.placeholder = '—';
+    qtyInp.value = o.qty;
+    qtyInp.oninput = (function(i, el) { return function() { siState.others[i].qty = el.value; }; })(idx, qtyInp);
+    qtyField.appendChild(qtyInp);
+    fieldRow.appendChild(nameField); fieldRow.appendChild(qtyField);
+    row.appendChild(fieldRow);
+    wrap.appendChild(row);
+  });
+}
+function toggleSupplyNoneNeeded(checked) {
+  siState.noneNeeded = checked;
+  document.getElementById('siFormBody').style.display = checked ? 'none' : '';
+  document.getElementById('siReviewBtn').textContent = checked ? 'Review & Save →' : 'Review Submission →';
+}
+function addSupplyInvPhoto(e) {
+  var file = e.target.files[0]; if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) { siState.photos.push(ev.target.result); renderSupplyInvPhotos(); };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+function removeSupplyInvPhoto(i) {
+  siState.photos.splice(i, 1);
+  renderSupplyInvPhotos();
+}
+function renderSupplyInvPhotos() {
+  var row = document.getElementById('siPhotoThumbs');
+  if (!row) return;
+  row.innerHTML = '';
+  siState.photos.forEach(function(dataUrl, i) {
+    var wrap = document.createElement('div'); wrap.className = 'sc-photo-thumb-wrap';
+    var img = document.createElement('img'); img.src = dataUrl; img.onclick = function() { window.open(dataUrl, '_blank'); };
+    var del = document.createElement('button'); del.type = 'button'; del.className = 'sc-photo-del'; del.innerHTML = '&times;'; del.title = 'Remove photo';
+    del.onclick = function(ev) { ev.stopPropagation(); removeSupplyInvPhoto(i); };
+    wrap.appendChild(img); wrap.appendChild(del);
+    row.appendChild(wrap);
+  });
+}
+function _supplyInvSelectedItems() {
+  var out = [];
+  siState.items.forEach(function(it) { if (it.needed) out.push({ name: it.name, qty: (it.qty || '').toString().trim(), isOther: false }); });
+  siState.others.forEach(function(o) { if ((o.name || '').trim()) out.push({ name: o.name.trim(), qty: (o.qty || '').toString().trim(), isOther: true }); });
+  return out;
+}
+function reviewSupplyInventory() {
+  var prop = state.selectedProp, info = state.info;
+  var items = _supplyInvSelectedItems();
+  if (!siState.noneNeeded && items.length === 0) {
+    showToast('Select at least one supply that needs restocking, add an unlisted item, or check "no restocking needed"');
+    return;
+  }
+  var html = '<div class="summary-card"><div class="summary-header"><div class="prop-name">' + esc(prop ? prop.name : '') + '</div><div class="form-type-label">&#128230; Supply Inventory</div></div>';
+  html += '<div style="background:white;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);font-size:13px;line-height:1.9;color:var(--dark-gray);margin-bottom:12px">';
+  html += '<strong>Property:</strong> ' + esc(prop ? prop.name : '') + '<br>';
+  html += '<strong>Inspector:</strong> ' + esc(info.inspector || '') + '<br>';
+  html += '<strong>Date / Time:</strong> ' + formatDate(info.date) + ' at ' + esc(info.time || '') + '</div>';
+  if (siState.noneNeeded) {
+    html += '<div class="no-issues">Inventory completed — no restocking needed. No shopping email will be sent.</div>';
+  } else {
+    html += '<div class="issues-card"><div class="issues-head"><span>Supplies Needed</span><span>' + items.length + '</span></div>';
+    items.forEach(function(it) {
+      html += '<div class="issue-item"><div class="issue-item-name">' + esc(it.name) + (it.isOther ? ' <span style="font-size:10px;color:var(--dark-gray);font-weight:700">(OTHER)</span>' : '') + '</div>' + (it.qty ? '<div class="issue-item-note">Qty needed: ' + esc(it.qty) + '</div>' : '<div class="issue-item-note">Qty not specified</div>') + '</div>';
+    });
+    html += '</div>';
+  }
+  if ((siState.notes || '').trim()) {
+    html += '<div style="background:white;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);margin-top:12px"><strong style="color:var(--navy);font-size:13px">General Notes</strong><p style="font-size:13px;color:var(--dark-gray);margin-top:6px;white-space:pre-wrap">' + esc(siState.notes) + '</p></div>';
+  }
+  if (siState.photos.length) {
+    html += '<div style="margin-top:12px"><strong style="font-size:13px;color:var(--navy)">Photos (' + siState.photos.length + ')</strong><div class="photo-row" style="margin-top:8px">';
+    siState.photos.forEach(function(url) { html += '<img src="' + url + '" class="photo-thumb" onclick="window.open(this.src,\'_blank\')">'; });
+    html += '</div></div>';
+  }
+  html += '<div class="action-btns" style="margin-top:16px"><button class="btn-outline" onclick="showScreen(\'screenSupplyInv\');setHeader(\'Supply Inventory\',(state.selectedProp?state.selectedProp.name:\'\'),true)">Back to Form</button><button class="btn-green" id="siSubmitBtn" onclick="submitSupplyInventory()">Submit</button></div><div style="height:20px"></div>';
+  document.getElementById('supplySummaryWrap').innerHTML = html;
+  setHeader('Review & Submit', prop ? prop.name : '', true);
+  showScreen('screenSupplySummary');
+}
+// Guards against a duplicate submission from a double-tap / accidental double-click on
+// the Submit button: the button is disabled the instant it's clicked, and the write
+// itself uses a deterministic doc id (siState.requestId) via .set() rather than .add(),
+// so even a retried network request can only ever overwrite the same document.
+var _supplyInvSubmitting = false;
+function submitSupplyInventory() {
+  if (_supplyInvSubmitting) return;
+  _supplyInvSubmitting = true;
+  var btn = document.getElementById('siSubmitBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
+  var prop = state.selectedProp, info = state.info;
+  var items = _supplyInvSelectedItems();
+  var requestId = siState.requestId;
+  var photoCount = siState.photos.length;
+  showToast(photoCount ? 'Uploading ' + photoCount + ' photo' + (photoCount !== 1 ? 's' : '') + '...' : 'Submitting Supply Inventory...');
+  uploadSupplyInvPhotos(requestId, siState.photos).then(function(photoUrls) {
+    var nowIso = new Date().toISOString();
+    var docData = {
+      property: prop ? prop.name : '', address: prop ? prop.address : '',
+      inspector: info.inspector || '', inspectorId: currentUser ? currentUser.id : '',
+      submittedAt: nowIso,
+      source: 'Supply Inventory', sourceFormType: 'supply_inventory', sourceInspectionId: requestId,
+      noneNeeded: !!siState.noneNeeded,
+      items: siState.noneNeeded ? [] : items,
+      notes: (siState.notes || '').trim(),
+      photoUrls: photoUrls, photoCount: photoUrls.length,
+      status: siState.noneNeeded ? 'Completed' : 'Needs Shopping',
+      updates: [], statusHistory: [],
+      lastUpdatedAt: nowIso, lastUpdatedBy: info.inspector || ''
+    };
+    var writeP = db ? db.collection('supply_requests').doc(requestId).set(docData) : Promise.resolve();
+    writeP.then(function() {
+      if (!siState.noneNeeded && items.length > 0) sendSupplyInventoryEmail(docData);
+      showToast(siState.noneNeeded ? 'Inventory completed — no restocking needed. Saved!' : 'Supply Inventory submitted!');
+      setTimeout(function() { _supplyInvSubmitting = false; resetToHome(); }, 900);
+    }).catch(function(e) {
+      console.warn('[SUPPLY-INV] Save error', e);
+      _supplyInvSubmitting = false;
+      if (btn) { btn.disabled = false; btn.textContent = 'Submit'; }
+      showToast('Something went wrong saving this Supply Inventory report. Please try again.', 6000);
+    });
+  }).catch(function(e) {
+    console.warn('[SUPPLY-INV] Unexpected error submitting', e);
+    _supplyInvSubmitting = false;
+    if (btn) { btn.disabled = false; btn.textContent = 'Submit'; }
+    showToast('Something went wrong submitting this Supply Inventory report. Please try again.', 6000);
+  });
+}
+function uploadSupplyInvPhotos(requestId, photos) {
+  if (!photos || !photos.length) return Promise.resolve([]);
+  if (!storage) return Promise.resolve([]);
+  var uploads = photos.map(function(dataUrl, i) {
+    var isJpg = dataUrl.indexOf('image/jpeg') >= 0 || dataUrl.indexOf('image/jpg') >= 0;
+    var ext = isJpg ? 'jpg' : 'png';
+    var path = 'supply_requests/' + requestId + '/photo_' + i + '.' + ext;
+    var ref = storage.ref(path);
+    return ref.putString(dataUrl, 'data_url').then(function() { return ref.getDownloadURL(); }).catch(function(e) { console.warn('[SUPPLY-INV] Photo upload failed', path, e); return null; });
+  });
+  return Promise.all(uploads).then(function(results) { return results.filter(function(u) { return !!u; }); });
+}
+// Reuses the app's existing Make.com webhook (sendViaHTTP/HTTP_ENDPOINT) — the same
+// single outbound-email mechanism every other inspection type already uses — so no new
+// notification channel is introduced. Recipients are NOT hard-coded per call: `to` is
+// the property's own contact email (same field every other form already emails), and
+// `cc` is the single configurable SUPPLY_INVENTORY_EMAIL constant declared near
+// HTTP_ENDPOINT above. Never called when noneNeeded is true or items is empty.
+function sendSupplyInventoryEmail(docData) {
+  var toEmail = docData.address ? (state.selectedProp && state.selectedProp.email) || SUPPLY_INVENTORY_EMAIL : SUPPLY_INVENTORY_EMAIL;
+  var subj = 'Supply Shopping List — ' + docData.property;
+  var body = 'TAHOE LUXURY PROPERTIES — SUPPLY INVENTORY\n==================================================\n';
+  body += 'Property: ' + docData.property + '\n';
+  body += 'Submitted: ' + fmtDateForEmail(docData.submittedAt) + '\n';
+  body += 'Inspector: ' + docData.inspector + '\n';
+  body += 'Source: ' + docData.source + '\n';
+  body += '\nSUPPLIES NEEDED (' + docData.items.length + ')\n--------------------------------------------------\n';
+  docData.items.forEach(function(it) { body += '  - ' + it.name + (it.qty ? '  (Qty needed: ' + it.qty + ')' : '') + (it.isOther ? '  [OTHER — not on standard list]' : '') + '\n'; });
+  if (docData.notes) body += '\nNOTES\n' + docData.notes + '\n';
+  if (docData.photoUrls && docData.photoUrls.length) { body += '\nPHOTOS:\n'; docData.photoUrls.forEach(function(u, i) { body += '  ' + (i + 1) + '. ' + u + '\n'; }); }
+  body += '\nView / update status in the TLP Manager Dashboard → Supply Inventory tab.\n';
+  body += '\n--\nSent from TLP Inspection App';
+  var mailtoSi = 'mailto:' + encodeURIComponent(toEmail) + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
+  if (HTTP_ENDPOINT) {
+    sendViaHTTP({
+      formType: 'supply_inventory',
+      subject: subj,
+      body: body.replace(/\n/g, '<br>'),
+      to: toEmail,
+      cc: (toEmail !== SUPPLY_INVENTORY_EMAIL) ? SUPPLY_INVENTORY_EMAIL : '',
+      property: docData.property, inspector: docData.inspector, date: docData.submittedAt,
+      source: docData.source,
+      supplyItems: docData.items,
+      supplyItemsText: docData.items.map(function(it) { return it.name + (it.qty ? ' (Qty: ' + it.qty + ')' : ''); }).join('; '),
+      notes: docData.notes || '',
+      photoUrls: docData.photoUrls || [],
+      photos: []
+    }, mailtoSi);
+  } else {
+    window.location.href = mailtoSi;
+  }
+}
+function fmtDateForEmail(iso) {
+  try { return new Date(iso).toLocaleString(); } catch (e) { return iso || ''; }
+}
+// ── Check-Out → Supply Inventory bridge ──────────────────────────────────────────
+// Every checklist inspection type's "Supply Check"/"Supply Inventory" section (see
+// isSupply:true in getSections()) already lets an inspector mark an item's status as
+// Issue to flag it needing attention, exactly like any other checklist item — that
+// existing behavior (and its existing property_issues tracking) is completely
+// unchanged. This ADDS a second effect: whenever a submitted inspection has one or
+// more isSupply-section items marked Issue, one aggregate supply_request record is
+// also written to the SAME `supply_requests` collection the standalone Supply
+// Inventory form uses, so it shows up in the Dashboard's Supply Inventory tab too.
+//
+// Deduplication: unlike property_issues (many possible records per inspection, so it
+// needs a query-before-add guard), a Check-Out submission produces at most ONE
+// aggregate supply_request — so this uses a deterministic doc id derived directly from
+// the inspection's own id ('supplyreq_' + inspectionId) with .set(), which is
+// inherently idempotent. If the exact same inspection is ever saved twice (the app's
+// own confirmFinish() always reuses the same 'insp_' + draftId as its inspection id),
+// this simply overwrites the same supply_requests document instead of creating a
+// second one — no query race possible.
+function createSupplyRequestFromInspection(sections, inspectionId, docData) {
+  if (!db || !inspectionId || !sections || !sections.length) return;
+  var items = [];
+  sections.forEach(function(sec, si) {
+    if (!sec.isSupply) return;
+    sec.items.forEach(function(itemText, ii) {
+      var it = state.items[si + '_' + ii] || {};
+      if (it.status === 'issue') items.push({ name: itemText, qty: '', isOther: false, notes: it.notes || '' });
+    });
+  });
+  if (!items.length) return; // nothing flagged as needing restocking — no record to write
+  var nowIso = docData.submittedAt || new Date().toISOString();
+  var supplyDocData = {
+    property: docData.property || '', address: docData.address || '',
+    inspector: docData.inspector || '', inspectorId: docData.inspectorId || '',
+    submittedAt: nowIso,
+    source: 'Check-Out', sourceFormType: docData.formType || '', sourceInspectionId: inspectionId,
+    noneNeeded: false,
+    items: items,
+    notes: '',
+    photoUrls: [], photoCount: 0,
+    status: 'Needs Shopping',
+    updates: [], statusHistory: [],
+    lastUpdatedAt: nowIso, lastUpdatedBy: docData.inspector || ''
+  };
+  db.collection('supply_requests').doc('supplyreq_' + inspectionId).set(supplyDocData).catch(function(e) { console.warn('[SUPPLY-REQUEST] Check-Out create failed', e); });
 }
 
 function submitReport() {
