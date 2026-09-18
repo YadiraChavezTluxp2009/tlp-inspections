@@ -1033,9 +1033,17 @@ function renderQCLog(){
   var html='<table><thead><tr><th>Date</th><th>Type</th><th>Property</th><th>Manager (POC)</th><th>Checked By</th><th>Items Checked</th><th>Items OK</th><th>Issues Found</th><th>N/A</th><th>Overall Status</th><th>Details</th><th>Photos</th></tr></thead><tbody>';
   list.forEach(function(i){
     var isSC=i.formType==='spot_check';
+    // New-format Spot Checks (submitted after the multi-issue update) carry their own
+    // issues[] array, exactly like a QC Check — each entry has its own key
+    // ('spotcheck_0','spotcheck_1',...) tying it to its own property_issues record, so
+    // it can be displayed and resolved independently. Older Spot Checks submitted
+    // before that update have no issues[] at all (they stored one flattened issue
+    // directly on the inspections doc) and keep rendering exactly as they always have,
+    // via the scLegacy branch below.
+    var scIssues=(isSC&&Array.isArray(i.issues)&&i.issues.length)?i.issues:null;
     var mgr=PROPERTIES.find(function(p){return p.name===i.property;});
     var issueList=i.issues||[];
-    var hasIssues=i.issuesFound>0;
+    var hasIssues=isSC?!!scIssues:i.issuesFound>0;
     var mgrNotes=(i.managerNotes||'').trim();
     var maintNotes=(i.maintenanceNotes||'').trim();
     var qcUpdates=i.updates||[];
@@ -1046,13 +1054,13 @@ function renderQCLog(){
     var photoFailCount=i.photoUploadFailCount||0;
     var total=(i.itemsOk||0)+(i.issuesFound||0)+(i.naCount||0);
     var safeId='qc'+i.id.replace(/[^a-zA-Z0-9]/g,'');
-    // Once a Spot Check has a tracked property_issues record (every Spot Check submitted
-    // going forward, plus any older one run through "Backfill Spot Checks"), that record
-    // is the source of truth for status — kept in sync onto this inspections doc's own
-    // status/resolved fields by setPropertyIssueStatus() whenever it's changed from the
-    // Open Issues tab. Fall back to the inspection doc's own legacy Title-Case status
-    // only when no tracked record exists yet.
-    var scTiedForBadge=isSC?findTiedIssue(i.id,'spotcheck'):null;
+    // Once a legacy (single-issue) Spot Check has a tracked property_issues record
+    // (either backfilled, or — before the multi-issue update — created automatically),
+    // that record is the source of truth for status. A new-format multi-issue Spot
+    // Check never mirrors status here at all (see syncSpotCheckMirror) — each issue's
+    // live status is read straight from its own tied record in the loop below, the
+    // same way QC Check's per-item issues already work.
+    var scTiedForBadge=(isSC&&!scIssues)?findTiedIssue(i.id,'spotcheck'):null;
     var scEffectiveStatus=scTiedForBadge?scTiedForBadge.status:(i.status==='In Progress'?'in_progress':i.status==='Resolved'?'resolved':i.status==='Dismissed'?'dismissed':'open');
     var scStatus=ISSUE_STATUS_LABELS[scEffectiveStatus]||ISSUE_STATUS_LABELS.open;
     html+='<tr>';
@@ -1064,9 +1072,17 @@ function renderQCLog(){
     if(isSC){
       html+='<td style="text-align:center"><span class="no-photo">&mdash;</span></td>';
       html+='<td style="text-align:center"><span class="no-photo">&mdash;</span></td>';
+      if(scIssues){
+        html+='<td style="text-align:center;color:var(--red);font-weight:700">'+scIssues.length+'</td>';
+      } else {
+        html+='<td style="text-align:center"><span class="no-photo">&mdash;</span></td>';
+      }
       html+='<td style="text-align:center"><span class="no-photo">&mdash;</span></td>';
-      html+='<td style="text-align:center"><span class="no-photo">&mdash;</span></td>';
-      html+='<td><span class="badge '+scStatus.cls+'">'+esc(scStatus.txt)+'</span> <span class="badge b-conditional" style="margin-left:4px">'+esc(i.priority||'')+' Priority</span></td>';
+      if(scIssues){
+        html+='<td><span class="badge '+(qcIsResolved?'b-clear':'b-issue')+'">'+(qcIsResolved?'All Resolved':scIssues.length+' Issue'+(scIssues.length!==1?'s':'')+' Reported')+'</span></td>';
+      } else {
+        html+='<td><span class="badge '+scStatus.cls+'">'+esc(scStatus.txt)+'</span> <span class="badge b-conditional" style="margin-left:4px">'+esc(i.priority||'')+' Priority</span></td>';
+      }
     } else {
       html+='<td style="text-align:center">'+total+'</td>';
       html+='<td style="text-align:center">'+( i.itemsOk||0)+'</td>';
@@ -1087,7 +1103,35 @@ function renderQCLog(){
     html+='</tr>';
     if(hasDetails){
       html+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="12">';
-      if(isSC){
+      if(isSC&&scIssues){
+        html+='<div class="insp-detail-heading">&#128295; '+buildIssueStatusSummary(scIssues,i.id)+'</div>';
+        scIssues.forEach(function(iss,idx){
+          var key=iss.key||('spotcheck_'+idx);
+          var tied=findTiedIssue(i.id,key);
+          var issPhotos=normalizePhotoUrls(iss.photos,'qcLog:'+i.id+':scissue'+idx);
+          html+='<div class="insp-issue-item"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div><div class="insp-issue-section">Issue '+(idx+1)+' &middot; '+esc(iss.category||'')+'</div><div class="insp-issue-text">'+esc(iss.description||'').replace(/\n/g,'<br>')+'</div></div>'+issueStatusBadgeHtml(tied)+'</div>';
+          html+='<div style="font-size:11.5px;color:var(--dark-gray);margin-top:4px"><strong>Location:</strong> '+esc(iss.location||'—')+' &nbsp;&bull;&nbsp; <strong>Priority:</strong> '+esc(iss.priority||'—')+'</div>';
+          if(iss.notes)html+='<div class="insp-issue-note">"'+esc(iss.notes)+'"</div>';
+          if(issPhotos.length){
+            html+='<div class="insp-issue-photos">';
+            issPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
+            html+='</div>';
+          }
+          html+='</div>';
+        });
+        html+='<div class="insp-notes-block" style="margin-top:4px"><strong>Assigned House Manager:</strong> '+esc(i.assignedManagerName||'—')+(i.assignedManagerEmail?' ('+esc(i.assignedManagerEmail)+')':'')+'</div>';
+        html+='<button class="view-in-openissues-btn" data-prop="'+esc(i.property||'')+'" onclick="jumpToOpenIssues(this.getAttribute(\'data-prop\'))">Manage issues in Open Issues &rarr;</button>';
+        html+='<div class="insp-detail-heading" style="margin-top:14px">&#128295; Overall Resolution</div>';
+        if(qcIsResolved){
+          html+='<div class="insp-resolved-banner">&#9989; Resolved &mdash; every issue on this Spot Check is Resolved or Dismissed</div>';
+        } else {
+          html+='<div class="insp-unresolved-banner">&#9888;&#65039; Not yet resolved &mdash; one or more issues are still Open or In Progress. Manage each issue\'s status from the Open Issues tab.</div>';
+        }
+        var scUpdHtml='';
+        qcUpdates.forEach(function(u){scUpdHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
+        html+='<div class="updates-log">'+(scUpdHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
+        html+='<div class="add-update-row"><input type="text" id="insp-note-'+safeId+'" placeholder="Add an inspection-level note&hellip;"><button onclick="addQCInspUpdate(\''+i.id+'\',\''+safeId+'\')">+ Add</button></div>';
+      } else if(isSC){
         var scTied=findTiedIssue(i.id,'spotcheck');
         html+='<div class="insp-detail-heading">&#128295; Spot Check Details</div>';
         html+='<div class="insp-notes-block"><strong>Category:</strong> '+esc(i.category||'')+'<br><strong>Location:</strong> '+esc(i.location||'')+'<br><strong>Priority:</strong> '+esc(i.priority||'')+'<br><strong>Assigned House Manager:</strong> '+esc(i.assignedManagerName||'—')+(i.assignedManagerEmail?' ('+esc(i.assignedManagerEmail)+')':'')+'</div>';
@@ -1162,8 +1206,8 @@ function renderQCLog(){
 
 // ── OPEN ISSUES ───────────────────────────────────────────────────────────────
 // Lists every `property_issues` record — one per checklist Issue flagged in the
-// Inspections App (see createPropertyIssues() there), plus one per Spot Check
-// (see createSpotCheckPropertyIssue() there). This is the ONLY place any issue's
+// Inspections App (see createPropertyIssues() there), plus one per Spot Check issue
+// (see createSpotCheckPropertyIssues() there). This is the ONLY place any issue's
 // status, resolution note, or follow-up history is edited — the Check-Ins/
 // Check-Outs Log, QC Log, and the Inspections App's own property-card issue list
 // all just display these same records read-only (see issueStatusBadgeHtml() and
@@ -1350,6 +1394,13 @@ function syncSpotCheckMirror(iss){
   if(!iss||iss.formType!=='spot_check'||!iss.sourceInspectionId)return;
   var insp=_insp.find(function(x){return x.id===iss.sourceInspectionId;});
   if(!insp)return;
+  // New-format multi-issue Spot Checks (insp.issues present) don't mirror status onto
+  // the inspections doc at all — exactly like every other multi-issue source (QC
+  // Check, Check-In, etc.), each issue's live status is read directly from its own
+  // tied property_issues record via findTiedIssue(), never duplicated back onto the
+  // inspections doc. Mirroring only ever applied to the old single-issue Spot Check
+  // shape, where the whole inspections doc doubled as "the one issue".
+  if(Array.isArray(insp.issues)&&insp.issues.length)return;
   var titleCase={open:'Open',in_progress:'In Progress',resolved:'Resolved',dismissed:'Dismissed'};
   var newTitle=titleCase[iss.status]||'Open';
   if(insp.status===newTitle)return;
@@ -1382,37 +1433,54 @@ function syncInspectionResolution(iss){
     renderInspLog();
   }).catch(function(){});
 }
-// ── Backfill: creates tracked property_issues records for any Spot Checks submitted
-// before the Spot Check -> property_issues bridge existed (see createSpotCheckPropertyIssue()
-// in index.html for the normal, automatic path every new Spot Check now goes through).
-// Duplicate-safe by design — re-checks for an existing record (by sourceInspectionId +
-// sourceIssueKey:'spotcheck') immediately before each write, so running this more than
-// once, or clicking it twice in a row, never creates a second record for the same
-// Spot Check. Processes one at a time (rather than a batch) so a single failure doesn't
-// need to be treated as an all-or-nothing outcome — the toast reports created vs failed.
+// ── Backfill: creates tracked property_issues records for any Spot Checks missing one —
+// either an old, single-issue Spot Check submitted before the property_issues bridge
+// existed at all, or a new-format multi-issue Spot Check where one of its issues
+// somehow never got its own tracked record (e.g. a transient write failure at
+// submit time — see createSpotCheckPropertyIssues() in index.html for the normal,
+// automatic path every new Spot Check issue now goes through). Duplicate-safe by
+// design — re-checks for an existing record (by sourceInspectionId + sourceIssueKey)
+// immediately before each write, so running this more than once, or clicking it
+// twice in a row, never creates a second record for the same issue. Processes one at
+// a time (rather than a batch) so a single failure doesn't need to be treated as an
+// all-or-nothing outcome — the toast reports created vs failed.
 function backfillSpotCheckPropertyIssues(){
-  var candidates=_insp.filter(function(i){ return i.formType==='spot_check' && !findTiedIssue(i.id,'spotcheck'); });
-  if(!candidates.length){ showToast('No Spot Checks need backfilling — all are already tracked.'); return; }
-  if(!confirm('Create tracked Open Issues records for '+candidates.length+' older Spot Check'+(candidates.length!==1?'s':'')+'?\n\nThis is safe to run more than once — it never creates duplicate records.')) return;
+  var workItems=[];
+  _insp.filter(function(i){ return i.formType==='spot_check'; }).forEach(function(i){
+    if(Array.isArray(i.issues)&&i.issues.length){
+      i.issues.forEach(function(iss,idx){
+        var key=iss.key||('spotcheck_'+idx);
+        if(!findTiedIssue(i.id,key)) workItems.push({insp:i,issue:iss,key:key});
+      });
+    } else if(!findTiedIssue(i.id,'spotcheck')){
+      workItems.push({insp:i,issue:null,key:'spotcheck'});
+    }
+  });
+  if(!workItems.length){ showToast('No Spot Checks need backfilling — all are already tracked.'); return; }
+  if(!confirm('Create tracked Open Issues records for '+workItems.length+' Spot Check issue'+(workItems.length!==1?'s':'')+'?\n\nThis is safe to run more than once — it never creates duplicate records.')) return;
   var statusMap={'Open':'open','In Progress':'in_progress','Resolved':'resolved','Dismissed':'dismissed'};
   var created=0, failed=0;
   function next(idx){
-    if(idx>=candidates.length){
-      showToast(created+' Spot Check'+(created!==1?'s':'')+' backfilled'+(failed?', '+failed+' failed':'')+'.');
+    if(idx>=workItems.length){
+      showToast(created+' issue'+(created!==1?'s':'')+' backfilled'+(failed?', '+failed+' failed':'')+'.');
       loadData().then(function(){
         document.getElementById('lastSyncedText').textContent='Last synced: '+fmtDateTime(new Date().toISOString());
       }).catch(function(){});
       return;
     }
-    var i=candidates[idx];
-    var status=statusMap[i.status]||'open';
+    var w=workItems[idx], i=w.insp, iss=w.issue, key=w.key;
+    // Legacy single-issue Spot Checks store their one issue's fields flat on the
+    // inspections doc itself; new-format ones store each issue's fields on its own
+    // entry in issues[]. srcFields picks whichever shape this work item actually is.
+    var srcFields=iss||i;
+    var status=statusMap[srcFields.status]||'open';
     var record={
       property:i.property||'', address:i.address||'', formType:'spot_check',
-      section:i.category||'', text:i.description||'', notes:i.notes||'',
-      category:i.category||'', location:i.location||'', priority:i.priority||'',
-      photos:i.photoUrls||[],
+      section:srcFields.category||'', text:srcFields.description||'', notes:srcFields.notes||'',
+      category:srcFields.category||'', location:srcFields.location||'', priority:srcFields.priority||'',
+      photos:(iss?iss.photos:i.photoUrls)||[],
       assignedManagerName:i.assignedManagerName||'', assignedManagerEmail:i.assignedManagerEmail||'',
-      status:status, sourceInspectionId:i.id, sourceIssueKey:'spotcheck',
+      status:status, sourceInspectionId:i.id, sourceIssueKey:key,
       reportedByName:i.inspector||'', reportedById:i.inspectorId||'',
       reportedAt:i.submittedAt||new Date().toISOString(),
       updates:[], statusHistory:[],
@@ -1422,8 +1490,8 @@ function backfillSpotCheckPropertyIssues(){
     };
     // Re-check right before writing (not just at candidate-selection time above) in case
     // this is run twice in quick succession before the page has reloaded in between.
-    db.collection('property_issues').where('sourceInspectionId','==',i.id).where('sourceIssueKey','==','spotcheck').limit(1).get().then(function(snap){
-      var exists=snap.docs.some(function(d){var dd=d.data();return dd.sourceInspectionId===i.id&&dd.sourceIssueKey==='spotcheck';});
+    db.collection('property_issues').where('sourceInspectionId','==',i.id).where('sourceIssueKey','==',key).limit(1).get().then(function(snap){
+      var exists=snap.docs.some(function(d){var dd=d.data();return dd.sourceInspectionId===i.id&&dd.sourceIssueKey===key;});
       if(exists){ next(idx+1); return; }
       db.collection('property_issues').add(record).then(function(){ created++; next(idx+1); }).catch(function(){ failed++; next(idx+1); });
     }).catch(function(){ failed++; next(idx+1); });
