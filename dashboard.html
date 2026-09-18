@@ -92,7 +92,11 @@ tr:hover td{background:#fafbfe}
 .b-conditional{background:#FFF3E0;color:var(--orange)}
 .b-void{background:var(--mid-gray);color:var(--dark-gray)}
 .b-dismissed{background:#ECEFF1;color:#546E7A}
+.b-needs-shopping{background:#FDECEA;color:var(--red)}
+.b-purchased{background:#FFF3E0;color:var(--orange)}
+.b-delivered{background:#E3F5E9;color:#1E7B45}
 .source-badge{background:#E8EAF6;color:#3949AB}
+.track-note-box{background:#F7F5EE;border:1.5px dashed #B8A97A;border-radius:10px;padding:12px 14px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;white-space:pre-wrap;color:#3A3226;line-height:1.6}
 .issue-summary-line{font-size:12px;font-weight:700;color:var(--dark-gray);margin-bottom:8px}
 .status-confirm-panel{background:var(--gray);border:1.5px solid var(--mid-gray);border-radius:8px;padding:10px;margin:6px 0 12px;display:flex;flex-direction:column;gap:8px}
 .status-confirm-panel textarea{width:100%;border:1.5px solid var(--mid-gray);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;resize:vertical;min-height:44px}
@@ -263,6 +267,7 @@ tr:hover td{background:#fafbfe}
   <div class="tab-nav">
     <button class="tab-btn active" onclick="switchTab('insplog',this)">📋 Check-Ins/Check-Outs Log</button>
     <button class="tab-btn" onclick="switchTab('openissues',this)">🛠️ Open Issues</button>
+    <button class="tab-btn" onclick="switchTab('supplyinv',this)">📦 Supply Inventory</button>
     <button class="tab-btn" onclick="switchTab('seasonal',this)">🌿 Seasonal Inspections</button>
     <button class="tab-btn" onclick="switchTab('seadash',this)">📊 Seasonal Dashboard</button>
     <button class="tab-btn" onclick="switchTab('qcdash',this)">🔍 QC Dashboard</button>
@@ -472,6 +477,36 @@ tr:hover td{background:#fafbfe}
       </div>
     </div>
 
+    <!-- SUPPLY INVENTORY — requests from the standalone Supply Inventory form AND from
+         supply items flagged during a Check-Out inspection, both written into the same
+         `supply_requests` collection (see index.html: submitSupplyInventory() and
+         createSupplyRequestFromInspection()). -->
+    <div class="tab-panel" id="tab-supplyinv">
+      <div class="stats-row stats-row-compact stats-row-5">
+        <div class="stat-card"><div class="stat-num" id="sup-homes">—</div><div class="stat-lbl">Homes Needing Supplies</div></div>
+        <div class="stat-card"><div class="stat-num" id="sup-active">—</div><div class="stat-lbl">Total Active Requests</div></div>
+        <div class="stat-card red"><div class="stat-num" id="sup-needsshopping">—</div><div class="stat-lbl">Needs Shopping</div></div>
+        <div class="stat-card orange"><div class="stat-num" id="sup-purchased">—</div><div class="stat-lbl">Purchased</div></div>
+        <div class="stat-card navy"><div class="stat-num" id="sup-delivered">—</div><div class="stat-lbl">Delivered</div></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr">
+          <div><div class="card-title">📦 Supply Inventory</div><div class="card-sub">Every supply restocking request — reported standalone or through a Check-Out inspection — tracked per property until it's Delivered/Completed or Dismissed. Completed and Dismissed requests stay in history below but are excluded from the active counts above.</div></div>
+          <div class="spacer"></div>
+          <div class="filters">
+            <select id="sup-status" onchange="renderSupplyReqs()"><option value="">All Statuses</option><option value="Needs Shopping">Needs Shopping</option><option value="Purchased">Purchased</option><option value="Delivered">Delivered</option><option value="Completed">Completed</option><option value="Dismissed">Dismissed</option></select>
+            <select id="sup-source" onchange="renderSupplyReqs()"><option value="">All Sources</option><option value="Supply Inventory">Supply Inventory</option><option value="Check-Out">Check-Out</option></select>
+            <select id="sup-prop" onchange="renderSupplyReqs()"><option value="">All Properties</option></select>
+            <select id="sup-insp" onchange="renderSupplyReqs()"><option value="">All Inspectors</option></select>
+            <input type="date" id="sup-datefrom" onchange="renderSupplyReqs()" title="From date">
+            <input type="date" id="sup-dateto" onchange="renderSupplyReqs()" title="To date">
+            <input id="sup-search" oninput="renderSupplyReqs()" placeholder="🔍 Supply / item name…" style="width:200px">
+          </div>
+        </div>
+        <div class="tbl-wrap"><div id="supplyReqTable"><div class="loading">Loading…</div></div></div>
+      </div>
+    </div>
+
   </div>
 </div>
 <!-- PHOTO LIGHTBOX -->
@@ -551,7 +586,7 @@ function doLogin(){
 function doLogout(){clearSession();location.reload();}
 
 // ── SHOW APP ──────────────────────────────────────────────────────────────────
-var _insp=[], _trainings={}, _propIssues=[];
+var _insp=[], _trainings={}, _propIssues=[], _supplyReqs=[];
 function showApp(){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('app').style.display='flex';
@@ -599,16 +634,19 @@ function loadData(){
   var pIssues=db.collection('property_issues').orderBy('reportedAt','desc').limit(1000).get().then(function(snap){
     _propIssues = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
   });
+  var pSupply=db.collection('supply_requests').orderBy('submittedAt','desc').limit(1000).get().then(function(snap){
+    _supplyReqs = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+  });
   // Note: each promise above is allowed to reject on its own (no per-query .catch here) —
   // that's intentional. A failed collection must fail the whole Promise.all so
   // refreshDashboardData() can show a real error and skip updating "Last synced",
   // rather than silently rendering with stale/partial data as if the refresh succeeded.
-  return Promise.all([pInsp,pTrain,pIssues]).then(function(){
+  return Promise.all([pInsp,pTrain,pIssues,pSupply]).then(function(){
     renderAll();
     renderTraining();
   });
 }
-function renderAll(){renderInspLog();renderSeasonal();renderSeaDash();renderQCDash();renderQCLog();renderOpenIssues();}
+function renderAll(){renderInspLog();renderSeasonal();renderSeaDash();renderQCDash();renderQCLog();renderOpenIssues();renderSupplyReqs();}
 
 // ── MANUAL REFRESH ────────────────────────────────────────────────────────────
 // Re-queries every collection the currently-displayed Dashboard tabs depend on
@@ -1497,6 +1535,221 @@ function backfillSpotCheckPropertyIssues(){
     }).catch(function(){ failed++; next(idx+1); });
   }
   next(0);
+}
+
+// ── SUPPLY INVENTORY ──────────────────────────────────────────────────────────
+// Reads from `supply_requests` (populated by loadData() above). Records come from two
+// sources — the standalone Supply Inventory form and supply items flagged Issue during
+// a Check-Out inspection (see index.html) — both written into this one collection so
+// this tab is the single place to see and act on every restocking need.
+var SUPPLY_STATUS_DISPLAY_NAMES={'Needs Shopping':'Needs Shopping','Purchased':'Purchased','Delivered':'Delivered','Completed':'Completed','Dismissed':'Dismissed'};
+var SUPPLY_STATUS_BADGE_CLASS={'Needs Shopping':'b-needs-shopping','Purchased':'b-purchased','Delivered':'b-delivered','Completed':'b-clear','Dismissed':'b-dismissed'};
+function supplyStatusBadgeHtml(status){
+  var st=status||'Needs Shopping';
+  return '<span class="badge '+(SUPPLY_STATUS_BADGE_CLASS[st]||'b-needs-shopping')+'">'+esc(SUPPLY_STATUS_DISPLAY_NAMES[st]||st)+'</span>';
+}
+function supplyItemsSummaryText(items){
+  if(!items||!items.length) return '';
+  return items.map(function(it){return it.name+(it.qty?' (x'+it.qty+')':'');}).join(', ');
+}
+function renderSupplyReqs(){
+  var propSel=document.getElementById('sup-prop'), inspSel=document.getElementById('sup-insp');
+  if(propSel && propSel.options.length<=1){
+    var props={}; _supplyReqs.forEach(function(x){if(x.property)props[x.property]=1;});
+    Object.keys(props).sort().forEach(function(p){var o=document.createElement('option');o.value=p;o.textContent=p;propSel.appendChild(o);});
+  }
+  if(inspSel && inspSel.options.length<=1){
+    var insps={}; _supplyReqs.forEach(function(x){if(x.inspector)insps[x.inspector]=1;});
+    Object.keys(insps).sort().forEach(function(p){var o=document.createElement('option');o.value=p;o.textContent=p;inspSel.appendChild(o);});
+  }
+  var status=document.getElementById('sup-status').value;
+  var source=document.getElementById('sup-source').value;
+  var prop=document.getElementById('sup-prop').value;
+  var insp=document.getElementById('sup-insp').value;
+  var dateFrom=document.getElementById('sup-datefrom').value;
+  var dateTo=document.getElementById('sup-dateto').value;
+  var search=(document.getElementById('sup-search').value||'').toLowerCase();
+  var list=_supplyReqs.filter(function(x){
+    if(status && (x.status||'Needs Shopping')!==status) return false;
+    if(source && x.source!==source) return false;
+    if(prop && x.property!==prop) return false;
+    if(insp && x.inspector!==insp) return false;
+    if(dateFrom && (x.submittedAt||'') < dateFrom) return false;
+    if(dateTo && (x.submittedAt||'').slice(0,10) > dateTo) return false;
+    if(search && !((x.items||[]).some(function(it){return (it.name||'').toLowerCase().indexOf(search)!==-1;}))) return false;
+    return true;
+  });
+  // ── Active-need summary (Completed/Dismissed are excluded from "active") ──
+  var activeList=_supplyReqs.filter(function(x){return !x.noneNeeded && x.status!=='Completed' && x.status!=='Dismissed';});
+  var homesSet={}; activeList.forEach(function(x){if(x.property)homesSet[x.property]=1;});
+  document.getElementById('sup-homes').textContent=Object.keys(homesSet).length;
+  document.getElementById('sup-active').textContent=activeList.length;
+  document.getElementById('sup-needsshopping').textContent=_supplyReqs.filter(function(x){return (x.status||'Needs Shopping')==='Needs Shopping';}).length;
+  document.getElementById('sup-purchased').textContent=_supplyReqs.filter(function(x){return x.status==='Purchased';}).length;
+  document.getElementById('sup-delivered').textContent=_supplyReqs.filter(function(x){return x.status==='Delivered';}).length;
+  var tableEl=document.getElementById('supplyReqTable');
+  if(!list.length){ tableEl.innerHTML='<div class="empty">No supply requests found</div>'; return; }
+  list.sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');});
+  var html='<table><thead><tr><th>Submitted</th><th>Property</th><th>Inspector</th><th>Source</th><th>Supplies Needed</th><th>Notes</th><th>Photos</th><th>Status</th><th>Last Updated</th><th></th></tr></thead><tbody>';
+  list.forEach(function(x){
+    var safeId='si'+x.id.replace(/[^a-zA-Z0-9]/g,'');
+    var xPhotos=normalizePhotoUrls(x.photoUrls,'supplyReq:'+x.id);
+    var itemsText=x.noneNeeded?'<em style="color:var(--dark-gray)">No restocking needed</em>':supplyItemsSummaryText(x.items);
+    html+='<tr>';
+    html+='<td style="white-space:nowrap">'+esc(x.submittedAt?fmtDateTime(x.submittedAt):'')+'</td>';
+    html+='<td style="font-weight:600;min-width:160px">'+esc(x.property||'')+'</td>';
+    html+='<td>'+esc(x.inspector||'')+'</td>';
+    html+='<td><span class="badge source-badge">'+esc(x.source||'')+'</span></td>';
+    html+='<td style="min-width:220px">'+itemsText+'</td>';
+    html+='<td style="min-width:140px">'+esc(x.notes||'')+'</td>';
+    html+='<td>'+(xPhotos.length?'<span class="badge b-ok">&#128247; '+xPhotos.length+'</span>':'<span class="no-photo">&mdash;</span>')+'</td>';
+    html+='<td>'+supplyStatusBadgeHtml(x.status)+'</td>';
+    html+='<td style="white-space:nowrap">'+esc(x.lastUpdatedAt?fmtDateTime(x.lastUpdatedAt):'')+(x.lastUpdatedBy?'<br><span style="font-size:11px;color:var(--dark-gray)">by '+esc(x.lastUpdatedBy)+'</span>':'')+'</td>';
+    html+='<td><button class="details-btn" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
+    html+='</tr>';
+    html+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="10">';
+    if(!x.noneNeeded && x.items && x.items.length){
+      html+='<div class="insp-detail-heading">📦 Supplies &amp; Quantities</div><div class="insp-notes-block">';
+      x.items.forEach(function(it){ html+=esc(it.name)+(it.qty?' — Qty needed: '+esc(String(it.qty)):' — Qty not specified')+(it.isOther?' <em>(other / unlisted)</em>':'')+'<br>'; });
+      html+='</div>';
+    }
+    if((x.notes||'').trim()) html+='<div class="insp-detail-heading">📝 Notes</div><div class="insp-notes-block">'+esc(x.notes).replace(/\n/g,'<br>')+'</div>';
+    if(xPhotos.length){
+      html+='<div class="insp-detail-heading">📷 Photos</div><div class="insp-issue-photos">';
+      xPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
+      html+='</div>';
+    }
+    html+='<div class="insp-detail-heading">🔧 Status &amp; Follow-Up History</div>';
+    html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap"><span style="font-size:12px;font-weight:700;color:var(--dark-gray)">Status:</span>'+supplyStatusBadgeHtml(x.status)+
+      '<select id="sup-sel-'+safeId+'" style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px" onchange="stageSupplyStatusChange(\''+safeId+'\',this.value)">'+
+      ['Needs Shopping','Purchased','Delivered','Completed','Dismissed'].map(function(s){return '<option value="'+s+'"'+((x.status||'Needs Shopping')===s?' selected':'')+'>'+s+'</option>';}).join('')+
+      '</select></div>';
+    html+='<div class="status-confirm-panel" id="sup-confirm-'+safeId+'" style="display:none">'+
+      '<div style="font-size:12px;color:var(--dark-gray)">Changing status to <strong id="sup-confirm-label-'+safeId+'"></strong>. Add an optional note — it will be saved to this request\'s history:</div>'+
+      '<textarea id="sup-confirm-note-'+safeId+'" placeholder="Optional note…"></textarea>'+
+      '<div class="sc-btns"><button class="sc-confirm" onclick="confirmSupplyStatusChange(\''+x.id+'\',\''+safeId+'\')">Confirm</button><button class="sc-cancel" onclick="cancelSupplyStatusChange(\''+safeId+'\',\''+(x.status||'Needs Shopping')+'\')">Cancel</button></div>'+
+      '</div>';
+    var updates=x.updates||[];
+    var updHtml='';
+    updates.forEach(function(u){updHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
+    html+='<div class="updates-log">'+(updHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
+    html+='<div class="add-update-row"><input type="text" id="sup-note-'+safeId+'" placeholder="Add an update…"><button onclick="addSupplyRequestUpdate(\''+x.id+'\',\''+safeId+'\')">+ Add</button></div>';
+    html+='<div class="insp-detail-heading">📋 Track Home-File Note <button class="view-in-openissues-btn" style="margin-left:8px" onclick="copyTrackNote(\''+safeId+'\')">⧉ Copy</button></div>';
+    html+='<div class="track-note-box" id="sup-tracknote-'+safeId+'">'+esc(buildTrackNoteText(x))+'</div>';
+    html+='</td></tr>';
+  });
+  html+='</tbody></table>';
+  tableEl.innerHTML=html;
+  reopenPreservedDetails();
+}
+// Plain-text, copy-pasteable note formatted for dropping straight into the property's
+// Track home file — no direct Track integration exists, so this is the deliberate
+// manual bridge the feature spec calls for.
+function buildTrackNoteText(x){
+  var lines=[];
+  lines.push('Supply Inventory — '+(x.property||''));
+  lines.push('Date: '+(x.submittedAt?fmtDateTime(x.submittedAt):''));
+  lines.push('Inspector: '+(x.inspector||''));
+  if(x.noneNeeded || !x.items || !x.items.length){
+    lines.push('Supplies Requested: None — inventory completed, no restocking needed');
+  } else {
+    lines.push('Supplies Requested:');
+    x.items.forEach(function(it){ lines.push('  - '+it.name+(it.qty?' (Qty needed: '+it.qty+')':'')); });
+  }
+  if((x.notes||'').trim()) lines.push('Notes: '+x.notes.trim());
+  lines.push('Status: '+(SUPPLY_STATUS_DISPLAY_NAMES[x.status]||x.status||'Needs Shopping'));
+  return lines.join('\n');
+}
+function copyTrackNote(safeId){
+  var box=document.getElementById('sup-tracknote-'+safeId);
+  if(!box) return;
+  var text=box.textContent;
+  function done(){ showToast('Track note copied ✓'); }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(function(){ fallbackCopy(text,done); });
+  } else {
+    fallbackCopy(text,done);
+  }
+}
+function fallbackCopy(text,done){
+  try{
+    var ta=document.createElement('textarea');
+    ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    done();
+  }catch(e){ showToast('Could not copy — please select and copy the note manually'); }
+}
+// Same staged-status-change UX as Open Issues (stageIssueStatusChange/confirmIssueStatusChange
+// above) — selecting a new status just reveals a confirm panel with an optional note; nothing
+// is written until "Confirm" is clicked.
+function stageSupplyStatusChange(safeId,newStatus){
+  var panel=document.getElementById('sup-confirm-'+safeId);
+  var label=document.getElementById('sup-confirm-label-'+safeId);
+  if(!panel)return;
+  panel.setAttribute('data-pending-status',newStatus);
+  if(label)label.textContent=SUPPLY_STATUS_DISPLAY_NAMES[newStatus]||newStatus;
+  panel.style.display='flex';
+}
+function cancelSupplyStatusChange(safeId,prevStatus){
+  var sel=document.getElementById('sup-sel-'+safeId);
+  var panel=document.getElementById('sup-confirm-'+safeId);
+  if(sel)sel.value=prevStatus;
+  if(panel)panel.style.display='none';
+}
+function confirmSupplyStatusChange(docId,safeId){
+  var panel=document.getElementById('sup-confirm-'+safeId);
+  var newStatus=panel?panel.getAttribute('data-pending-status'):null;
+  if(!newStatus)return;
+  var noteInput=document.getElementById('sup-confirm-note-'+safeId);
+  var note=(noteInput&&noteInput.value||'').trim();
+  setSupplyRequestStatus(docId,newStatus,note);
+}
+// The single write path for every supply_requests status change, mirroring
+// setPropertyIssueStatus() above — records a statusHistory entry, keeps
+// lastUpdatedAt/lastUpdatedBy in sync, and optionally appends the note into updates[]
+// too so it shows in the same history list as a plain manual update.
+function setSupplyRequestStatus(docId,newStatus,note){
+  var req=_supplyReqs.find(function(x){return x.id===docId;});
+  var prevStatus=req?(req.status||'Needs Shopping'):'Needs Shopping';
+  var nowIso=new Date().toISOString();
+  var byName=currentUser?currentUser.name:'';
+  var patch={status:newStatus,lastUpdatedAt:nowIso,lastUpdatedBy:byName};
+  var historyEntry={from:prevStatus,to:newStatus,by:byName,date:nowIso,note:note||''};
+  patch.statusHistory=firebase.firestore.FieldValue.arrayUnion(historyEntry);
+  var noteEntry=null;
+  if(note){
+    noteEntry={text:note,by:byName,date:new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
+    patch.updates=firebase.firestore.FieldValue.arrayUnion(noteEntry);
+  }
+  db.collection('supply_requests').doc(docId).update(patch).then(function(){
+    if(req){
+      req.status=newStatus; req.lastUpdatedAt=nowIso; req.lastUpdatedBy=byName;
+      if(!req.statusHistory)req.statusHistory=[];
+      req.statusHistory.push(historyEntry);
+      if(noteEntry){ if(!req.updates)req.updates=[]; req.updates.push(noteEntry); }
+    }
+    showToast('Supply request marked '+(SUPPLY_STATUS_DISPLAY_NAMES[newStatus]||newStatus));
+    renderSupplyReqs();
+  }).catch(function(){showToast('Error updating supply request');});
+}
+function addSupplyRequestUpdate(docId,safeId){
+  var input=document.getElementById('sup-note-'+safeId);
+  var text=(input&&input.value||'').trim();
+  if(!text) return;
+  var req=_supplyReqs.find(function(x){return x.id===docId;});
+  var byName=currentUser?currentUser.name:'';
+  var nowIso=new Date().toISOString();
+  var entry={text:text,by:byName,date:new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
+  db.collection('supply_requests').doc(docId).update({
+    updates:firebase.firestore.FieldValue.arrayUnion(entry),
+    lastUpdatedAt:nowIso, lastUpdatedBy:byName
+  }).then(function(){
+    if(req){ if(!req.updates)req.updates=[]; req.updates.push(entry); req.lastUpdatedAt=nowIso; req.lastUpdatedBy=byName; }
+    showToast('Update added');
+    renderSupplyReqs();
+  }).catch(function(){showToast('Error adding update');});
 }
 
 // ── TRAININGS ─────────────────────────────────────────────────────────────────
