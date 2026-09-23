@@ -937,10 +937,20 @@ function renderSeasonal(){
     return true;
   });
   if(!list.length){document.getElementById('seasonalTable').innerHTML='<div class="empty">No seasonal inspections found</div>';return;}
-  var html='<table><thead><tr><th>Date</th><th>Property</th><th>Manager</th><th>Inspector</th><th>Season / Type</th><th>Items OK</th><th>Issues Found</th><th>N/A</th><th>Overall Status</th><th>Notes</th></tr></thead><tbody>';
+  var html='<table><thead><tr><th>Date</th><th>Property</th><th>Manager</th><th>Inspector</th><th>Season / Type</th><th>Items OK</th><th>Issues Found</th><th>N/A</th><th>Overall Status</th><th>Details</th><th>Photos</th><th>Notes</th></tr></thead><tbody>';
   list.forEach(function(i){
     var mgr=PROPERTIES.find(function(p){return p.name===i.property;});
+    var issueList=i.issues||[];
     var hasIssues=i.issuesFound>0;
+    var mgrNotes=(i.managerNotes||'').trim();
+    var maintNotes=(i.maintenanceNotes||'').trim();
+    var updates=i.updates||[];
+    var isResolved=!!i.resolved;
+    var hasDetails=hasIssues||mgrNotes||maintNotes||isResolved||updates.length>0;
+    var photos=normalizePhotoUrls(i.photoUrls,'seasonal:'+i.id);
+    var photoCount=photos.length;
+    var photoFailCount=i.photoUploadFailCount||0;
+    var safeId=i.id.replace(/[^a-zA-Z0-9]/g,'');
     html+='<tr>';
     html+='<td style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td>';
     html+='<td style="font-weight:600">'+esc(i.property||'')+'</td>';
@@ -951,11 +961,62 @@ function renderSeasonal(){
     html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( i.issuesFound||0)+'</td>';
     html+='<td style="text-align:center">'+( i.naCount||0)+'</td>';
     html+='<td><span class="badge '+(hasIssues?'b-issue':'b-clear')+'">'+(hasIssues?i.issuesFound+' Issue'+(i.issuesFound!==1?'s':''):'All Clear')+'</span></td>';
+    if(hasDetails){
+      html+='<td><button class="details-btn'+(hasIssues?'':' no-issues')+'" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
+    } else {
+      html+='<td><span class="no-photo">&mdash;</span></td>';
+    }
+    if(photoCount>0||photoFailCount>0){
+      html+='<td>'+(photoCount>0?'<button class="photo-btn" onclick="openLb(\''+safeId+'\')">📷 '+photoCount+' photo'+(photoCount!==1?'s':'')+'</button>':'<span class="no-photo">No photos</span>')+(photoFailCount>0?' <span class="badge b-not-ready" title="These photos were taken during the inspection but failed to upload — ask the inspector to re-add them.">&#9888; '+photoFailCount+' failed</span>':'')+'</td>';
+    } else {
+      html+='<td><span class="no-photo">No photos</span></td>';
+    }
     html+='<td style="max-width:200px;font-size:12px">'+esc((i.issues||[]).slice(0,2).map(function(x){return x.item;}).join('; '))+'</td>';
     html+='</tr>';
+    if(hasDetails){
+      html+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="12">';
+      if(hasIssues){
+        html+='<div class="insp-detail-heading">&#128295; '+buildIssueStatusSummary(issueList,i.id)+'</div>';
+        issueList.forEach(function(x,xi){
+          var xPhotos=normalizePhotoUrls(x.photos,'seasonal:'+i.id+':issue');
+          var xKey=x.key||('legacyidx_'+xi);
+          var tied=findTiedIssue(i.id,xKey);
+          html+='<div class="insp-issue-item"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div></div>'+issueStatusBadgeHtml(tied)+'</div>';
+          if(x.notes)html+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
+          if(x.charge>0)html+='<div class="insp-issue-charge">Charge: $'+Number(x.charge).toFixed(2)+'</div>';
+          if(xPhotos.length){
+            html+='<div class="insp-issue-photos">';
+            xPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
+            html+='</div>';
+          }
+          html+='</div>';
+        });
+        html+='<button class="view-in-openissues-btn" data-prop="'+esc(i.property||'')+'" onclick="jumpToOpenIssues(this.getAttribute(\'data-prop\'))">View issues in Open Issues &rarr;</button>';
+      }
+      if(mgrNotes){
+        html+='<div class="insp-detail-heading">&#128221; Manager Notes</div><div class="insp-notes-block">'+esc(mgrNotes).replace(/\n/g,'<br>')+'</div>';
+      }
+      if(maintNotes){
+        html+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
+      }
+      if(isResolved||updates.length){
+        html+='<div class="insp-detail-heading">&#128295; Overall Resolution</div>';
+        if(isResolved){
+          html+='<div class="insp-resolved-banner">&#9989; Resolved &mdash; every issue on this inspection is Resolved or Dismissed</div>';
+        } else if(hasIssues){
+          html+='<div class="insp-unresolved-banner">&#9888;&#65039; Not yet resolved &mdash; one or more issues are still Open or In Progress. Manage each issue\'s status from the Open Issues tab.</div>';
+        }
+        var updHtml='';
+        updates.forEach(function(u){updHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
+        html+='<div class="updates-log">'+(updHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
+        html+='<div class="add-update-row"><input type="text" id="insp-note-'+safeId+'" placeholder="Add an inspection-level note&hellip;"><button onclick="addInspUpdate(\''+i.id+'\',\''+safeId+'\')">+ Add</button></div>';
+      }
+      html+='</td></tr>';
+    }
   });
   html+='</tbody></table>';
   document.getElementById('seasonalTable').innerHTML=html;
+  reopenPreservedDetails();
 }
 
 // ── SEASONAL DASHBOARD ────────────────────────────────────────────────────────
