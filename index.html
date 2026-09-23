@@ -694,7 +694,7 @@ function createPropertyIssues(issueList, inspectionId, docData) {
       if (existing) return;
       db.collection('property_issues').add({
         property: docData.property || '', address: docData.address || '', formType: docData.formType || '',
-        section: iss.section || '', text: iss.text || '', notes: iss.notes || '',
+        section: iss.section || '', text: iss.text || '', notes: iss.notes || '', photos: iss.photos || [],
         // Status lifecycle: open -> in_progress -> resolved, or open/in_progress -> dismissed
         // ("Not an Issue"). dismissedAt/dismissedBy/dismissalNote mirror resolvedAt/resolvedBy
         // and are only ever set once a manager dismisses this specific issue from the
@@ -711,7 +711,7 @@ function createPropertyIssues(issueList, inspectionId, docData) {
       // which is far better than a follow-up issue never getting tracked at all.
       db.collection('property_issues').add({
         property: docData.property || '', address: docData.address || '', formType: docData.formType || '',
-        section: iss.section || '', text: iss.text || '', notes: iss.notes || '',
+        section: iss.section || '', text: iss.text || '', notes: iss.notes || '', photos: iss.photos || [],
         status: 'open', sourceInspectionId: inspectionId, sourceIssueKey: iss.key,
         reportedByName: docData.inspector || '', reportedById: docData.inspectorId || '',
         reportedAt: docData.submittedAt || new Date().toISOString(),
