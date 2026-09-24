@@ -334,6 +334,11 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
     <div class="sc-issues-wrap" id="scIssuesWrap"></div>
     <button type="button" class="sc-add-issue-btn" onclick="addAnotherSpotCheckIssue()"><span>&#65291;</span> Add Another Issue</button>
     <div class="field">
+      <label style="color:#8a4b00">&#128295; Maintenance Items for Operations <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--dark-gray)">— emails Operations</span></label>
+      <div style="font-size:11.5px;color:var(--dark-gray);margin-bottom:6px">Anything entered here is emailed directly to Operations (<span id="scOpsEmailAddr"></span>) when you submit. Leave blank if there is nothing for Operations. This is separate from the issue(s) above and does not change their status.</div>
+      <textarea id="scOpsMaintenanceNotes" class="note-input" style="width:100%;min-height:80px;box-sizing:border-box" placeholder="List any maintenance items Operations needs to know about..." oninput="spotCheck.opsMaintenanceNotes=this.value"></textarea>
+    </div>
+    <div class="field">
       <label>Assigned House Manager</label>
       <div class="sc-manager-card">
         <div class="sc-manager-name" id="scManagerName"></div>
@@ -399,6 +404,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
     <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
     <div><div class="prog-text" id="progText">0 / 0</div><div class="prog-issues" id="progIssues"></div></div>
   </div>
+  <div id="maintNotesTopWrap"></div>
   <div class="hide-done-bar">
     <label class="hide-done-label"><input type="checkbox" id="hideDoneToggle" onchange="toggleHideCompleted()"><span>Hide completed items</span></label>
     <span class="save-status" id="saveStatus"></span>
@@ -583,6 +589,12 @@ function collectAllPhotos() {
       item.photos.forEach(function(dataUrl) { if (dataUrl) photos.push({ key: k, dataUrl: dataUrl }); });
     }
   });
+  // Maintenance Notes photos (2026-09-24) — tagged with the fixed key
+  // 'maintNotes' rather than a positional section/item key, since Maintenance
+  // Notes is a standalone field, not tied to one checklist question. After
+  // upload, uploadPhotosToStorage()'s itemPhotos['maintNotes'] holds the
+  // resulting URLs — see saveInspectionToFirebase()'s maintenanceNotesPhotoUrls.
+  (state.maintenanceNotesPhotos || []).forEach(function(dataUrl) { if (dataUrl) photos.push({ key: 'maintNotes', dataUrl: dataUrl }); });
   return photos;
 }
 // Uploads every collected photo to Firebase Storage. IMPORTANT: each photo is
@@ -649,9 +661,13 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
   var itemPhotos = uploadResult.itemPhotos || {};
   var sections = state._sections || [];
   var issueList = [];
-  sections.forEach(function(sec,si){ sec.items.forEach(function(txt,ii){ var key=si+'_'+ii; var it=state.items[key]||{}; if(it.status==='issue') issueList.push({section:sec.title,text:txt,notes:it.notes||'',charge:it.charge||0,photos:itemPhotos[key]||[],key:key}); }); });
   var ok=0,issues=0,na=0,charge=0;
-  sections.forEach(function(sec,si){ sec.items.forEach(function(_,ii){ var it=state.items[si+'_'+ii]||{}; if(it.status==='ok')ok++; else if(it.status==='issue'){issues++;charge+=it.charge||0;} else if(it.status==='na')na++; }); });
+  collectAllAnswerableItems().forEach(function(x){
+    var it = x.item || {};
+    if (it.status==='ok') ok++;
+    else if (it.status==='issue') { issues++; charge+=it.charge||0; issueList.push({section:x.section,text:x.text,notes:it.notes||'',charge:it.charge||0,photos:itemPhotos[x.key]||[],key:x.key}); }
+    else if (it.status==='na') na++;
+  });
   var info=state.info;
   var docData = {
     formType:state.formType, property:info.property||'', address:info.address||'',
@@ -662,16 +678,39 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
     photoUrls:photoUrls, photoCount:photoUrls.length,
     itemPhotos:itemPhotos, photoUploadFailCount:uploadResult.failCount||0,
     managerNotes:state.managerNotes||'', maintenanceNotes:state.maintenanceNotes||'',
+    // Maintenance Notes photos (2026-09-24) — uploaded like every other photo
+    // (see collectAllPhotos()'s 'maintNotes' key), viewable in the Dashboard
+    // record alongside the notes text itself.
+    maintenanceNotesPhotoUrls: itemPhotos['maintNotes'] || [],
+    opsMaintenanceNotes:state.opsMaintenanceNotes||'',
+    // Per-room Bedroom/Bathroom instances and Kitchen extra items (2026-09-24,
+    // Spring/Fall only) — saved so the dashboard can show which rooms/items
+    // existed on this inspection even beyond whatever specific issues/photos
+    // came from them (those already flow through `issues`/`itemPhotos` above,
+    // labeled with the room name via collectAllAnswerableItems()).
+    bedroomInstances: state.bedroomInstances || [],
+    bathroomInstances: state.bathroomInstances || [],
+    kitchenExtraItems: state.kitchenExtraItems || [],
     submittedAt:new Date().toISOString()
   };
   console.log('[PHOTO-DEBUG] Saving inspection record', { inspectionId: inspectionId, photoCount: docData.photoCount, photoUploadFailCount: docData.photoUploadFailCount, itemPhotoKeys: Object.keys(itemPhotos) });
   if (inspectionId) {
-    db.collection('inspections').doc(inspectionId).set(docData).catch(function(e){console.warn('[PHOTO-DEBUG] Firebase save error',e);});
+    // {merge:true}: a retried/re-attempted submit of this SAME inspectionId (network
+    // hiccup, page refresh resuming the same in-progress draft, etc.) must never wipe
+    // out opsEmailStatus/opsEmailSentAt/opsEmailError from an earlier attempt — those
+    // fields are intentionally never included in docData above, so merge:true leaves
+    // whatever this doc already recorded about the Operations email untouched, while
+    // every field that IS in docData still fully overwrites as before. This is what
+    // lets sendOpsMaintenanceEmailIfNeeded() below reliably tell "already sent" apart
+    // from "never sent" across retries instead of that bookkeeping being erased by
+    // the very next save.
+    db.collection('inspections').doc(inspectionId).set(docData, {merge:true}).catch(function(e){console.warn('[PHOTO-DEBUG] Firebase save error',e);});
   } else {
     db.collection('inspections').add(docData).catch(function(e){console.warn('[PHOTO-DEBUG] Firebase save error',e);});
   }
   createPropertyIssues(issueList, inspectionId, docData);
   createSupplyRequestFromInspection(sections, inspectionId, docData);
+  if (inspectionId) sendOpsMaintenanceEmailIfNeeded(inspectionId, docData);
 }
 
 // ── Follow-up issue tracking ──
@@ -846,10 +885,49 @@ function renderMyInspections(inspections) {
       html+='<button onclick="downloadAllPhotos('+JSON.stringify(insp.photoUrls)+',\''+esc(insp.property)+'\')" style="background:var(--navy);color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;width:100%">&#11015; Download All Photos ('+insp.photoUrls.length+')</button>';
       html+='</div>';
     }
+    if((insp.maintenanceNotes||'').trim()){
+      html+='<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--mid-gray)">';
+      html+='<div style="font-size:11px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">&#128295; Maintenance Notes</div>';
+      html+='<div style="font-size:12px;color:var(--text);white-space:pre-wrap;background:var(--light-gray);border-radius:8px;padding:8px 10px">'+esc(insp.maintenanceNotes)+'</div>';
+      if(insp.maintenanceNotesPhotoUrls&&insp.maintenanceNotesPhotoUrls.length){
+        html+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">';
+        insp.maintenanceNotesPhotoUrls.forEach(function(url){ html+='<img src="'+url+'" style="width:52px;height:52px;border-radius:6px;object-fit:cover;cursor:pointer;border:1.5px solid var(--mid-gray)" onclick="window.open(\''+url+'\',\'_blank\')">'; });
+        html+='</div>';
+      }
+      html+='</div>';
+    }
+    if((insp.opsMaintenanceNotes||'').trim()){
+      html+='<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--mid-gray)">';
+      html+='<div style="font-size:11px;font-weight:800;color:#8a4b00;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">&#128295; Maintenance Items for Operations</div>';
+      html+='<div style="font-size:12px;color:var(--text);white-space:pre-wrap;background:#FFF3E0;border-radius:8px;padding:8px 10px">'+esc(insp.opsMaintenanceNotes)+'</div>';
+      if(insp.opsEmailStatus==='sent'){
+        html+='<div style="font-size:11px;color:var(--green);margin-top:6px;font-weight:600">&#9989; Emailed to Operations'+(insp.opsEmailSentAt?(' &middot; '+esc(String(insp.opsEmailSentAt).slice(0,16).replace('T',' '))):'')+'</div>';
+      } else {
+        html+='<div style="font-size:11px;color:var(--red);margin-top:6px;font-weight:600">&#9888; Not yet emailed to Operations'+(insp.opsEmailError?(' &mdash; '+esc(insp.opsEmailError)):'')+'</div>';
+        html+='<button onclick="retryOpsMaintenanceEmail(\''+insp.id+'\',this)" style="margin-top:6px;background:#8a4b00;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;width:100%">Retry Sending to Operations</button>';
+      }
+      html+='</div>';
+    }
     html+='</div>';
   });
   el.innerHTML=html;
   reopenMyPreservedDetails();
+}
+// Retries ONLY the Operations email for an already-saved inspection — never
+// resubmits the inspection itself, never touches its issues/property_issues, and
+// is exactly the same send path (sendOpsMaintenanceEmailIfNeeded) used at original
+// submit time, so the same "already sent" guard applies here too.
+function retryOpsMaintenanceEmail(inspId, btnEl) {
+  var insp = _myInspections.find(function(i){ return i.id === inspId; });
+  if (!insp) { showToast('Could not find this inspection to retry.'); return; }
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Sending…'; }
+  showToast('Retrying Operations email…');
+  sendOpsMaintenanceEmailIfNeeded(insp.id, insp, function(result) {
+    if (result === 'sent') { showToast('Sent to Operations!'); }
+    else if (result === 'already-sent') { showToast('Already sent to Operations.'); }
+    else { showToast('Still could not send — please try again in a moment.', 5000); }
+    loadMyInspections();
+  });
 }
 
 // ── Dashboard ──
@@ -1158,6 +1236,96 @@ function getBathroomItems(n, type, pets) {
   return items;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Spring & Fall — per-room Bedroom/Bathroom checklist templates
+// ═══════════════════════════════════════════════════════════════════════════
+// As of 2026-09-24, Spring and Fall no longer have one fixed Bedrooms/
+// Bathrooms section each — inspectors can add as many bedrooms/bathrooms as
+// the property actually has (see the "+ Bedroom"/"+ Bathroom" buttons in
+// buildChecklist()/renderRoomInstances()), each with its own name (e.g.
+// "Primary Bedroom", "Queen Bedroom") and its OWN full copy of the checklist
+// below. These arrays are the TEMPLATE used to seed every instance — they are
+// referenced (not copied) from getSections()'s spring/fall {dynamic:'bedroom'
+// | 'bathroom'} section objects. Actual per-room answers live in
+// state.items keyed 'bedI<instanceIndex>_<itemIndex>' / 'bathI<instanceIndex>
+// _<itemIndex>' — never in a positional sectionIndex_itemIndex key — so
+// adding/removing a room can never shift or collide with any other section's
+// saved answers (see collectAllAnswerableItems()).
+//
+// 'Hanger count in closet' was added to both (2026-09-24 request) so the
+// count can be recorded per room now that rooms are individually named;
+// record the actual number in that item's Notes field.
+var SPRING_BEDROOM_ITEMS = [
+  'Fan in each bedroom closet with neatly wrapped cord',
+  'Pillows: 2 per sleeper on bed + 1 per sleeper in closet (with pillow case)',
+  'Pillow condition good (no yellowing, odors, damage)',
+  'Duvets / shams — no stains, in good condition',
+  'Sheets and bedding in good condition',
+  'Extra linens location confirmed and labeled',
+  'Under each bed clean',
+  'Furniture in good condition (no updates needed)',
+  'Nightstand and lamp on each side of every bed',
+  'Dresser present in each bedroom',
+  'Dresser drawers tight, handles secure, no trash inside',
+  'Mattress comfortable (lay on it!)',
+  'Power Outage Kit confirmed in primary bedroom closet',
+  'Art, d\xe9cor, and updates assessed',
+  'Luggage racks present (if applicable)',
+  'Hanger count in closet — record the number in Notes'
+];
+// Fall's Bedrooms template also picks up the "Fans: 1 per bedroom present in
+// closet" item that used to live in Fall's separate House Inventory section
+// (2026-09-24 move — see the note left in getSections()'s fall House
+// Inventory block).
+var FALL_BEDROOM_ITEMS = [
+  'Bedding in good condition (update needed?)',
+  'Furniture in good condition',
+  'Linens look upscale and inviting',
+  'Mattress comfortable (lay on it!)',
+  'Two side tables, two lamps, and dresser in each room',
+  'Under each bed clean',
+  'Luggage racks present (if applicable)',
+  '2nd set of sheets stored in closet or linen closet',
+  'Pillows: 2 per sleeper on bed + 1 per sleeper in closet (with pillow case)',
+  'Pillow condition good (no yellowing, odors, damage)',
+  'Dresser drawers tight, handles secure, no trash inside',
+  'Fans: 1 per bedroom present in closet',
+  'Hanger count in closet — record the number in Notes'
+];
+var SPRING_BATHROOM_ITEMS = [
+  'All drains flowing freely (sink, tub, shower)',
+  'Jetted tubs tested — jets working, no dirty buildup',
+  'No mold — grout clean in showers, sinks, etc.',
+  'Caulking in good condition',
+  'Towels in good condition (soft, no stains / rips / fraying)',
+  'Bath mats and rugs in good shape',
+  'No hard water stains on shower doors',
+  'Shower / bath faucets functioning (no leaks, easy to operate)',
+  'Shower curtains / liners in good condition',
+  'Blow dryer present in each full bathroom',
+  'Glass, stone, or metal soap dispensers at each sink',
+  'Any d\xe9cor updates assessed',
+  'Drain clean-out scheduled if needed'
+];
+// Fall's Bathrooms template also picks up "Blow dryers: 1 per full bathroom"
+// — this was item #109 in Fall's old fixed numbering, previously sitting in
+// the House Inventory section; moved here per the 2026-09-24 request since a
+// blow dryer count is naturally a per-bathroom check.
+var FALL_BATHROOM_ITEMS = [
+  'All drains flowing freely (sink, tub, shower)',
+  'Drain clean-out scheduled if needed',
+  'No mold — grout clean in showers and sinks',
+  'Caulking in good condition',
+  'Towels in good condition (soft, no stains / rips / fraying)',
+  'Bath mats and rugs in good shape',
+  'No hard water stains on shower doors',
+  'Shower / bath faucets functioning (no leaks, easy to use)',
+  'Jetted tubs tested — jets working, no dirty buildup',
+  'Shower curtains / liners in good condition',
+  'Glass, stone, or metal soap dispensers at each sink',
+  'Blow dryers: 1 per full bathroom'
+];
+
 function getSections(type, prop) {
   /* ═══ KITCHEN / LINEN INVENTORY ═══ */
   if (type === 'kitchen_inv' || type === 'linen_inv') {
@@ -1351,7 +1519,7 @@ function getSections(type, prop) {
     {title:'General Interior', items:[
       'Garage remotes counted and working',
       'HOA passes counted and match records',
-      'Guest Book Tablet reviewed — property guide accurate',
+      'Guest Book QR Code reviewed — property guide accurate',
       'WiFi info in guest book matches router',
       'Interior paint in good condition (no scuffs / touch-up needed)',
       'Windows clean',
@@ -1396,39 +1564,9 @@ function getSections(type, prop) {
       'Sink caulking in good condition',
       'Grout clean (if counter tile)',
       'Fire extinguisher location and service date noted'
-    ]},
-    {title:'Bedrooms', items:[
-      'Fan in each bedroom closet with neatly wrapped cord',
-      'Pillows: 2 per sleeper on bed + 1 per sleeper in closet (with pillow case)',
-      'Pillow condition good (no yellowing, odors, damage)',
-      'Duvets / shams — no stains, in good condition',
-      'Sheets and bedding in good condition',
-      'Extra linens location confirmed and labeled',
-      'Under each bed clean',
-      'Furniture in good condition (no updates needed)',
-      'Nightstand and lamp on each side of every bed',
-      'Dresser present in each bedroom',
-      'Dresser drawers tight, handles secure, no trash inside',
-      'Mattress comfortable (lay on it!)',
-      'Power Outage Kit confirmed in primary bedroom closet',
-      'Art, d\xe9cor, and updates assessed',
-      'Luggage racks present (if applicable)'
-    ]},
-    {title:'Bathrooms', items:[
-      'All drains flowing freely (sink, tub, shower)',
-      'Jetted tubs tested — jets working, no dirty buildup',
-      'No mold — grout clean in showers, sinks, etc.',
-      'Caulking in good condition',
-      'Towels in good condition (soft, no stains / rips / fraying)',
-      'Bath mats and rugs in good shape',
-      'No hard water stains on shower doors',
-      'Shower / bath faucets functioning (no leaks, easy to operate)',
-      'Shower curtains / liners in good condition',
-      'Blow dryer present in each full bathroom',
-      'Glass, stone, or metal soap dispensers at each sink',
-      'Any d\xe9cor updates assessed',
-      'Drain clean-out scheduled if needed'
-    ]},
+    ], kitchenExtra:true},
+    {title:'Bedrooms', items: SPRING_BEDROOM_ITEMS, dynamic:'bedroom'},
+    {title:'Bathrooms', items: SPRING_BATHROOM_ITEMS, dynamic:'bathroom'},
     {title:'Linens', items:[
       'Total linen inventory meets standards (2 sets per bed)',
       'Sheets and pillowcases in good condition (no stains / rips / fraying)',
@@ -1450,7 +1588,7 @@ function getSections(type, prop) {
       'Patio umbrella present and in good shape',
       'BBQ in good condition (no rust, all burners work)',
       'BBQ auto ignitor working',
-      'Two full propane tanks present',
+      'Two full propane tanks present, gas confirmed working',
       'BBQ cover in good shape',
       'BBQ tools in good shape (brush, spatula, fork)',
       'Garage clean and organized',
@@ -1540,7 +1678,7 @@ function getSections(type, prop) {
       'All lamps, light fixtures, outlets tested',
       'All light bulbs working (burned out ones replaced)',
       'Picture frames straight',
-      'Guest Book Tablet reviewed — property guide accurate',
+      'Guest Book QR Code reviewed — property guide accurate',
       'WiFi info in guest book matches router',
       'Matches or fire starters present',
       'Photo book present for cleaners'
@@ -1571,33 +1709,9 @@ function getSections(type, prop) {
       'Potholders — at least 2 glove + 2 flat, good condition',
       'Dishwasher drain cleaned',
       'All drains cleaned (bathtubs, sinks, etc.)'
-    ]},
-    {title:'Bedrooms', items:[
-      'Bedding in good condition (update needed?)',
-      'Furniture in good condition',
-      'Linens look upscale and inviting',
-      'Mattress comfortable (lay on it!)',
-      'Two side tables, two lamps, and dresser in each room',
-      'Under each bed clean',
-      'Luggage racks present (if applicable)',
-      '2nd set of sheets stored in closet or linen closet',
-      'Pillows: 2 per sleeper on bed + 1 per sleeper in closet (with pillow case)',
-      'Pillow condition good (no yellowing, odors, damage)',
-      'Dresser drawers tight, handles secure, no trash inside'
-    ]},
-    {title:'Bathrooms', items:[
-      'All drains flowing freely (sink, tub, shower)',
-      'Drain clean-out scheduled if needed',
-      'No mold — grout clean in showers and sinks',
-      'Caulking in good condition',
-      'Towels in good condition (soft, no stains / rips / fraying)',
-      'Bath mats and rugs in good shape',
-      'No hard water stains on shower doors',
-      'Shower / bath faucets functioning (no leaks, easy to use)',
-      'Jetted tubs tested — jets working, no dirty buildup',
-      'Shower curtains / liners in good condition',
-      'Glass, stone, or metal soap dispensers at each sink'
-    ]},
+    ], kitchenExtra:true},
+    {title:'Bedrooms', items: FALL_BEDROOM_ITEMS, dynamic:'bedroom'},
+    {title:'Bathrooms', items: FALL_BATHROOM_ITEMS, dynamic:'bathroom'},
     {title:'Linens', items:[
       'Linen closet location noted — labeled and organized',
       'All linens in good condition (no stains / rips / fraying)',
@@ -1608,7 +1722,7 @@ function getSections(type, prop) {
       'Patio furniture cushions stored and in good shape',
       'BBQ in good condition (no rust, all burners work)',
       'BBQ auto ignitor working',
-      'Two full propane tanks present',
+      'Two full propane tanks present, gas confirmed working',
       'BBQ cover in good shape',
       'BBQ grease pan clean',
       'Patio dining table capacity noted in Track',
@@ -1622,10 +1736,15 @@ function getSections(type, prop) {
       'Guest bikes, SUPs, watercraft documented (if applicable)'
     ]},
     {title:'House Inventory', items:[
-      'Fans: 1 per bedroom present in closet',
+      // NOTE: "Fans: 1 per bedroom present in closet" and "Blow dryers: 1 per
+      // full bathroom" used to live here. Per the 2026-09-24 update they were
+      // moved into the Bedrooms/Bathrooms per-room checklists respectively
+      // (see FALL_BEDROOM_ITEMS / FALL_BATHROOM_ITEMS below) — fans belong
+      // with each bedroom, and blow dryers with each bathroom, especially now
+      // that Bedrooms/Bathrooms can be added per-room. Item #109 in the old
+      // fixed numbering was specifically "Blow dryers: 1 per full bathroom".
       'CO Detectors: 1 per floor / zone (manufacture date noted)',
       'Power Outage Kit present (location noted)',
-      'Blow dryers: 1 per full bathroom',
       'Pool cue tips intact',
       'Pool chalk color matches felt',
       'Foosball men intact, 3+ soccer balls present',
@@ -2495,12 +2614,16 @@ var LEGACY_CHECKOUT_SUMMER_SECTIONS = [
 ];
 
 var state = {};
-function newState() { return {formType:null, selectedProp:null, info:{}, items:{}, draftId:Date.now(), overallStatus:null, _sections:null, maintenanceNotes:'', managerNotes:'', invNotes:'', startTime:null, endTime:null, photos:{}, isVoided:false}; }
+function newState() { return {formType:null, selectedProp:null, info:{}, items:{}, draftId:Date.now(), overallStatus:null, _sections:null, maintenanceNotes:'', maintenanceNotesPhotos:[], opsMaintenanceNotes:'', managerNotes:'', invNotes:'', startTime:null, endTime:null, photos:{}, isVoided:false, bedroomInstances:[], bathroomInstances:[], kitchenExtraItems:[]}; }
 state = newState();
 
 // ── Make.com HTTP endpoint — paste your scenario's webhook URL here after setup ──
 var HTTP_ENDPOINT = 'https://hook.us2.make.com/e84hk918jv76ces27d5eqrmqkq2875gu';
 var INSPECTION_EMAIL = 'inspections@tluxp.com';
+// "Maintenance Items for Operations" box (every inspection type) sends here — deliberately
+// a separate address/mechanism from INSPECTION_EMAIL and from the per-item Issue/property_issues
+// workflow above. See sendOpsMaintenanceEmailIfNeeded() below.
+var OPERATIONS_EMAIL = 'operations@tluxp.com';
 // Supply Inventory shopping-list notifications go here (cc'd alongside the property's own
 // contact email, same convention as INSPECTION_EMAIL above). Configurable in ONE place —
 // change this single constant to redirect where shopping-list emails land; nothing else in
@@ -2875,6 +2998,308 @@ function makePhotoBtn(key) {
   wrap.appendChild(uploadBtn);
   return wrap;
 }
+// Builds one standard OK/Issue/N-A item row (status buttons + notes + photos)
+// and appends it to `container`. Shared by normal fixed-section items AND by
+// dynamic per-room (Bedroom/Bathroom instance) items and Kitchen "extra" ad
+// hoc items — `key` is whatever unique state.items[] key applies (positional
+// "si_ii" for a normal section, "bedI<idx>_<ii>"/"bathI<idx>_<ii>" for a room
+// instance, "kitx<idx>" for a Kitchen extra item). `si` is only used to look
+// up state._sections[si].isSupply inside setStatus() — passing a Bedrooms/
+// Bathrooms/Kitchen section index is harmless since those are never isSupply.
+
+// "Maintenance Notes" — the plain, non-emailing maintenance box. As of the
+// 2026-09-24 update this renders in its own persistent container at the TOP
+// of the checklist screen (#maintNotesTopWrap, above the "Hide completed
+// items" bar), instead of being buried at the bottom after every section, so
+// inspectors can jot things down as they go rather than only at the very end.
+// It also now supports photos (state.maintenanceNotesPhotos, an array of
+// local dataURLs mirroring the per-item state.items[key].photos pattern),
+// uploaded alongside every other photo (see collectAllPhotos()) and saved to
+// the inspection record as maintenanceNotesPhotoUrls — visible in the
+// Dashboard record. Deliberately a SEPARATE box from "Maintenance Items for
+// Operations" (still rendered further down, inside buildChecklist()) —
+// entering text here never emails anyone; see OPERATIONS_EMAIL /
+// sendOpsMaintenanceEmailIfNeeded for the box that does.
+var MAINT_NOTES_TOP_FORMS = ['spring','fall','checkin_summer','checkin_winter','checkout_summer','checkout_winter','b2b_summer','b2b_winter','qc_check'];
+function renderMaintNotesTop() {
+  var wrap = document.getElementById('maintNotesTopWrap');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  if (MAINT_NOTES_TOP_FORMS.indexOf(state.formType) === -1) return;
+  var block = document.createElement('div');
+  block.className = 'section-block';
+  block.style.cssText = 'margin:10px 12px 0';
+  var head = document.createElement('div');
+  head.className = 'section-head';
+  head.innerHTML = '<span>&#128295; Maintenance Notes</span><span class="section-badge" style="background:rgba(255,255,255,0.2)">Optional</span>';
+  block.appendChild(head);
+  var inner = document.createElement('div');
+  inner.style.cssText = 'padding:10px 14px 14px';
+  var area = document.createElement('textarea');
+  area.id = 'maintenanceNotesInput';
+  area.className = 'note-input';
+  area.style.cssText = 'width:100%;min-height:80px;font-size:14px;';
+  area.placeholder = 'Enter any maintenance issues, follow-up items, or repairs needed...';
+  area.value = state.maintenanceNotes || '';
+  area.oninput = function() { state.maintenanceNotes = area.value; saveDraftSilent(); };
+  inner.appendChild(area);
+  var photoRow = document.createElement('div');
+  photoRow.className = 'photo-row';
+  photoRow.id = 'maintNotesPhotoRow';
+  var addBtn = document.createElement('div');
+  addBtn.className = 'photo-add';
+  addBtn.innerHTML = '<span class="photo-add-ic">📷</span><span class="photo-add-lbl">Take Photo</span>';
+  addBtn.title = 'Take Photo';
+  addBtn.onclick = function(){ document.getElementById('maintNotesPhotoTake').click(); };
+  var fileInput = document.createElement('input');
+  fileInput.type = 'file'; fileInput.accept = 'image/*'; fileInput.capture = 'environment';
+  fileInput.className = 'photo-file'; fileInput.id = 'maintNotesPhotoTake';
+  fileInput.onchange = function(e){ handleMaintNotesPhoto(e); };
+  var uploadBtn = document.createElement('div');
+  uploadBtn.className = 'photo-upload';
+  uploadBtn.innerHTML = '<span class="photo-add-ic">🖼️</span><span class="photo-add-lbl">Upload Photo</span>';
+  uploadBtn.title = 'Upload Photo';
+  uploadBtn.onclick = function(){ document.getElementById('maintNotesPhotoUpload').click(); };
+  var uploadInput = document.createElement('input');
+  uploadInput.type = 'file'; uploadInput.accept = 'image/*';
+  uploadInput.className = 'photo-file'; uploadInput.id = 'maintNotesPhotoUpload';
+  uploadInput.onchange = function(e){ handleMaintNotesPhoto(e); };
+  photoRow.appendChild(addBtn); photoRow.appendChild(fileInput);
+  photoRow.appendChild(uploadBtn); photoRow.appendChild(uploadInput);
+  (state.maintenanceNotesPhotos||[]).forEach(function(src,pi){ addPhotoThumb(photoRow, src, 'maintNotesPhoto', pi); });
+  inner.appendChild(photoRow);
+  block.appendChild(inner);
+  wrap.appendChild(block);
+}
+
+function handleMaintNotesPhoto(e) {
+  var file = e.target.files[0]; if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    if (!state.maintenanceNotesPhotos) state.maintenanceNotesPhotos = [];
+    var src = ev.target.result;
+    state.maintenanceNotesPhotos.push(src);
+    var pr = document.getElementById('maintNotesPhotoRow');
+    if (pr) addPhotoThumb(pr, src, 'maintNotesPhoto', state.maintenanceNotesPhotos.length-1);
+    saveDraftSilent(); showToast('Photo added');
+  };
+  reader.readAsDataURL(file);
+}
+
+function buildStandardItemRow(container, key, displayText, si) {
+  var saved = state.items[key] || {};
+  var row = document.createElement('div');
+  row.className = 'item-row' + (saved.status ? ' ' + saved.status + '-row' : '');
+  row.id = 'row-' + key;
+  var main = document.createElement('div');
+  main.className = 'item-main';
+  var text = document.createElement('div');
+  text.className = 'item-text';
+  text.textContent = displayText;
+  var btns = document.createElement('div');
+  btns.className = 'item-btns';
+  ['ok','issue','na'].forEach(function(s) {
+    var btn = document.createElement('button');
+    btn.className = 'status-btn' + (saved.status === s ? ' ' + s : '');
+    btn.textContent = s === 'ok' ? 'OK' : s === 'issue' ? '!' : 'N/A';
+    btn.dataset.status = s;
+    btn.onclick = (function(k,ss,ssi){return function(e){e.stopPropagation();setStatus(k,ss,ssi);};})(key,s,si);
+    btns.appendChild(btn);
+  });
+  var expandBtn = document.createElement('button');
+  expandBtn.className = 'item-expand' + ((saved.notes||(saved.photos&&saved.photos.length))?' has-notes':'');
+  expandBtn.textContent = '...';
+  expandBtn.id = 'expand-' + key;
+  expandBtn.onclick = (function(k){return function(){toggleExtras(k);};})(key);
+  main.appendChild(text); main.appendChild(btns); main.appendChild(expandBtn);
+  row.appendChild(main);
+  var extras = document.createElement('div');
+  extras.className = 'item-extras';
+  extras.id = 'extras-' + key;
+  var noteInput = document.createElement('textarea');
+  noteInput.className = 'note-input';
+  noteInput.placeholder = 'Add notes here...';
+  noteInput.value = saved.notes || '';
+  noteInput.onchange = (function(k,ni){return function(){updateItem(k,'notes',ni.value);};})(key,noteInput);
+  extras.appendChild(noteInput);
+  var photoRow = document.createElement('div');
+  photoRow.className = 'photo-row';
+  photoRow.id = 'photos-' + key;
+  var addBtn = document.createElement('div');
+  addBtn.className = 'photo-add';
+  addBtn.innerHTML = '<span class="photo-add-ic">📷</span><span class="photo-add-lbl">Take Photo</span>';
+  addBtn.title = 'Take Photo';
+  addBtn.onclick = (function(k){return function(){document.getElementById('photo-file-'+k).click();};})(key);
+  var fileInput = document.createElement('input');
+  fileInput.type = 'file'; fileInput.accept = 'image/*'; fileInput.capture = 'environment';
+  fileInput.className = 'photo-file'; fileInput.id = 'photo-file-' + key;
+  fileInput.onchange = (function(k){return function(e){handlePhoto(e,k);};})(key);
+  var uploadBtn = document.createElement('div');
+  uploadBtn.className = 'photo-upload';
+  uploadBtn.innerHTML = '<span class="photo-add-ic">🖼️</span><span class="photo-add-lbl">Upload Photo</span>';
+  uploadBtn.title = 'Upload Photo';
+  uploadBtn.onclick = (function(k){return function(){document.getElementById('photo-upload-'+k).click();};})(key);
+  var uploadInput = document.createElement('input');
+  uploadInput.type = 'file'; uploadInput.accept = 'image/*';
+  uploadInput.className = 'photo-file'; uploadInput.id = 'photo-upload-' + key;
+  uploadInput.onchange = (function(k){return function(e){handlePhoto(e,k);};})(key);
+  photoRow.appendChild(addBtn); photoRow.appendChild(fileInput);
+  photoRow.appendChild(uploadBtn); photoRow.appendChild(uploadInput);
+  if (saved.photos) saved.photos.forEach(function(src,pi){addPhotoThumb(photoRow,src,key,pi);});
+  extras.appendChild(photoRow);
+  row.appendChild(extras);
+  container.appendChild(row);
+  return row;
+}
+
+// Bedroom/Bathroom instance answers are keyed "<prefix><idx>_<ii>" — positional
+// on the instance's index within state.bedroomInstances/bathroomInstances, NOT
+// a stable per-instance id. Removing any instance except the last one with a
+// plain array.splice() would therefore silently reassign every later
+// instance's answers to the wrong room (instance 2's answers would appear
+// under instance 1's now-shifted slot, since state.items itself never moves).
+// This shifts every state.items["<prefix><idx>_<ii>"] for idx>removedIdx down
+// by one idx, then deletes the now-orphaned top slot, keeping each remaining
+// instance's answers attached to the same room after the array shifts.
+function reindexInstanceItemsAfterRemoval(prefix, removedIdx, instanceCountBeforeRemoval, itemCount) {
+  for (var idx = removedIdx + 1; idx < instanceCountBeforeRemoval; idx++) {
+    for (var ii = 0; ii < itemCount; ii++) {
+      var fromKey = prefix + idx + '_' + ii;
+      var toKey = prefix + (idx-1) + '_' + ii;
+      if (state.items[fromKey] !== undefined) { state.items[toKey] = state.items[fromKey]; }
+      else { delete state.items[toKey]; }
+    }
+  }
+  var lastIdx = instanceCountBeforeRemoval - 1;
+  for (var jj = 0; jj < itemCount; jj++) { delete state.items[prefix + lastIdx + '_' + jj]; }
+}
+
+// Same reindexing as above, but for keys with no "_<ii>" suffix at all — used
+// for kitchen extra items, which are single flat rows keyed just "kitx<idx>".
+function reindexFlatItemsAfterRemoval(prefix, removedIdx, instanceCountBeforeRemoval) {
+  for (var idx = removedIdx + 1; idx < instanceCountBeforeRemoval; idx++) {
+    var fromKey = prefix + idx;
+    var toKey = prefix + (idx-1);
+    if (state.items[fromKey] !== undefined) { state.items[toKey] = state.items[fromKey]; }
+    else { delete state.items[toKey]; }
+  }
+  delete state.items[prefix + (instanceCountBeforeRemoval - 1)];
+}
+
+// Renders every Bedroom or Bathroom instance for a {dynamic:'bedroom'|
+// 'bathroom'} section, plus the "+ Bedroom"/"+ Bathroom" button. Each
+// instance gets its own editable name field and its own full copy of
+// section.items (the SPRING_/FALL_ BEDROOM/BATHROOM_ITEMS template) — see the
+// big comment above those template arrays for why instance answers use their
+// own "bedI<idx>_<ii>"/"bathI<idx>_<ii>" keys instead of a positional
+// section-index key.
+function renderRoomInstances(block, section, si) {
+  var kind = section.dynamic; // 'bedroom' or 'bathroom'
+  var stateKey = kind + 'Instances';
+  var prefix = kind === 'bedroom' ? 'bedI' : 'bathI';
+  var label = kind === 'bedroom' ? 'Bedroom' : 'Bathroom';
+  if (!state[stateKey] || !state[stateKey].length) state[stateKey] = [{name:''}];
+  state[stateKey].forEach(function(inst, idx) {
+    var instWrap = document.createElement('div');
+    instWrap.className = 'room-instance';
+    instWrap.style.cssText = 'border-top:2px solid var(--mid-gray);padding-top:10px;margin-top:6px';
+    var nameRow = document.createElement('div');
+    nameRow.style.cssText = 'display:flex;align-items:center;gap:8px;padding:0 14px 8px';
+    var nameInp = document.createElement('input');
+    nameInp.type = 'text';
+    nameInp.className = 'note-input';
+    nameInp.style.cssText = 'flex:1;font-weight:700;font-size:14px;padding:8px 10px';
+    nameInp.placeholder = label + ' ' + (idx+1) + ' name (e.g. "' + (kind==='bedroom'?'Primary Bedroom':'Primary Bathroom') + '")';
+    nameInp.value = inst.name || '';
+    nameInp.oninput = (function(i){return function(){ state[stateKey][i].name = nameInp.value; saveDraftSilent(); };})(idx);
+    nameRow.appendChild(nameInp);
+    if (state[stateKey].length > 1) {
+      var rmBtn = document.createElement('button');
+      rmBtn.type = 'button';
+      rmBtn.textContent = '✕ Remove';
+      rmBtn.style.cssText = 'background:var(--red);color:white;border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap';
+      rmBtn.onclick = (function(i){return function(){
+        if (!confirm('Remove this ' + label.toLowerCase() + '? Any answers entered for it will be lost.')) return;
+        var countBefore = state[stateKey].length;
+        state[stateKey].splice(i,1);
+        reindexInstanceItemsAfterRemoval(prefix, i, countBefore, section.items.length);
+        saveDraftSilent(); buildChecklist(); updateProgress();
+      };})(idx);
+      nameRow.appendChild(rmBtn);
+    }
+    instWrap.appendChild(nameRow);
+    section.items.forEach(function(itemText, ii) {
+      var key = prefix + idx + '_' + ii;
+      buildStandardItemRow(instWrap, key, (ii+1) + '. ' + itemText, si);
+    });
+    block.appendChild(instWrap);
+  });
+  var addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.textContent = '+ ' + label;
+  addBtn.style.cssText = 'margin:12px 14px;background:var(--blue);color:white;border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;display:block;width:calc(100% - 28px)';
+  addBtn.onclick = function() {
+    state[stateKey].push({name:''});
+    saveDraftSilent(); buildChecklist(); updateProgress();
+  };
+  block.appendChild(addBtn);
+}
+
+// Renders any inspector-added "+ Kitchen Item" ad hoc line items (miscellaneous
+// items with no fixed template text — the inspector types a short description)
+// plus the "+ Kitchen Item" button itself. Each one still gets the normal OK/
+// Issue/N-A/notes/photos row via buildStandardItemRow, keyed "kitx<idx>".
+function renderKitchenExtraItems(block, si) {
+  if (!state.kitchenExtraItems) state.kitchenExtraItems = [];
+  if (state.kitchenExtraItems.length) {
+    var extraWrap = document.createElement('div');
+    extraWrap.style.cssText = 'border-top:2px solid var(--mid-gray);padding-top:10px;margin-top:6px';
+    state.kitchenExtraItems.forEach(function(item, idx) {
+      var key = 'kitx' + idx;
+      var nameRow = document.createElement('div');
+      nameRow.style.cssText = 'display:flex;align-items:center;gap:8px;padding:0 14px 6px';
+      var nameInp = document.createElement('input');
+      nameInp.type = 'text';
+      nameInp.className = 'note-input';
+      nameInp.style.cssText = 'flex:1;font-weight:600;font-size:13.5px;padding:8px 10px';
+      nameInp.placeholder = 'Describe this item...';
+      nameInp.value = item.name || '';
+      nameInp.oninput = (function(i,k){return function(){
+        state.kitchenExtraItems[i].name = nameInp.value;
+        var lbl = document.querySelector('#row-'+k+' .item-text');
+        if (lbl) lbl.textContent = nameInp.value.trim() ? nameInp.value : '(unnamed item — enter a description above)';
+        saveDraftSilent();
+      };})(idx, key);
+      nameRow.appendChild(nameInp);
+      var rmBtn = document.createElement('button');
+      rmBtn.type = 'button';
+      rmBtn.textContent = '✕';
+      rmBtn.title = 'Remove this item';
+      rmBtn.style.cssText = 'background:var(--red);color:white;border:none;border-radius:8px;padding:8px 10px;font-size:13px;font-weight:700;cursor:pointer';
+      rmBtn.onclick = (function(i){return function(){
+        if (!confirm('Remove this kitchen item?')) return;
+        var countBefore = state.kitchenExtraItems.length;
+        state.kitchenExtraItems.splice(i,1);
+        reindexFlatItemsAfterRemoval('kitx', i, countBefore);
+        saveDraftSilent(); buildChecklist(); updateProgress();
+      };})(idx);
+      nameRow.appendChild(rmBtn);
+      extraWrap.appendChild(nameRow);
+      buildStandardItemRow(extraWrap, key, item.name && item.name.trim() ? item.name : '(unnamed item — enter a description above)', si);
+    });
+    block.appendChild(extraWrap);
+  }
+  var addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.textContent = '+ Kitchen Item';
+  addBtn.style.cssText = 'margin:12px 14px;background:var(--blue);color:white;border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;display:block;width:calc(100% - 28px)';
+  addBtn.onclick = function() {
+    state.kitchenExtraItems.push({name:''});
+    saveDraftSilent(); buildChecklist(); updateProgress();
+  };
+  block.appendChild(addBtn);
+}
+
 function buildChecklist() {
   var wrap = document.getElementById('checklistWrap');
   wrap.innerHTML = '';
@@ -2900,13 +3325,29 @@ function buildChecklist() {
     sections = getSections(state.formType, state.selectedProp);
   }
   state._sections = sections;
+  // Seed exactly one default Bedroom/Bathroom instance the first time this
+  // inspection is built, for any template that has a dynamic room section.
+  // Reopening a draft that already has instances (with names/answers) never
+  // resets this — only a genuinely brand-new inspection gets seeded.
+  sections.forEach(function(sec) {
+    if ((sec.dynamic === 'bedroom' || sec.dynamic === 'bathroom')) {
+      var sk = sec.dynamic + 'Instances';
+      if (!state[sk] || !state[sk].length) state[sk] = [{name:''}];
+    }
+  });
+  renderMaintNotesTop();
   var _itemNum = 0;
   sections.forEach(function(section, si) {
     var block = document.createElement('div');
     block.className = 'section-block';
     var head = document.createElement('div');
     head.className = 'section-head';
-    head.innerHTML = '<span>' + esc(section.title) + '</span><span class="section-badge" id="sec-badge-' + si + '">' + section.items.length + '</span>';
+    var initialBadge = section.items.length;
+    if (section.dynamic === 'bedroom' || section.dynamic === 'bathroom') {
+      var _insts0 = state[section.dynamic+'Instances'] || [{name:''}];
+      initialBadge = section.items.length * _insts0.length;
+    }
+    head.innerHTML = '<span>' + esc(section.title) + '</span><span class="section-badge" id="sec-badge-' + si + '">' + initialBadge + '</span>';
     head.title = 'Tap to show/hide completed items in this section';
     head.onclick = (function(blk){ return function(){ blk.classList.toggle('force-show'); }; })(block);
     block.appendChild(head);
@@ -2925,6 +3366,11 @@ function buildChecklist() {
       selAllLbl.textContent = 'Select All Supplies';
       selAllWrap.appendChild(selAllLbl);
       block.appendChild(selAllWrap);
+    }
+    if (section.dynamic === 'bedroom' || section.dynamic === 'bathroom') {
+      renderRoomInstances(block, section, si);
+      wrap.appendChild(block);
+      return;
     }
     section.items.forEach(function(itemText, ii) {
       var key = si + '_' + ii;
@@ -2996,71 +3442,13 @@ function buildChecklist() {
         block.appendChild(row);
         return;
       }
-      var row = document.createElement('div');
-      row.className = 'item-row' + (saved.status ? ' ' + saved.status + '-row' : '');
-      row.id = 'row-' + key;
-      var main = document.createElement('div');
-      main.className = 'item-main';
-      var text = document.createElement('div');
-      text.className = 'item-text';
-      text.textContent = numberedText;
-      var btns = document.createElement('div');
-      btns.className = 'item-btns';
-      ['ok','issue','na'].forEach(function(s) {
-        var btn = document.createElement('button');
-        btn.className = 'status-btn' + (saved.status === s ? ' ' + s : '');
-        btn.textContent = s === 'ok' ? 'OK' : s === 'issue' ? '!' : 'N/A';
-        btn.dataset.status = s;
-        btn.onclick = (function(k,ss,ssi){return function(e){e.stopPropagation();setStatus(k,ss,ssi);};})(key,s,si);
-        btns.appendChild(btn);
-      });
-      var expandBtn = document.createElement('button');
-      expandBtn.className = 'item-expand' + ((saved.notes||(saved.photos&&saved.photos.length))?' has-notes':'');
-      expandBtn.textContent = '...';
-      expandBtn.id = 'expand-' + key;
-      expandBtn.onclick = (function(k){return function(){toggleExtras(k);};})(key);
-      main.appendChild(text); main.appendChild(btns); main.appendChild(expandBtn);
-      row.appendChild(main);
-      var extras = document.createElement('div');
-      extras.className = 'item-extras';
-      extras.id = 'extras-' + key;
-      var noteInput = document.createElement('textarea');
-      noteInput.className = 'note-input';
-      noteInput.placeholder = 'Add notes here...';
-      noteInput.value = saved.notes || '';
-      noteInput.onchange = (function(k,ni){return function(){updateItem(k,'notes',ni.value);};})(key,noteInput);
-      extras.appendChild(noteInput);
-      var photoRow = document.createElement('div');
-      photoRow.className = 'photo-row';
-      photoRow.id = 'photos-' + key;
-      var addBtn = document.createElement('div');
-      addBtn.className = 'photo-add';
-      addBtn.innerHTML = '<span class="photo-add-ic">📷</span><span class="photo-add-lbl">Take Photo</span>';
-      addBtn.title = 'Take Photo';
-      addBtn.onclick = (function(k){return function(){document.getElementById('photo-file-'+k).click();};})(key);
-      var fileInput = document.createElement('input');
-      fileInput.type = 'file'; fileInput.accept = 'image/*'; fileInput.capture = 'environment';
-      fileInput.className = 'photo-file'; fileInput.id = 'photo-file-' + key;
-      fileInput.onchange = (function(k){return function(e){handlePhoto(e,k);};})(key);
-      var uploadBtn = document.createElement('div');
-      uploadBtn.className = 'photo-upload';
-      uploadBtn.innerHTML = '<span class="photo-add-ic">🖼️</span><span class="photo-add-lbl">Upload Photo</span>';
-      uploadBtn.title = 'Upload Photo';
-      uploadBtn.onclick = (function(k){return function(){document.getElementById('photo-upload-'+k).click();};})(key);
-      var uploadInput = document.createElement('input');
-      uploadInput.type = 'file'; uploadInput.accept = 'image/*';
-      uploadInput.className = 'photo-file'; uploadInput.id = 'photo-upload-' + key;
-      uploadInput.onchange = (function(k){return function(e){handlePhoto(e,k);};})(key);
-      photoRow.appendChild(addBtn); photoRow.appendChild(fileInput);
-      photoRow.appendChild(uploadBtn); photoRow.appendChild(uploadInput);
-      if (saved.photos) saved.photos.forEach(function(src,pi){addPhotoThumb(photoRow,src,key,pi);});
-      extras.appendChild(photoRow);
-      row.appendChild(extras);
-      block.appendChild(row);
+      buildStandardItemRow(block, key, numberedText, si);
     });
+    if (section.kitchenExtra) {
+      renderKitchenExtraItems(block, si);
+    }
     wrap.appendChild(block);
   });
-  // Maintenance Notes – shown for check-in and check-out forms
   // Additional Notes – Kitchen and Linen inventory
   if (state.formType === 'kitchen_inv' || state.formType === 'linen_inv') {
     var invNBlock = document.createElement('div');
@@ -3101,25 +3489,40 @@ function buildChecklist() {
     mnqBlock.appendChild(mnqWrap);
     wrap.appendChild(mnqBlock);
   }
-  var _maintForms = ['spring','fall','checkin_summer','checkin_winter','checkout_summer','checkout_winter','b2b_summer','b2b_winter'];
-  if (_maintForms.indexOf(state.formType) !== -1) {
-    var mnBlock = document.createElement('div');
-    mnBlock.className = 'section-block';
-    var mnHead = document.createElement('div');
-    mnHead.className = 'section-head';
-    mnHead.innerHTML = '<span>&#128295; Maintenance Notes</span><span class="section-badge" style="background:rgba(255,255,255,0.2)">Optional</span>';
-    mnBlock.appendChild(mnHead);
-    var mnWrap = document.createElement('div');
-    mnWrap.style.cssText = 'padding:10px 14px 14px';
-    var mnArea = document.createElement('textarea');
-    mnArea.className = 'note-input';
-    mnArea.style.cssText = 'width:100%;min-height:90px;font-size:14px;';
-    mnArea.placeholder = 'Enter any maintenance issues, follow-up items, or repairs needed...';
-    mnArea.value = state.maintenanceNotes || '';
-    mnArea.oninput = function() { state.maintenanceNotes = mnArea.value; saveDraftSilent(); };
-    mnWrap.appendChild(mnArea);
-    mnBlock.appendChild(mnWrap);
-    wrap.appendChild(mnBlock);
+  // "Maintenance Items for Operations" — deliberately a SEPARATE box from the
+  // plain "Maintenance Notes" box now shown at the top of the screen (see
+  // renderMaintNotesTop() / #maintNotesTopWrap) and from the per-item Issue/
+  // property_issues workflow: this one exists purely to trigger a dedicated
+  // email to Operations (OPERATIONS_EMAIL) on final submit (never on draft
+  // save — see saveDraftSilent, which never touches email). Shown on every
+  // inspection type requested: Check-In, Check-Out, Back-to-Back, QC Check,
+  // Spring, and Fall. Spot Check gets its own copy of this same box directly
+  // in its screen markup (see screenSpotCheck).
+  var _opsForms = ['spring','fall','checkin_summer','checkin_winter','checkout_summer','checkout_winter','b2b_summer','b2b_winter','qc_check'];
+  if (_opsForms.indexOf(state.formType) !== -1) {
+    var opsBlock = document.createElement('div');
+    opsBlock.className = 'section-block';
+    var opsHead = document.createElement('div');
+    opsHead.className = 'section-head';
+    opsHead.style.cssText = 'background:#8a4b00';
+    opsHead.innerHTML = '<span>&#128295; Maintenance Items for Operations</span><span class="section-badge" style="background:rgba(255,255,255,0.25)">Emails Operations</span>';
+    opsBlock.appendChild(opsHead);
+    var opsWrap = document.createElement('div');
+    opsWrap.style.cssText = 'padding:10px 14px 14px';
+    var opsHint = document.createElement('div');
+    opsHint.style.cssText = 'font-size:11.5px;color:var(--dark-gray);margin-bottom:8px';
+    opsHint.textContent = 'Anything entered here is emailed directly to Operations (' + OPERATIONS_EMAIL + ') when you submit this inspection. Leave blank if there is nothing for Operations.';
+    opsWrap.appendChild(opsHint);
+    var opsArea = document.createElement('textarea');
+    opsArea.id = 'opsMaintenanceNotesInput';
+    opsArea.className = 'note-input';
+    opsArea.style.cssText = 'width:100%;min-height:90px;font-size:14px;';
+    opsArea.placeholder = 'List any maintenance items Operations needs to know about (repairs, replacements, follow-ups)...';
+    opsArea.value = state.opsMaintenanceNotes || '';
+    opsArea.oninput = function() { state.opsMaintenanceNotes = opsArea.value; saveDraftSilent(); };
+    opsWrap.appendChild(opsArea);
+    opsBlock.appendChild(opsWrap);
+    wrap.appendChild(opsBlock);
   }
 
 }
@@ -3211,10 +3614,49 @@ function addPhotoThumb(container, src, key, idx) {
   container.insertBefore(img, container.querySelector('.photo-add'));
 }
 
+// Flattens EVERY answerable item in this inspection into one list — normal
+// fixed-section items, every item in every Bedroom/Bathroom instance (labeled
+// with that room's name so issues/notes are traceable to the right room), and
+// every Kitchen "extra" ad hoc item — so progress, the unanswered-item check,
+// the submitted stats/issue list, and the email body all count and describe
+// the exact same set of items with no risk of one of them missing a spot.
+// This is the single place that has to know about all three "shapes" of
+// answerable item; everything else just consumes the flat list it returns.
+function collectAllAnswerableItems() {
+  var sections = state._sections || getSections(state.formType, state.selectedProp);
+  var list = [];
+  (sections||[]).forEach(function(sec, si) {
+    if (sec.dynamic === 'bedroom' || sec.dynamic === 'bathroom') {
+      var kind = sec.dynamic;
+      var prefix = kind === 'bedroom' ? 'bedI' : 'bathI';
+      var instances = state[kind+'Instances'] || [];
+      instances.forEach(function(inst, idx) {
+        var roomLabel = (kind === 'bedroom' ? 'Bedroom' : 'Bathroom') + ' ' + (idx+1) + (inst.name && inst.name.trim() ? ' — ' + inst.name.trim() : '');
+        sec.items.forEach(function(itemText, ii) {
+          var key = prefix+idx+'_'+ii;
+          list.push({ key: key, section: roomLabel, text: itemText, item: state.items[key] || {} });
+        });
+      });
+      return;
+    }
+    sec.items.forEach(function(itemText, ii) {
+      var key = si + '_' + ii;
+      list.push({ key: key, section: sec.title, text: itemText, item: state.items[key] || {} });
+    });
+  });
+  (state.kitchenExtraItems || []).forEach(function(kitem, idx) {
+    var key = 'kitx' + idx;
+    var label = kitem.name && kitem.name.trim() ? kitem.name.trim() : '(unnamed kitchen item)';
+    list.push({ key: key, section: 'Kitchen — Additional Item', text: label, item: state.items[key] || {} });
+  });
+  return list;
+}
+
 function updateProgress() {
   var sections = state._sections; if (!sections) return;
-  var total=0, answered=0, issues=0;
-  sections.forEach(function(sec,si){sec.items.forEach(function(_,ii){total++;var item=state.items[si+'_'+ii];if(item&&item.status){answered++;if(item.status==='issue')issues++;}});});
+  var allItems = collectAllAnswerableItems();
+  var total=allItems.length, answered=0, issues=0;
+  allItems.forEach(function(x){ if (x.item && x.item.status) { answered++; if (x.item.status==='issue') issues++; } });
   var pct = total>0 ? Math.round((answered/total)*100) : 0;
   document.getElementById('progFill').style.width = pct+'%';
   document.getElementById('progText').textContent = answered+' / '+total;
@@ -3224,10 +3666,19 @@ function updateProgress() {
 
 function updateSectionBadge(si) {
   var badge = document.getElementById('sec-badge-'+si); if (!badge) return;
-  var sec = state._sections[si]; var done=0, issues=0;
-  sec.items.forEach(function(_,ii){var item=state.items[si+'_'+ii];if(item&&item.status)done++;if(item&&item.status==='issue')issues++;});
-  badge.textContent = issues>0 ? (issues+' !') : (done+'/'+sec.items.length);
-  badge.style.background = issues>0 ? 'rgba(204,0,0,0.7)' : done===sec.items.length ? 'rgba(26,122,63,0.7)' : 'rgba(255,255,255,0.2)';
+  var sec = state._sections[si]; var done=0, issues=0, totalCount=sec.items.length;
+  if (sec.dynamic === 'bedroom' || sec.dynamic === 'bathroom') {
+    var prefix = sec.dynamic === 'bedroom' ? 'bedI' : 'bathI';
+    var instances = state[sec.dynamic+'Instances'] || [];
+    totalCount = sec.items.length * instances.length;
+    instances.forEach(function(_inst, idx) {
+      sec.items.forEach(function(_,ii){var item=state.items[prefix+idx+'_'+ii];if(item&&item.status)done++;if(item&&item.status==='issue')issues++;});
+    });
+  } else {
+    sec.items.forEach(function(_,ii){var item=state.items[si+'_'+ii];if(item&&item.status)done++;if(item&&item.status==='issue')issues++;});
+  }
+  badge.textContent = issues>0 ? (issues+' !') : (done+'/'+totalCount);
+  badge.style.background = issues>0 ? 'rgba(204,0,0,0.7)' : done===totalCount ? 'rgba(26,122,63,0.7)' : 'rgba(255,255,255,0.2)';
 }
 
 function showSummary() {
@@ -3274,10 +3725,8 @@ function showSummary() {
     document.getElementById('bottomNav').style.display = 'none';
     return;
   }
-  var sections = state._sections || getSections(state.formType, state.selectedProp);
-  if (!sections || !sections.length) { showSummaryFinal(); return; }
   var unchecked = 0; var missedList = [];
-  sections.forEach(function(sec,si){sec.items.forEach(function(itemTxt,ii){var item=state.items[si+'_'+ii];if(!item||!item.status){unchecked++;missedList.push({section:sec.title,text:itemTxt});}});});
+  collectAllAnswerableItems().forEach(function(x){ if(!x.item||!x.item.status){unchecked++;missedList.push({section:x.section,text:x.text});} });
   if (unchecked > 0) {
     var mHtml = '<div class="modal-handle"></div><div class="modal-title">&#9888;&#65039; '+unchecked+' Item'+(unchecked>1?'s':'')+' Not Marked</div>';
     mHtml += '<p style="font-size:13px;color:var(--dark-gray);margin-bottom:12px">These items have no status. All items should be OK, Issue, or N/A before submitting.</p>';
@@ -3294,9 +3743,14 @@ function showSummary() {
 }
 function showSummaryFinal() {
   saveDraft();
-  var sections = state._sections || getSections(state.formType, state.selectedProp);
   var total=0, ok=0, issues=0, na=0, totalCharge=0, issueList=[];
-  sections.forEach(function(sec,si){sec.items.forEach(function(itemText,ii){total++;var item=state.items[si+'_'+ii]||{};if(item.status==='ok')ok++;else if(item.status==='issue'){issues++;issueList.push({section:sec.title,text:itemText,notes:item.notes||'',charge:item.charge||0});totalCharge+=item.charge||0;}else if(item.status==='na')na++;});});
+  collectAllAnswerableItems().forEach(function(x){
+    total++;
+    var item = x.item || {};
+    if (item.status==='ok') ok++;
+    else if (item.status==='issue') { issues++; issueList.push({section:x.section,text:x.text,notes:item.notes||'',charge:item.charge||0}); totalCharge+=item.charge||0; }
+    else if (item.status==='na') na++;
+  });
   var pct = total>0 ? Math.round(((ok+issues+na)/total)*100) : 0;
   var prop = state.selectedProp;
   var html = '<div class="summary-hero"><div class="summary-icon">'+(issues===0?'&#127942;':issues<5?'&#9888;&#65039;':'&#128680;')+'</div><div class="summary-title">'+(issues===0?'All Clear!':issues+' Issue'+(issues>1?'s':'')+' Found')+'</div><div class="summary-sub">'+esc(state.info.property)+' &bull; '+formatDate(state.info.date)+'</div></div>';
@@ -3318,7 +3772,16 @@ function showSummaryFinal() {
   if (prop) html += '<strong>Stats:</strong> '+prop.bedrooms+' bed / '+prop.bathrooms+' bath &bull; Max '+prop.occupancy+(prop.size?' &bull; '+esc(prop.size):'')+(prop.pets?' &bull; Pets OK':' &bull; No pets')+'<br>';
   html += '<strong>Completion:</strong> '+pct+'% ('+(ok+issues+na)+'/'+total+' items)</div>';
   if (state.managerNotes&&state.managerNotes.trim()) { html+='<div style="background:white;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);margin-bottom:12px"><strong style="color:#7B2D8B;font-size:13px">&#128221; Manager Notes</strong><p style="font-size:13px;color:var(--dark-gray);margin-top:6px;white-space:pre-wrap">'+esc(state.managerNotes)+'</p></div>'; }
-  if (state.maintenanceNotes&&state.maintenanceNotes.trim()) { html+='<div style="background:white;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);margin-bottom:12px"><strong style="color:var(--navy);font-size:13px">&#128295; Maintenance Notes</strong><p style="font-size:13px;color:var(--dark-gray);margin-top:6px;white-space:pre-wrap">'+esc(state.maintenanceNotes)+'</p></div>'; }
+  if (state.maintenanceNotes&&state.maintenanceNotes.trim()) {
+    html+='<div style="background:white;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);margin-bottom:12px"><strong style="color:var(--navy);font-size:13px">&#128295; Maintenance Notes</strong><p style="font-size:13px;color:var(--dark-gray);margin-top:6px;white-space:pre-wrap">'+esc(state.maintenanceNotes)+'</p>';
+    if (state.maintenanceNotesPhotos && state.maintenanceNotesPhotos.length) {
+      html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">';
+      state.maintenanceNotesPhotos.forEach(function(src){ html += '<img src="'+esc(src)+'" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--mid-gray)">'; });
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  if (state.opsMaintenanceNotes&&state.opsMaintenanceNotes.trim()) { html+='<div style="background:#FFF3E0;border:1.5px solid #8a4b00;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);margin-bottom:12px"><strong style="color:#8a4b00;font-size:13px">&#128295; Maintenance Items for Operations &mdash; will be emailed to '+esc(OPERATIONS_EMAIL)+'</strong><p style="font-size:13px;color:var(--dark-gray);margin-top:6px;white-space:pre-wrap">'+esc(state.opsMaintenanceNotes)+'</p></div>'; }
   html += '<div class="action-btns"><button class="btn-outline" onclick="showScreen(\'screenChecklist\');document.getElementById(\'bottomNav\').style.display=\'flex\'">Back to Checklist</button><button class="btn-green" onclick="submitReport()">Submit &amp; Send Email</button></div><div style="height:20px"></div>';
   document.getElementById('summaryWrap').innerHTML = html;
   if (state.overallStatus) selectStatus(state.overallStatus);
@@ -3410,10 +3873,25 @@ function emailReport(onSuccess) {
     }
     return;
   }
-  var sections=state._sections, info=state.info, prop=state.selectedProp;
+  var info=state.info, prop=state.selectedProp;
   var div='==================================================';
+  var allItems = collectAllAnswerableItems();
   var total=0, ok=0, issues=0, na=0, totalCharge=0;
-  sections.forEach(function(sec,si){sec.items.forEach(function(_,ii){total++;var item=state.items[si+'_'+ii]||{};if(item.status==='ok')ok++;else if(item.status==='issue'){issues++;totalCharge+=item.charge||0;}else if(item.status==='na')na++;});});
+  var issuesBySection={}, issueSectionOrder=[];
+  allItems.forEach(function(x){
+    total++;
+    var item=x.item||{};
+    if(item.status==='ok')ok++;
+    else if(item.status==='issue'){
+      issues++; totalCharge+=item.charge||0;
+      var line='  - '+x.text;
+      if (item.notes) line+='\n    Note: '+item.notes;
+      if (item.charge>0) line+='\n    Est. Charge: $'+item.charge.toFixed(2);
+      if (!issuesBySection[x.section]) { issuesBySection[x.section]=[]; issueSectionOrder.push(x.section); }
+      issuesBySection[x.section].push(line);
+    }
+    else if(item.status==='na')na++;
+  });
   var body='TAHOE LUXURY PROPERTIES - '+FORM_META[state.formType].name.toUpperCase()+'\n'+div+'\n';
   body+='Property: '+info.property+'\nAddress: '+(info.address||'')+'\nDate/Time: '+formatDate(info.date)+' at '+info.time+'\nInspector: '+info.inspector+'\n';
   if (prop&&prop.contact) body+='Operations Contact: '+prop.contact+'\n';
@@ -3427,18 +3905,8 @@ function emailReport(onSuccess) {
     body+='\nNo issues found. All checked items passed.\n';
   } else {
     body+='\nITEMS REQUIRING ATTENTION\n';
-    sections.forEach(function(sec,si){
-      var lines=[];
-      sec.items.forEach(function(itemText,ii){
-        var item=state.items[si+'_'+ii]||{};
-        if (item.status==='issue') {
-          var line='  - '+itemText;
-          if (item.notes) line+='\n    Note: '+item.notes;
-          if (item.charge>0) line+='\n    Est. Charge: $'+item.charge.toFixed(2);
-          lines.push(line);
-        }
-      });
-      if (lines.length>0) body+='\n'+sec.title.toUpperCase()+'\n'+lines.join('\n')+'\n';
+    issueSectionOrder.forEach(function(secTitle){
+      body+='\n'+secTitle.toUpperCase()+'\n'+issuesBySection[secTitle].join('\n')+'\n';
     });
     if ((state.formType==='checkout_summer'||state.formType==='checkout_winter')&&totalCharge>0) body+='\n'+div+'\nTOTAL ESTIMATED DAMAGE CHARGES: $'+totalCharge.toFixed(2)+'\n';
   }
@@ -3450,9 +3918,8 @@ function emailReport(onSuccess) {
   var ccPart=(prop&&prop.email&&prop.email!=='inspections@tluxp.com')?'&cc=inspections%40tluxp.com':'';
   var mailtoReg = 'mailto:'+encodeURIComponent(toEmail)+'?subject='+encodeURIComponent(subject)+ccPart+'&body='+encodeURIComponent(body);
   if (HTTP_ENDPOINT) {
-    var regStats = {ok:0,issues:0,na:0,charge:0};
+    var regStats = {ok:ok,issues:issues,na:na,charge:totalCharge};
     var _secs = state._sections||[];
-    _secs.forEach(function(sec,si){sec.items.forEach(function(_,ii){var it=state.items[si+'_'+ii]||{};if(it.status==='ok')regStats.ok++;else if(it.status==='issue'){regStats.issues++;regStats.charge+=it.charge||0;}else if(it.status==='na')regStats.na++;});});
     var ccEmail = (prop&&prop.email&&prop.email!==INSPECTION_EMAIL) ? INSPECTION_EMAIL : '';
     function _secText(keywords) {
       var lines=[];
@@ -3527,15 +3994,19 @@ function emailReport(onSuccess) {
 // when an issue is ADDED or REMOVED, never on every keystroke, so typing in one
 // block can never disturb — or lose — anything already entered in another block.
 var SPOT_CHECK_CATEGORIES = ['Plumbing','Electrical','HVAC / Heating & Cooling','Appliance','Structural / Exterior','Furniture / Interior','Pool / Hot Tub','Landscaping / Grounds','Safety Hazard','Pest / Wildlife','Other'];
-var spotCheck = { issues: [] };
+var spotCheck = { issues: [], opsMaintenanceNotes: '' };
 function newSpotCheckIssue() {
   return { category: '', description: '', location: '', priority: 'Medium', status: 'Open', notes: '', photos: [] };
 }
 function showSpotCheckForm() {
-  spotCheck = { issues: [ newSpotCheckIssue() ] };
+  spotCheck = { issues: [ newSpotCheckIssue() ], opsMaintenanceNotes: '' };
   var prop = state.selectedProp, info = state.info;
   document.getElementById('scSummaryProp').textContent = prop ? prop.name : '';
   document.getElementById('scSummaryMeta').textContent = formatDate(info.date) + (info.time ? ' at ' + info.time : '') + ' • ' + (info.inspector || '');
+  var scOpsArea = document.getElementById('scOpsMaintenanceNotes');
+  if (scOpsArea) scOpsArea.value = '';
+  var scOpsAddrEl = document.getElementById('scOpsEmailAddr');
+  if (scOpsAddrEl) scOpsAddrEl.textContent = OPERATIONS_EMAIL;
   renderSpotCheckIssues();
   // Assigned House Manager is auto-filled from the property's existing contact/email
   // and is not editable here (matches the property's contact used everywhere else in
@@ -3668,7 +4139,12 @@ function uploadAllSpotCheckPhotos(inspectionId) {
     return uploadSpotCheckIssuePhotos(inspectionId, idx, iss.photos || []);
   }));
 }
+var _lastSpotCheckSubmitAt = 0;
 function submitSpotCheck() {
+  // Debounce: ignore a second tap of Submit within 3s of the first — see the matching
+  // note on submitReport()'s _lastSubmitClickAt above.
+  if (Date.now() - _lastSpotCheckSubmitAt < 3000) return;
+  _lastSpotCheckSubmitAt = Date.now();
   if (!spotCheck.issues.length) { showToast('Please add at least one issue'); return; }
   for (var vi = 0; vi < spotCheck.issues.length; vi++) {
     var v = spotCheck.issues[vi];
@@ -3680,7 +4156,12 @@ function submitSpotCheck() {
   var prop = state.selectedProp, info = state.info;
   var mgrName = (prop && prop.contact) || '';
   var mgrEmail = (prop && prop.email) || '';
-  var inspectionId = 'spotcheck_' + Date.now();
+  // Stable across retries: state.draftId is fixed for the life of this in-progress
+  // submission (set once by startForm()/newState() when Spot Check was opened, and
+  // unchanged by a failed submitSpotCheck() attempt or a page refresh that resumes
+  // it) — unlike the old `Date.now()`-based id, which minted a brand-new inspection
+  // id on every single call, making duplicate-send detection impossible for retries.
+  var inspectionId = 'spotcheck_' + state.draftId;
   var totalPhotosQueued = spotCheck.issues.reduce(function(sum, iss){ return sum + (iss.photos ? iss.photos.length : 0); }, 0);
   showToast(totalPhotosQueued ? 'Uploading photo(s)...' : 'Submitting Spot Check...');
   uploadAllSpotCheckPhotos(inspectionId).then(function(perIssueUploads) {
@@ -3715,11 +4196,16 @@ function submitSpotCheck() {
       // keep a full resolution history without inventing a new mechanism.
       resolved: issuesOut.every(function(x){ return x.status === 'Resolved'; }),
       updates: [],
+      opsMaintenanceNotes: (spotCheck.opsMaintenanceNotes || '').trim(),
       submittedAt: new Date().toISOString()
     };
-    if (db) db.collection('inspections').doc(inspectionId).set(docData).catch(function(e){ console.warn('[SPOT-CHECK] Save error', e); });
+    // {merge:true}: see the matching note in saveInspectionToFirebase — protects
+    // opsEmailStatus/opsEmailSentAt/opsEmailError (never part of docData) from being
+    // wiped out if this same Spot Check is ever resubmitted under the same id.
+    if (db) db.collection('inspections').doc(inspectionId).set(docData, {merge:true}).catch(function(e){ console.warn('[SPOT-CHECK] Save error', e); });
     createSpotCheckPropertyIssues(inspectionId, docData);
     sendSpotCheckEmail(docData);
+    sendOpsMaintenanceEmailIfNeeded(inspectionId, docData);
     // BUGFIX (2026-09-18): the global beforeunload/visibilitychange/pagehide safety-net
     // listeners below (see startAutosave() section) call saveDraftSilent() any time
     // state.formType is truthy — including while sitting on the Spot Check screen, which
@@ -4207,7 +4693,87 @@ function createSupplyRequestFromInspection(sections, inspectionId, docData) {
   db.collection('supply_requests').doc('supplyreq_' + inspectionId).set(supplyDocData).catch(function(e) { console.warn('[SUPPLY-REQUEST] Check-Out create failed', e); });
 }
 
+// ── "Maintenance Items for Operations" — dedicated email, separate from the main
+// inspection report email (emailReport/sendViaHTTP, which still goes to the
+// property/inspections address as before) and from the per-item Issue/
+// property_issues workflow (entering text here never marks anything Resolved or
+// closes an inspection). Used by every checklist form via saveInspectionToFirebase
+// AND by Spot Check via submitSpotCheck — both pass the same shape of docData
+// ({formType, property, date, inspector, opsMaintenanceNotes, ...}).
+//
+// Runs strictly AFTER the inspection record itself has already been saved (called
+// from saveInspectionToFirebase/submitSpotCheck right after their own .set() call),
+// so a failure sending this email never costs the inspector their submitted data —
+// it only leaves this one email needing a retry, surfaced in My Inspections.
+//
+// Duplicate-send guard: before sending, re-reads the inspection's own Firestore doc
+// and skips if opsEmailStatus is already 'sent'. This only works because the
+// inspection doc keeps a STABLE id across retries (insp_<draftId> for checklist
+// forms, spotcheck_<draftId> for Spot Check — draftId does not change for the life
+// of one in-progress submission) and because saveInspectionToFirebase/submitSpotCheck
+// now write with {merge:true}, so a resubmit can never wipe opsEmailStatus back to
+// blank. This is a best-effort guard appropriate for a client-only app (no server
+// transaction backs it) — combined with the click-debounce on the Submit buttons
+// below, it covers both realistic duplicate cases (accidental double-tap, and a
+// resumed draft being resubmitted after a refresh) without needing any backend.
+function sendOpsMaintenanceEmailIfNeeded(inspectionId, docData, onDone) {
+  var text = (docData.opsMaintenanceNotes || '').trim();
+  if (!text) { if (onDone) onDone('empty'); return; } // nothing entered — no email, per spec
+  if (!db) { if (onDone) onDone('no-db'); return; }
+  var ref = db.collection('inspections').doc(inspectionId);
+  ref.get().then(function(snap) {
+    if (snap.exists && snap.data().opsEmailStatus === 'sent') { if (onDone) onDone('already-sent'); return; }
+    var formName = (FORM_META[docData.formType] && FORM_META[docData.formType].name) || docData.formType || '';
+    var subj = 'Maintenance Items for Operations — ' + (docData.property || '') + ' — ' + formName;
+    var body = 'TAHOE LUXURY PROPERTIES — MAINTENANCE ITEMS FOR OPERATIONS\n==================================================\n';
+    body += 'Property: ' + (docData.property || '') + '\n';
+    body += 'Inspection Type: ' + formName + '\n';
+    body += 'Inspection Date: ' + formatDate(docData.date) + '\n';
+    body += 'Inspector: ' + (docData.inspector || '') + '\n';
+    body += '\nMAINTENANCE ITEMS:\n' + text + '\n';
+    body += '\n--\nSent from TLP Inspection App';
+    fetch(HTTP_ENDPOINT, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        formType: docData.formType, subject: subj, body: body.replace(/\n/g, '<br>'),
+        to: OPERATIONS_EMAIL, property: docData.property || '', inspector: docData.inspector || '',
+        date: docData.date || '', opsMaintenanceNotes: text, photos: []
+      })
+    }).then(function(r) {
+      if (r.ok || r.status === 202) {
+        ref.update({ opsEmailStatus: 'sent', opsEmailSentAt: new Date().toISOString(), opsEmailError: null })
+          .catch(function(){})
+          .then(function(){ if (onDone) onDone('sent'); });
+      } else {
+        var msg = 'Operations email failed (HTTP ' + r.status + ').';
+        ref.update({ opsEmailStatus: 'failed', opsEmailError: msg }).catch(function(){});
+        showToast('⚠️ Inspection saved, but the Operations maintenance email failed to send. You can retry it from My Inspections.', 7000);
+        if (onDone) onDone('failed');
+      }
+    }).catch(function(e) {
+      var msg = 'Operations email failed: ' + (e && e.message ? e.message : 'network error');
+      ref.update({ opsEmailStatus: 'failed', opsEmailError: msg }).catch(function(){});
+      showToast('⚠️ Inspection saved, but the Operations maintenance email failed to send. You can retry it from My Inspections.', 7000);
+      if (onDone) onDone('failed');
+    });
+  }).catch(function(e) {
+    // Could not even check current status (offline, etc.) — deliberately do NOT send
+    // in this case, to avoid a possible duplicate if it turns out this was already
+    // sent. The text is still safely saved on the inspection record either way, and
+    // will show up as needing a retry (opsEmailStatus not 'sent') in My Inspections.
+    console.warn('[OPS-EMAIL] Could not verify existing status before sending — skipping this attempt to avoid a possible duplicate.', e);
+    if (onDone) onDone('skipped-error');
+  });
+}
+
+var _lastSubmitClickAt = 0;
 function submitReport() {
+  // Debounce: ignore a second tap of Submit within 3s of the first (accidental
+  // double-tap / double-click), which is the main realistic way a single submit
+  // action could otherwise fire this whole pipeline — and therefore the Operations
+  // email — twice in a row.
+  if (Date.now() - _lastSubmitClickAt < 3000) return;
+  _lastSubmitClickAt = Date.now();
   var needsStatus = (state.formType === 'checkin_summer' || state.formType === 'checkin_winter' || state.formType === 'b2b_summer' || state.formType === 'b2b_winter');
   if (needsStatus && !state.overallStatus) {
     showToast('Please select Ready or Not Ready before submitting');
@@ -4289,6 +4855,11 @@ function saveDraftSilent() {
     invNotes:state.invNotes||'',
     managerNotes:state.managerNotes||'',
     maintenanceNotes:state.maintenanceNotes||'',
+    maintenanceNotesPhotos:state.maintenanceNotesPhotos||[],
+    opsMaintenanceNotes:state.opsMaintenanceNotes||'',
+    bedroomInstances:state.bedroomInstances||[],
+    bathroomInstances:state.bathroomInstances||[],
+    kitchenExtraItems:state.kitchenExtraItems||[],
     overallStatus:state.overallStatus,
     isVoided:!!state.isVoided,
     startTime:state.startTime||null,
@@ -4321,7 +4892,7 @@ function saveDraftSilent() {
         var it=draftData.items[k];
         lightItems[k]= it ? Object.assign({},it,{photos:[]}) : it;
       });
-      var lightData=Object.assign({},draftData,{photos:{},items:lightItems,_photosOmittedLocally:true});
+      var lightData=Object.assign({},draftData,{photos:{},items:lightItems,maintenanceNotesPhotos:[],_photosOmittedLocally:true});
       var drafts2=getDrafts();
       drafts2[state.draftId]=lightData;
       localStorage.setItem('tlp_drafts',JSON.stringify(drafts2));
@@ -4405,6 +4976,11 @@ function loadDraft(id) {
   state.invNotes=d.invNotes||'';
   state.managerNotes=d.managerNotes||'';
   state.maintenanceNotes=d.maintenanceNotes||'';
+  state.maintenanceNotesPhotos=d.maintenanceNotesPhotos||[];
+  state.opsMaintenanceNotes=d.opsMaintenanceNotes||'';
+  state.bedroomInstances=d.bedroomInstances||[];
+  state.bathroomInstances=d.bathroomInstances||[];
+  state.kitchenExtraItems=d.kitchenExtraItems||[];
   state.startTime=d.startTime||null;
   state.endTime=d.endTime||null;
   state.isVoided=!!d.isVoided;
@@ -4450,12 +5026,36 @@ function loadDraft(id) {
           }
         });
       }
+      if (cloudData.maintenanceNotesPhotos && cloudData.maintenanceNotesPhotos.length && (!state.maintenanceNotesPhotos || !state.maintenanceNotesPhotos.length)) {
+        state.maintenanceNotesPhotos = cloudData.maintenanceNotesPhotos;
+      }
       var screen = document.getElementById('screenChecklist');
       if (screen && screen.classList.contains('active') && state.draftId === id) buildChecklist();
     }).catch(function(e){ console.warn('Could not recover photos from the cloud for draft', id, e); });
   }
 }
 function getDrafts() { try{return JSON.parse(localStorage.getItem('tlp_drafts')||'{}');}catch(e){return{};} }
+// Same "flatten every answerable item" idea as collectAllAnswerableItems(),
+// but for a raw saved draft object `d` (not the live global `state`) — used
+// only for the home screen's draft-list % preview, which needs to read a
+// draft that isn't necessarily the one currently open.
+function countDraftProgress(d) {
+  var sections = (d._sections && d._sections.length) ? d._sections : (d.selectedProp?getSections(d.formType,d.selectedProp):[]);
+  var total=0, done=0;
+  sections.forEach(function(sec,si){
+    if (sec.dynamic === 'bedroom' || sec.dynamic === 'bathroom') {
+      var prefix = sec.dynamic === 'bedroom' ? 'bedI' : 'bathI';
+      var instances = (d[sec.dynamic+'Instances'] && d[sec.dynamic+'Instances'].length) ? d[sec.dynamic+'Instances'] : [{name:''}];
+      instances.forEach(function(_inst, idx){
+        sec.items.forEach(function(_,ii){ total++; if((d.items[prefix+idx+'_'+ii]||{}).status) done++; });
+      });
+      return;
+    }
+    sec.items.forEach(function(_,ii){total++;if((d.items[si+'_'+ii]||{}).status)done++;});
+  });
+  (d.kitchenExtraItems||[]).forEach(function(_,idx){ total++; if((d.items['kitx'+idx]||{}).status) done++; });
+  return total>0?Math.round(done/total*100):0;
+}
 function renderDrafts(draftsOverride) {
   // draftsOverride lets loadCloudDrafts() render the freshly-merged list
   // even when it couldn't also persist that merge to local storage (e.g.
@@ -4470,10 +5070,7 @@ function renderDrafts(draftsOverride) {
     // matches what will actually be shown on reopen. Only fall back to
     // regenerating (which can differ for QC Check's randomized item list) for
     // legacy drafts saved before snapshots existed.
-    var sections = (d._sections && d._sections.length) ? d._sections : (d.selectedProp?getSections(d.formType,d.selectedProp):[]);
-    var total=0, done=0;
-    sections.forEach(function(sec,si){sec.items.forEach(function(_,ii){total++;if((d.items[si+'_'+ii]||{}).status)done++;});});
-    var pct=total>0?Math.round(done/total*100):0;
+    var pct = countDraftProgress(d);
     var el=document.createElement('div'); el.className='draft-card';
     el.innerHTML='<div class="draft-icon">'+meta.icon+'</div><div class="draft-info"><div class="draft-name">'+esc((d.info&&d.info.property)||(d.selectedProp&&d.selectedProp.name)||'Unnamed')+'</div><div class="draft-meta">'+meta.name+' &bull; '+((d.info&&d.info.date)||'No date')+'</div></div><div class="draft-pct">'+pct+'%</div><button class="draft-delete" onclick="deleteDraft(event,\''+id+'\')">x</button>';
     el.onclick=function(){startForm(d.formType,id);};
