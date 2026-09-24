@@ -727,6 +727,34 @@ function issueStatusBadgeHtml(tied){
   var st=ISSUE_STATUS_LABELS[tied.status]||ISSUE_STATUS_LABELS.open;
   return '<span class="badge '+st.cls+'">'+st.txt+'</span>';
 }
+// Read-only display of the inspector's "Maintenance Items for Operations" box (see
+// index.html's sendOpsMaintenanceEmailIfNeeded) inside a Details panel — deliberately
+// separate from the Issue/property_issues blocks above it: this text is plain
+// free-form info for Operations, not tied to any item's Open/In Progress/Resolved
+// status. Returns '' when the inspection has nothing in that box, so callers can
+// safely append this straight into their existing detail HTML unconditionally.
+function opsMaintenanceBlockHtml(insp){
+  var text=(insp.opsMaintenanceNotes||'').trim();
+  if(!text) return '';
+  var statusHtml = insp.opsEmailStatus==='sent'
+    ? '<div style="font-size:11px;color:var(--green,#1565A0);margin-top:6px;font-weight:700">&#9989; Emailed to Operations'+(insp.opsEmailSentAt?(' &middot; '+esc(fmtDateTime(insp.opsEmailSentAt))):'')+'</div>'
+    : '<div style="font-size:11px;color:var(--red);margin-top:6px;font-weight:700">&#9888; Not yet emailed to Operations'+(insp.opsEmailError?(' &mdash; '+esc(insp.opsEmailError)):'')+' — the inspector can retry this from My Inspections in the app.</div>';
+  return '<div class="insp-detail-heading">&#128295; Maintenance Items for Operations</div><div class="insp-notes-block" style="background:#FFF3E0;border-left:3px solid #8a4b00">'+esc(text).replace(/\n/g,'<br>')+'</div>'+statusHtml;
+}
+// Read-only thumbnail strip for photos attached to the inspector's plain "Maintenance
+// Notes" box (index.html's maintenanceNotesPhotos, uploaded to Storage and saved as
+// maintenanceNotesPhotoUrls). Returns '' when there are none, so callers can append
+// this straight after their Maintenance Notes text block unconditionally.
+function maintNotesPhotosHtml(insp){
+  var urls=insp.maintenanceNotesPhotoUrls||[];
+  if(!urls.length) return '';
+  var html='<div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 8px">';
+  urls.forEach(function(url){
+    html+='<img src="'+esc(url)+'" style="width:52px;height:52px;border-radius:6px;object-fit:cover;cursor:pointer;border:1.5px solid var(--mid-gray)" onclick="window.open(\''+esc(url)+'\',\'_blank\')">';
+  });
+  html+='</div>';
+  return html;
+}
 function findTiedIssue(inspId,issueKey){
   return _propIssues.find(function(p){return p.sourceInspectionId===inspId&&p.sourceIssueKey===issueKey;});
 }
@@ -818,10 +846,11 @@ function renderInspLog(){
     var hasIssues=i.issuesFound>0;
     var mgrNotes=(i.managerNotes||'').trim();
     var maintNotes=(i.maintenanceNotes||'').trim();
+    var opsNotes=(i.opsMaintenanceNotes||'').trim();
     var updates=i.updates||[];
     var isResolved=!!i.resolved;
     var needsResolution=(i.overallStatus==='not-ready'||i.overallStatus==='conditional');
-    var hasDetails=hasIssues||mgrNotes||maintNotes||needsResolution||isResolved||updates.length>0;
+    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||needsResolution||isResolved||updates.length>0;
     var photos=normalizePhotoUrls(i.photoUrls,'inspLog:'+i.id);
     var photoCount=photos.length;
     var photoFailCount=i.photoUploadFailCount||0;
@@ -884,6 +913,8 @@ function renderInspLog(){
       if(maintNotes){
         html+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
       }
+      html+=maintNotesPhotosHtml(i);
+      html+=opsMaintenanceBlockHtml(i);
       if(needsResolution||isResolved||updates.length){
         html+='<div class="insp-detail-heading">&#128295; Overall Resolution</div>';
         if(isResolved){
@@ -944,9 +975,10 @@ function renderSeasonal(){
     var hasIssues=i.issuesFound>0;
     var mgrNotes=(i.managerNotes||'').trim();
     var maintNotes=(i.maintenanceNotes||'').trim();
+    var opsNotes=(i.opsMaintenanceNotes||'').trim();
     var updates=i.updates||[];
     var isResolved=!!i.resolved;
-    var hasDetails=hasIssues||mgrNotes||maintNotes||isResolved||updates.length>0;
+    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||isResolved||updates.length>0;
     var photos=normalizePhotoUrls(i.photoUrls,'seasonal:'+i.id);
     var photoCount=photos.length;
     var photoFailCount=i.photoUploadFailCount||0;
@@ -999,6 +1031,8 @@ function renderSeasonal(){
       if(maintNotes){
         html+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
       }
+      html+=maintNotesPhotosHtml(i);
+      html+=opsMaintenanceBlockHtml(i);
       if(isResolved||updates.length){
         html+='<div class="insp-detail-heading">&#128295; Overall Resolution</div>';
         if(isResolved){
@@ -1145,9 +1179,10 @@ function renderQCLog(){
     var hasIssues=isSC?!!scIssues:i.issuesFound>0;
     var mgrNotes=(i.managerNotes||'').trim();
     var maintNotes=(i.maintenanceNotes||'').trim();
+    var opsNotes=(i.opsMaintenanceNotes||'').trim();
     var qcUpdates=i.updates||[];
     var qcIsResolved=!!i.resolved;
-    var hasDetails=isSC||hasIssues||mgrNotes||maintNotes||qcIsResolved||qcUpdates.length>0;
+    var hasDetails=isSC||hasIssues||mgrNotes||maintNotes||opsNotes||qcIsResolved||qcUpdates.length>0;
     var photos=normalizePhotoUrls(i.photoUrls,'qcLog:'+i.id);
     var photoCount=photos.length;
     var photoFailCount=i.photoUploadFailCount||0;
@@ -1220,6 +1255,7 @@ function renderQCLog(){
         });
         html+='<div class="insp-notes-block" style="margin-top:4px"><strong>Assigned House Manager:</strong> '+esc(i.assignedManagerName||'—')+(i.assignedManagerEmail?' ('+esc(i.assignedManagerEmail)+')':'')+'</div>';
         html+='<button class="view-in-openissues-btn" data-prop="'+esc(i.property||'')+'" onclick="jumpToOpenIssues(this.getAttribute(\'data-prop\'))">Manage issues in Open Issues &rarr;</button>';
+        html+=opsMaintenanceBlockHtml(i);
         html+='<div class="insp-detail-heading" style="margin-top:14px">&#128295; Overall Resolution</div>';
         if(qcIsResolved){
           html+='<div class="insp-resolved-banner">&#9989; Resolved &mdash; every issue on this Spot Check is Resolved or Dismissed</div>';
@@ -1249,6 +1285,7 @@ function renderQCLog(){
           // manage here until it's backfilled.
           html+='<div style="font-size:12px;color:var(--dark-gray)">This Spot Check has no tracked Open Issues record yet — use "Backfill Spot Checks" on the Open Issues tab to create one.</div>';
         }
+        html+=opsMaintenanceBlockHtml(i);
       } else {
         if(hasIssues){
           html+='<div class="insp-detail-heading">&#128295; '+buildIssueStatusSummary(issueList,i.id)+'</div>';
@@ -1274,6 +1311,8 @@ function renderQCLog(){
         if(maintNotes){
           html+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
         }
+        html+=maintNotesPhotosHtml(i);
+        html+=opsMaintenanceBlockHtml(i);
         if(hasIssues||qcIsResolved||qcUpdates.length){
           html+='<div class="insp-detail-heading">&#128295; Overall Resolution</div>';
           if(qcIsResolved){
