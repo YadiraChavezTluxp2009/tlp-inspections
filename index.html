@@ -879,14 +879,18 @@ function renderMyInspections(inspections) {
     if (issueCount === 0) {
       html+='<div style="font-size:12px;color:var(--green);font-weight:600;padding:6px 2px">No issues found.</div>';
     } else {
-      insp.issues.forEach(function(is){
+      insp.issues.forEach(function(is, isIdx){
+        var isSupplyIssue = (is.section==='Supply Check'||is.section==='Supply Inventory');
         var tracked = _myPropIssues.filter(function(pi){ return pi.sourceInspectionId===insp.id && pi.sourceIssueKey===is.key; })[0];
-        var statusLabels = {open:'&#128308; Open', in_progress:'&#128993; In Progress', resolved:'&#9989; Resolved'};
-        var statusTxt = tracked ? (statusLabels[tracked.status]||tracked.status) : '&#128308; Open';
+        var issSafeId = insp.id + '_' + isIdx;
         html+='<div style="background:var(--light-gray);border-radius:8px;padding:10px;margin-bottom:8px">';
         html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">';
         html+='<div style="font-size:12px;font-weight:700;color:var(--navy)">'+esc(is.section||'')+' &mdash; '+esc(is.text||'')+'</div>';
-        html+='<div style="font-size:11px;white-space:nowrap;flex-shrink:0">'+statusTxt+'</div>';
+        if (isSupplyIssue) {
+          html+='<div style="font-size:11px;white-space:nowrap;flex-shrink:0">&#128230; Supply Log</div>';
+        } else {
+          html+='<div style="font-size:11px;white-space:nowrap;flex-shrink:0">'+myIssueStatusHtml(tracked)+'</div>';
+        }
         html+='</div>';
         if (is.notes) html+='<div style="font-size:12px;color:var(--text);margin-top:4px"><em>'+esc(is.notes)+'</em></div>';
         if (is.charge>0) html+='<div style="font-size:12px;color:var(--red);font-weight:700;margin-top:4px">$'+Number(is.charge).toFixed(2)+' charge</div>';
@@ -894,6 +898,37 @@ function renderMyInspections(inspections) {
           html+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">';
           is.photos.forEach(function(url){ html+='<img src="'+url+'" style="width:52px;height:52px;border-radius:6px;object-fit:cover;cursor:pointer;border:1.5px solid var(--mid-gray)" onclick="window.open(\''+url+'\',\'_blank\')">'; });
           html+='</div>';
+        }
+        if (isSupplyIssue) {
+          html+='<div style="font-size:11px;color:var(--dark-gray);margin-top:6px">Tracked in the Supply Inventory Log, not here.</div>';
+        } else if (tracked) {
+          // ── Inline status editor (2026-09-28) — the same update capability the
+          // Dashboard's Open Issues/Seasonal Inspections tabs have, so a house
+          // manager can close out an issue right from their own inspection history
+          // instead of switching to the Dashboard. Writes to the exact same
+          // property_issues record (see setMyPropertyIssueStatus below), so the
+          // Dashboard and this view never disagree about an issue's status. ──
+          html+='<div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">';
+          html+='<select id="mysel-'+issSafeId+'" style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 8px;font-size:12px" onchange="stageMyIssueStatusChange(\''+issSafeId+'\',this.value)">'
+            +'<option value="open"'+(tracked.status==='open'||!tracked.status?' selected':'')+'>Open</option>'
+            +'<option value="in_progress"'+(tracked.status==='in_progress'?' selected':'')+'>In Progress</option>'
+            +'<option value="resolved"'+(tracked.status==='resolved'?' selected':'')+'>Resolved</option>'
+            +'<option value="dismissed"'+(tracked.status==='dismissed'?' selected':'')+'>Dismissed / Not an Issue</option>'
+            +'</select></div>';
+          html+='<div id="myconfirm-'+issSafeId+'" style="display:none;margin-top:6px;background:white;border:1.5px solid var(--mid-gray);border-radius:8px;padding:8px">';
+          html+='<div style="font-size:11px;color:var(--dark-gray);margin-bottom:4px">Changing status to <strong id="myconfirm-label-'+issSafeId+'"></strong>. Optional note:</div>';
+          html+='<input type="text" id="myconfirm-note-'+issSafeId+'" placeholder="Optional note&hellip;" style="width:100%;box-sizing:border-box;border:1.5px solid var(--mid-gray);border-radius:6px;padding:6px 8px;font-size:12px;margin-bottom:6px">';
+          html+='<div style="display:flex;gap:6px"><button onclick="confirmMyIssueStatusChange(\''+tracked.id+'\',\''+issSafeId+'\')" style="flex:1;background:var(--navy);color:white;border:none;border-radius:6px;padding:7px;font-size:12px;font-weight:700;cursor:pointer">Confirm</button><button onclick="cancelMyIssueStatusChange(\''+issSafeId+'\',\''+(tracked.status||'open')+'\')" style="flex:1;background:none;border:1.5px solid var(--mid-gray);border-radius:6px;padding:7px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text)">Cancel</button></div>';
+          html+='</div>';
+          var myUpdates = tracked.updates||[];
+          if (myUpdates.length) {
+            html+='<div style="margin-top:6px">';
+            myUpdates.forEach(function(u){ html+='<div style="font-size:11px;color:var(--text);background:white;border-radius:6px;padding:5px 7px;margin-top:4px">'+esc(u.text)+'<div style="font-size:10px;color:var(--dark-gray);margin-top:2px">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>'; });
+            html+='</div>';
+          }
+          html+='<div style="display:flex;gap:6px;margin-top:6px"><input type="text" id="myupdatenote-'+issSafeId+'" placeholder="Add an update&hellip;" style="flex:1;border:1.5px solid var(--mid-gray);border-radius:6px;padding:6px 8px;font-size:12px"><button onclick="addMyPropertyIssueUpdate(\''+tracked.id+'\',\''+issSafeId+'\')" style="background:none;border:1.5px solid var(--navy);color:var(--navy);border-radius:6px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">+ Add</button></div>';
+        } else {
+          html+='<div style="font-size:11px;color:var(--dark-gray);margin-top:6px" title="No tracked follow-up record for this issue — likely saved before individual issue tracking existed.">No tracked record — cannot be updated here.</div>';
         }
         html+='</div>';
       });
@@ -935,6 +970,133 @@ function renderMyInspections(inspections) {
   });
   el.innerHTML=html;
   reopenMyPreservedDetails();
+}
+// ── My Inspections: update an issue's status right from here (2026-09-28) ──────
+// House managers here ARE the inspectors — the same person who flags an issue is
+// usually also the one responsible for resolving it, and a manager covering
+// someone else's property while the assigned manager is out already has full
+// Dashboard access to resolve it there too. This just saves the extra trip:
+// closing an issue out on the spot, from the same screen that shows it, instead
+// of switching to the Dashboard.
+//
+// IMPORTANT — this writes to the exact same `property_issues` record, with the
+// exact same fields, that dashboard.html's setPropertyIssueStatus()/
+// addPropertyIssueUpdate() write. That function's own comment calls it "the
+// only place any issue's status... is edited" — this is a second entry point to
+// that SAME data, not a second, divergent copy of it. Keeping the two in sync
+// field-for-field (including the resolvedAt/dismissedAt bookkeeping and the
+// Spot Check status mirror + inspection-level `resolved` flag below) is what
+// keeps the Dashboard and this screen from ever disagreeing about an issue.
+function myIssueStatusHtml(tracked){
+  if(!tracked) return '&#10067; No tracked record';
+  var labels={open:'&#128308; Open',in_progress:'&#128993; In Progress',resolved:'&#9989; Resolved',dismissed:'&#10060; Dismissed'};
+  return labels[tracked.status]||labels.open;
+}
+function stageMyIssueStatusChange(issSafeId,newStatus){
+  var panel=document.getElementById('myconfirm-'+issSafeId);
+  var label=document.getElementById('myconfirm-label-'+issSafeId);
+  if(!panel)return;
+  panel.setAttribute('data-pending-status',newStatus);
+  var labelText={open:'Open',in_progress:'In Progress',resolved:'Resolved',dismissed:'Dismissed / Not an Issue'};
+  if(label)label.textContent=labelText[newStatus]||newStatus;
+  panel.style.display='block';
+}
+function cancelMyIssueStatusChange(issSafeId,prevStatus){
+  var sel=document.getElementById('mysel-'+issSafeId);
+  var panel=document.getElementById('myconfirm-'+issSafeId);
+  if(sel)sel.value=prevStatus;
+  if(panel)panel.style.display='none';
+}
+function confirmMyIssueStatusChange(docId,issSafeId){
+  var panel=document.getElementById('myconfirm-'+issSafeId);
+  var newStatus=panel?panel.getAttribute('data-pending-status'):null;
+  if(!newStatus)return;
+  var noteInput=document.getElementById('myconfirm-note-'+issSafeId);
+  var note=(noteInput&&noteInput.value||'').trim();
+  setMyPropertyIssueStatus(docId,newStatus,note);
+}
+// The actual write — mirrors dashboard.html's setPropertyIssueStatus() field for
+// field (status, resolvedAt/resolvedBy, dismissedAt/dismissedBy/dismissalNote,
+// statusHistory, and an optional updates[] entry), then the same two follow-up
+// syncs the Dashboard does after a status change, so a change made from here is
+// indistinguishable from one made on the Dashboard to every other view:
+//   - Spot Check status mirror: an old single-issue Spot Check's own inspections
+//     doc keeps a human-readable `status` field that other views read directly.
+//   - Inspection-level `resolved` flag: recomputed from every tied issue on that
+//     inspection, so the Check-Ins/Check-Outs Log and QC Log's "resolved" banners
+//     stay accurate.
+function setMyPropertyIssueStatus(docId,newStatus,note){
+  if(!db)return;
+  var iss=_myPropIssues.find(function(x){return x.id===docId;});
+  var prevStatus=iss?(iss.status||'open'):'open';
+  var nowIso=new Date().toISOString();
+  var byName=currentUser?currentUser.name:'';
+  var patch={status:newStatus};
+  if(newStatus==='resolved'){ patch.resolvedAt=nowIso; patch.resolvedBy=byName; patch.dismissedAt=null; patch.dismissedBy=null; patch.dismissalNote=''; }
+  else if(newStatus==='dismissed'){ patch.dismissedAt=nowIso; patch.dismissedBy=byName; patch.dismissalNote=note||''; patch.resolvedAt=null; patch.resolvedBy=null; }
+  else { patch.resolvedAt=null; patch.resolvedBy=null; patch.dismissedAt=null; patch.dismissedBy=null; patch.dismissalNote=''; }
+  var historyEntry={from:prevStatus,to:newStatus,by:byName,date:nowIso,note:note||''};
+  patch.statusHistory=firebase.firestore.FieldValue.arrayUnion(historyEntry);
+  var noteEntry=null;
+  if(note){
+    noteEntry={text:note,by:byName,date:new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
+    patch.updates=firebase.firestore.FieldValue.arrayUnion(noteEntry);
+  }
+  db.collection('property_issues').doc(docId).update(patch).then(function(){
+    if(iss){
+      iss.status=newStatus; iss.resolvedAt=patch.resolvedAt; iss.resolvedBy=patch.resolvedBy;
+      iss.dismissedAt=patch.dismissedAt; iss.dismissedBy=patch.dismissedBy; iss.dismissalNote=patch.dismissalNote;
+      if(!iss.statusHistory)iss.statusHistory=[];
+      iss.statusHistory.push(historyEntry);
+      if(noteEntry){ if(!iss.updates)iss.updates=[]; iss.updates.push(noteEntry); }
+    }
+    showToast('Issue marked '+({open:'Open',in_progress:'In Progress',resolved:'Resolved',dismissed:'Dismissed'}[newStatus]||newStatus));
+    syncMySpotCheckMirror(iss);
+    syncMyInspectionResolution(iss);
+    applyMyFilter();
+  }).catch(function(){showToast('Error updating issue');});
+}
+function addMyPropertyIssueUpdate(docId,issSafeId){
+  if(!db)return;
+  var input=document.getElementById('myupdatenote-'+issSafeId);
+  var text=(input&&input.value||'').trim();
+  if(!text)return;
+  var now=new Date();
+  var entry={text:text,by:currentUser?currentUser.name:'',date:now.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
+  db.collection('property_issues').doc(docId).update({updates:firebase.firestore.FieldValue.arrayUnion(entry)}).then(function(){
+    var iss=_myPropIssues.find(function(x){return x.id===docId;});
+    if(iss){ if(!iss.updates)iss.updates=[]; iss.updates.push(entry); }
+    showToast('Update added');
+    applyMyFilter();
+  }).catch(function(){showToast('Error adding update');});
+}
+// Same purpose as dashboard.html's syncSpotCheckMirror() — see that function's
+// comment for the full rationale. Operates on _myInspections (this screen's own
+// in-memory list) rather than the Dashboard's _insp, since the source inspection
+// for any issue shown here is always one of the current user's own submissions.
+function syncMySpotCheckMirror(iss){
+  if(!iss||iss.formType!=='spot_check'||!iss.sourceInspectionId||!db)return;
+  var insp=_myInspections.find(function(x){return x.id===iss.sourceInspectionId;});
+  if(!insp)return;
+  if(Array.isArray(insp.issues)&&insp.issues.length)return;
+  var titleCase={open:'Open',in_progress:'In Progress',resolved:'Resolved',dismissed:'Dismissed'};
+  var newTitle=titleCase[iss.status]||'Open';
+  if(insp.status===newTitle)return;
+  db.collection('inspections').doc(insp.id).update({status:newTitle}).then(function(){ insp.status=newTitle; }).catch(function(){});
+}
+// Same purpose as dashboard.html's syncInspectionResolution() — keeps this
+// inspection's computed `resolved` flag in sync with its tied issues so the
+// Dashboard's Check-Ins/Check-Outs Log and QC Log keep showing an accurate
+// resolved/unresolved banner no matter which screen actually resolved the issue.
+function syncMyInspectionResolution(iss){
+  if(!iss||!iss.sourceInspectionId||!db)return;
+  var insp=_myInspections.find(function(x){return x.id===iss.sourceInspectionId;});
+  if(!insp)return;
+  var tied=_myPropIssues.filter(function(p){return p.sourceInspectionId===insp.id;});
+  if(!tied.length)return;
+  var allClosed=tied.every(function(p){return p.status==='resolved'||p.status==='dismissed';});
+  if(!!insp.resolved===allClosed)return;
+  db.collection('inspections').doc(insp.id).update({resolved:allClosed}).then(function(){ insp.resolved=allClosed; }).catch(function(){});
 }
 // Retries ONLY the Operations email for an already-saved inspection — never
 // resubmits the inspection itself, never touches its issues/property_issues, and
