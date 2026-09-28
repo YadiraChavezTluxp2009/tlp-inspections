@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="TLP Inspect">
+<meta name="apple-mobile-web-app-title" content="TLUX Inspect">
 <meta name="theme-color" content="#063461">
-<title>TLP Inspections</title>
+<title>TLUX Inspections</title>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
@@ -239,7 +239,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 <!-- LOGIN -->
 <div id="screenLogin">
   <div class="login-logo">Tahoe Luxury Properties</div>
-  <div class="login-title">TLP Inspections</div>
+  <div class="login-title">TLUX Inspections</div>
   <div class="login-sub">Sign in to continue</div>
   <div class="login-card">
     <div class="field"><label>Username</label><input type="text" id="loginUsername" placeholder="Enter username" autocomplete="username" autocapitalize="none" onkeydown="if(event.key==='Enter')document.getElementById('loginPin').focus()"></div>
@@ -252,7 +252,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 <div class="header" id="appHeader" style="display:none">
   <button class="header-back" id="backBtn" onclick="goBack()" style="display:none">&#8249;</button>
   <div style="flex:1">
-    <div class="header-title" id="headerTitle">TLP Inspections</div>
+    <div class="header-title" id="headerTitle">TLUX Inspections</div>
     <div class="header-sub" id="headerSub">Tahoe Luxury Properties</div>
   </div>
   <button class="logout-btn" id="logoutBtn" onclick="doLogout()">&#x23|&nbsp;<span id="headerUserName"></span></button>
@@ -2723,7 +2723,7 @@ function showScreen(id) {
 function goBack() {
   if (document.getElementById('screenDashboard').classList.contains('active') ||
       document.getElementById('screenUsers').classList.contains('active')) {
-    showScreen('screenHome'); setHeader('TLP Inspections','Tahoe Luxury Properties',false);
+    showScreen('screenHome'); setHeader('TLUX Inspections','Tahoe Luxury Properties',false);
     document.getElementById('bottomNav').style.display='none';
     return;
   }
@@ -2749,7 +2749,7 @@ function resetToHome() {
   clearActiveDraft();
   document.getElementById('bottomNav').style.display = 'none';
   document.getElementById('globalProg').style.display = 'none';
-  setHeader('TLP Inspections', 'Tahoe Luxury Properties', false);
+  setHeader('TLUX Inspections', 'Tahoe Luxury Properties', false);
   renderDrafts();
   showScreen('screenHome');
 }
@@ -3733,8 +3733,8 @@ function emailReport(onSuccess) {
     if (state.formType === 'linen_inv') { var lnKeys=Object.keys(linNeedMap); if(lnKeys.length>0){ body+='LINEN NEEDED — SUMMARY\n'; lnKeys.forEach(function(nm){body+='  '+nm+': '+linNeedMap[nm]+' needed\n';}); body+='\n'; } }
     if (state.invNotes&&state.invNotes.trim()) body += '\nADDITIONAL NOTES\n'+state.invNotes+'\n';
     var pCntE = Object.keys(state.photos||{}).length;
-    if (pCntE>0) body += '\nPHOTOS: '+pCntE+' photo'+(pCntE>1?'s':'')+' available — view & download from the TLP Manager Dashboard\n';
-    body += '\n--\nSent from TLP Inspection App';
+    if (pCntE>0) body += '\nPHOTOS: '+pCntE+' photo'+(pCntE>1?'s':'')+' available — view & download from the Mothership | Operations Dashboard\n';
+    body += '\n--\nSent from TLUX Inspections';
     var mailtoInv = 'mailto:' + INSPECTION_EMAIL + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
     if (HTTP_ENDPOINT) {
       var _invHtmlBody = body.replace(/\n/g, '<br>');
@@ -3813,7 +3813,7 @@ function emailReport(onSuccess) {
   }
   if (state.maintenanceNotes&&state.maintenanceNotes.trim()) body+='\nMAINTENANCE NOTES\n'+state.maintenanceNotes+'\n';
   if (state.managerNotes&&state.managerNotes.trim()) body+='\nMANAGER NOTES\n'+state.managerNotes+'\n';
-  body+='\n--\nSent from TLP Inspection App';
+  body+='\n--\nSent from TLUX Inspections';
   var subject=issues>0 ? (issues+' Item'+(issues!==1?'s':'')+' Need Attention - '+info.property+' - '+formatDate(info.date)) : ('All Clear - '+info.property+' - '+formatDate(info.date));
   var toEmail=(prop&&prop.email)?prop.email:'inspections@tluxp.com';
   var ccPart=(prop&&prop.email&&prop.email!=='inspections@tluxp.com')?'&cc=inspections%40tluxp.com':'';
@@ -4158,7 +4158,7 @@ function sendSpotCheckEmail(docData) {
       iss.photos.forEach(function(url, pi){ body += '  ' + (pi + 1) + '. ' + url + '\n'; });
     }
   });
-  body += '\n--\nSent from TLP Inspection App';
+  body += '\n--\nSent from TLUX Inspections';
   var mailtoSc = 'mailto:' + encodeURIComponent(toEmail) + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
   if (HTTP_ENDPOINT) {
     var htmlBody = body.replace(/\n/g, '<br>');
@@ -4523,8 +4523,8 @@ function sendSupplyInventoryEmail(docData) {
   docData.items.forEach(function(it) { body += '  - ' + it.name + (it.qty ? '  (Qty needed: ' + it.qty + ')' : '') + (it.isOther ? '  [OTHER — not on standard list]' : '') + '\n'; });
   if (docData.notes) body += '\nNOTES\n' + docData.notes + '\n';
   if (docData.photoUrls && docData.photoUrls.length) { body += '\nPHOTOS:\n'; docData.photoUrls.forEach(function(u, i) { body += '  ' + (i + 1) + '. ' + u + '\n'; }); }
-  body += '\nView / update status in the TLP Manager Dashboard → Supply Inventory tab.\n';
-  body += '\n--\nSent from TLP Inspection App';
+  body += '\nView / update status in the Mothership | Operations Dashboard → Supply Inventory tab.\n';
+  body += '\n--\nSent from TLUX Inspections';
   var mailtoSi = 'mailto:' + encodeURIComponent(toEmail) + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
   if (HTTP_ENDPOINT) {
     sendViaHTTP({
@@ -4632,7 +4632,7 @@ function sendOpsMaintenanceEmailIfNeeded(inspectionId, docData, onDone) {
     body += 'Inspection Date: ' + formatDate(docData.date) + '\n';
     body += 'Inspector: ' + (docData.inspector || '') + '\n';
     body += '\nMAINTENANCE ITEMS:\n' + text + '\n';
-    body += '\n--\nSent from TLP Inspection App';
+    body += '\n--\nSent from TLUX Inspections';
     fetch(HTTP_ENDPOINT, {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
@@ -4704,7 +4704,7 @@ function voidInspection() {
   if (state.startTime) body += 'Inspection Attempted: ' + state.startTime + '\n';
   body += 'Voided At: ' + state.endTime + '\n';
   body += '\nNOTE: This check-in inspection was voided because guests were found to still be checked in at time of inspection. Please reschedule once the property is vacant.\n';
-  body += '\n--\nSent from TLP Inspection App';
+  body += '\n--\nSent from TLUX Inspections';
   var mailtoVoid = 'mailto:' + INSPECTION_EMAIL + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
   if (HTTP_ENDPOINT) {
     sendViaHTTP({
