@@ -463,9 +463,10 @@ tr:hover td{background:#fafbfe}
       </div>
       <div class="card">
         <div class="card-hdr">
-          <div><div class="card-title">🛠️ Open Issues</div><div class="card-sub">Every follow-up issue from every inspection type — QC, Spot Check, Check-In, Check-Out, Back-to-Back — tracked on its property until it's individually resolved or dismissed. This is the only place an issue's status or history is changed; every log elsewhere shows it read-only.</div></div>
+          <div><div class="card-title">🛠️ Open Issues</div><div class="card-sub">Every follow-up issue from every inspection type — QC, Spot Check, Check-In, Check-Out, Back-to-Back — tracked on its property until it's individually resolved or dismissed. This is the only place an issue's status or history is changed; every log elsewhere shows it read-only. Seasonal (Spring/Fall) issues are tracked in the Seasonal Inspections tab instead, and supply needs in the Supply Inventory tab — neither duplicates here.</div></div>
           <div class="spacer"></div>
           <div class="filters">
+            <select id="oi-manager" onchange="renderOpenIssues()"><option value="">All House Managers</option></select>
             <select id="oi-status" onchange="renderOpenIssues()"><option value="">All Statuses</option><option value="open">Open</option><option value="in_progress">In Progress</option><option value="resolved">Resolved</option><option value="dismissed">Dismissed</option></select>
             <select id="oi-source" onchange="renderOpenIssues()"><option value="">All Sources</option><option value="qc_check">QC</option><option value="spot_check">Spot Check</option><option value="checkin_summer">Check-In (Summer)</option><option value="checkin_winter">Check-In (Winter)</option><option value="checkout_summer">Check-Out (Summer)</option><option value="checkout_winter">Check-Out (Winter)</option><option value="b2b_summer">Back-to-Back – Summer</option><option value="b2b_winter">Back-to-Back – Winter</option></select>
             <select id="oi-prop" onchange="renderOpenIssues()"><option value="">All Properties</option></select>
@@ -792,6 +793,8 @@ function jumpToOpenIssues(propertyName){
   if(propSel)propSel.value=propertyName||'';
   document.getElementById('oi-status').value='';
   document.getElementById('oi-search').value='';
+  var mgrSel=document.getElementById('oi-manager');
+  if(mgrSel)mgrSel.value='';
   renderOpenIssues();
 }
 function showToast(m){var t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(function(){t.style.display='none';},2500);}
@@ -1009,11 +1012,26 @@ function renderSeasonal(){
       html+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="12">';
       if(hasIssues){
         html+='<div class="insp-detail-heading">&#128295; '+buildIssueStatusSummary(issueList,i.id)+'</div>';
+        html+='<div style="font-size:11.5px;color:var(--dark-gray);margin:-4px 0 8px">Seasonal issues are tracked here, not in Open Issues — update each item\'s status and add a resolution note directly below.</div>';
         issueList.forEach(function(x,xi){
           var xPhotos=normalizePhotoUrls(x.photos,'seasonal:'+i.id+':issue');
           var xKey=x.key||('legacyidx_'+xi);
+          var isSupplyIssue=(x.section==='Supply Check'||x.section==='Supply Inventory');
+          var issSafeId=safeId+'_'+xi;
+          html+='<div class="insp-issue-item"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div></div>';
+          if(isSupplyIssue){
+            html+='<span class="badge b-ok" title="Supply needs are tracked in the Supply Inventory tab, not here.">&#128230; In Supply Inventory Log</span></div>';
+            if(x.notes)html+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
+            if(xPhotos.length){
+              html+='<div class="insp-issue-photos">';
+              xPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
+              html+='</div>';
+            }
+            html+='</div>';
+            return;
+          }
           var tied=findTiedIssue(i.id,xKey);
-          html+='<div class="insp-issue-item"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div></div>'+issueStatusBadgeHtml(tied)+'</div>';
+          html+=issueStatusBadgeHtml(tied)+'</div>';
           if(x.notes)html+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
           if(x.charge>0)html+='<div class="insp-issue-charge">Charge: $'+Number(x.charge).toFixed(2)+'</div>';
           if(xPhotos.length){
@@ -1021,9 +1039,27 @@ function renderSeasonal(){
             xPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
             html+='</div>';
           }
+          if(tied){
+            html+='<div style="display:flex;align-items:center;gap:8px;margin:8px 0 4px;flex-wrap:wrap"><span style="font-size:11.5px;font-weight:700;color:var(--dark-gray)">Status:</span>'+
+              '<select id="sea-sel-'+issSafeId+'" style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:4px 8px;font-size:12px" onchange="stageSeasonalIssueStatusChange(\''+issSafeId+'\',this.value)">'+
+              '<option value="open"'+(tied.status==='open'||!tied.status?' selected':'')+'>Open</option>'+
+              '<option value="in_progress"'+(tied.status==='in_progress'?' selected':'')+'>In Progress</option>'+
+              '<option value="resolved"'+(tied.status==='resolved'?' selected':'')+'>Resolved</option>'+
+              '<option value="dismissed"'+(tied.status==='dismissed'?' selected':'')+'>Dismissed / Not an Issue</option>'+
+              '</select></div>';
+            html+='<div class="status-confirm-panel" id="sea-confirm-'+issSafeId+'" style="display:none">'+
+              '<div style="font-size:12px;color:var(--dark-gray)">Changing status to <strong id="sea-confirm-label-'+issSafeId+'"></strong>. Add an optional resolution note:</div>'+
+              '<textarea id="sea-confirm-note-'+issSafeId+'" placeholder="Optional note…"></textarea>'+
+              '<div class="sc-btns"><button class="sc-confirm" onclick="confirmSeasonalIssueStatusChange(\''+tied.id+'\',\''+issSafeId+'\')">Confirm</button><button class="sc-cancel" onclick="cancelSeasonalIssueStatusChange(\''+issSafeId+'\',\''+(tied.status||'open')+'\')">Cancel</button></div>'+
+              '</div>';
+            var seaUpdates=tied.updates||[];
+            var seaUpdHtml='';
+            seaUpdates.forEach(function(u){seaUpdHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
+            html+='<div class="updates-log">'+(seaUpdHtml||'<div style="font-size:11.5px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
+            html+='<div class="add-update-row"><input type="text" id="sea-note-'+issSafeId+'" placeholder="Add an update&hellip;"><button onclick="addSeasonalIssueUpdate(\''+tied.id+'\',\''+issSafeId+'\')">+ Add</button></div>';
+          }
           html+='</div>';
         });
-        html+='<button class="view-in-openissues-btn" data-prop="'+esc(i.property||'')+'" onclick="jumpToOpenIssues(this.getAttribute(\'data-prop\'))">View issues in Open Issues &rarr;</button>';
       }
       if(mgrNotes){
         html+='<div class="insp-detail-heading">&#128221; Manager Notes</div><div class="insp-notes-block">'+esc(mgrNotes).replace(/\n/g,'<br>')+'</div>';
@@ -1356,28 +1392,52 @@ function renderQCLog(){
 // on the property card in the app) across every future inspection at that
 // property until someone actually resolves or dismisses it.
 var STATUS_DISPLAY_NAMES={open:'Open',in_progress:'In Progress',resolved:'Resolved',dismissed:'Dismissed / Not an Issue'};
+// Every property_issues record whose formType is 'spring'/'fall', or whose section
+// is one of the supply sections, is routed elsewhere (Seasonal Inspections' own
+// per-item status UI, and the Supply Inventory Log, respectively — see
+// index.html's createPropertyIssues()/createSupplyRequestFromInspection() and
+// dashboard.html's renderSeasonal()) and must never also appear in Open Issues.
+// Filtering it out here (rather than deleting/migrating the underlying records)
+// is what "cleans up" any already-duplicated older entries per the 2026-09-28
+// routing update — the property_issues doc itself, and the inspection it came
+// from, are left completely untouched.
+function isOpenIssuesEligible(x){
+  if(x.formType==='spring'||x.formType==='fall') return false;
+  if(x.section==='Supply Check'||x.section==='Supply Inventory') return false;
+  return true;
+}
 function renderOpenIssues(){
+  var eligible=_propIssues.filter(isOpenIssuesEligible);
   var propSel=document.getElementById('oi-prop');
   if(propSel && propSel.options.length<=1){
-    var props={}; _propIssues.forEach(function(x){if(x.property)props[x.property]=1;});
+    var props={}; eligible.forEach(function(x){if(x.property)props[x.property]=1;});
     Object.keys(props).sort().forEach(function(p){var o=document.createElement('option');o.value=p;o.textContent=p;propSel.appendChild(o);});
+  }
+  var mgrSel=document.getElementById('oi-manager');
+  if(mgrSel && mgrSel.options.length<=1){
+    MANAGERS.slice().sort().forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m;mgrSel.appendChild(o);});
   }
   var status=document.getElementById('oi-status').value;
   var source=document.getElementById('oi-source').value;
   var prop=document.getElementById('oi-prop').value;
+  var manager=document.getElementById('oi-manager').value;
   var search=(document.getElementById('oi-search').value||'').toLowerCase();
-  var list=_propIssues.filter(function(x){
+  var list=eligible.filter(function(x){
     if(status && x.status!==status) return false;
     if(source && x.formType!==source) return false;
     if(prop && x.property!==prop) return false;
+    if(manager){
+      var mgrRec=PROPERTIES.find(function(p){return p.name===x.property;});
+      if(!mgrRec || mgrRec.manager!==manager) return false;
+    }
     if(search && !((x.property||'').toLowerCase().indexOf(search)!==-1 || (x.text||'').toLowerCase().indexOf(search)!==-1)) return false;
     return true;
   });
-  document.getElementById('oi-total').textContent=_propIssues.length;
-  document.getElementById('oi-open').textContent=_propIssues.filter(function(x){return x.status==='open'||!x.status;}).length;
-  document.getElementById('oi-progress').textContent=_propIssues.filter(function(x){return x.status==='in_progress';}).length;
-  document.getElementById('oi-resolved').textContent=_propIssues.filter(function(x){return x.status==='resolved';}).length;
-  document.getElementById('oi-dismissed').textContent=_propIssues.filter(function(x){return x.status==='dismissed';}).length;
+  document.getElementById('oi-total').textContent=eligible.length;
+  document.getElementById('oi-open').textContent=eligible.filter(function(x){return x.status==='open'||!x.status;}).length;
+  document.getElementById('oi-progress').textContent=eligible.filter(function(x){return x.status==='in_progress';}).length;
+  document.getElementById('oi-resolved').textContent=eligible.filter(function(x){return x.status==='resolved';}).length;
+  document.getElementById('oi-dismissed').textContent=eligible.filter(function(x){return x.status==='dismissed';}).length;
   var tableEl=document.getElementById('openIssuesTable');
   if(!list.length){ tableEl.innerHTML='<div class="empty">No follow-up issues found</div>'; return; }
   list.sort(function(a,b){return (b.reportedAt||'').localeCompare(a.reportedAt||'');});
@@ -1504,6 +1564,10 @@ function setPropertyIssueStatus(docId,newStatus,note){
     renderOpenIssues();
     renderQCLog();
     renderInspLog();
+    // Seasonal Inspections shows its own spring/fall issues tied to these same
+    // property_issues records with inline status controls (see renderSeasonal()) —
+    // re-render so a change made from either tab is reflected in both immediately.
+    renderSeasonal();
   }).catch(function(){showToast('Error updating issue');});
 }
 function addPropertyIssueUpdate(docId,safeId){
@@ -1518,6 +1582,52 @@ function addPropertyIssueUpdate(docId,safeId){
     input.value='';
     showToast('Update added');
     renderOpenIssues();
+  }).catch(function(){showToast('Error adding update');});
+}
+// ── Seasonal Inspections' own per-issue status controls (2026-09-28 routing update) ──
+// Spring/Fall issues are excluded from Open Issues (see isOpenIssuesEligible()), so
+// house managers need a way to update each seasonal item's status and add a
+// resolution note directly from the Seasonal Inspections tab instead. These three
+// functions are the Seasonal-tab equivalent of stageIssueStatusChange/
+// cancelIssueStatusChange/confirmIssueStatusChange above, using their own
+// 'sea-...' element id prefix so they never collide with Open Issues' 'oi-...' ids —
+// but the actual write still goes through the one shared setPropertyIssueStatus()
+// function below, so every issue's status/history is still written in exactly one
+// place no matter which tab it was changed from.
+function stageSeasonalIssueStatusChange(issSafeId,newStatus){
+  var panel=document.getElementById('sea-confirm-'+issSafeId);
+  var label=document.getElementById('sea-confirm-label-'+issSafeId);
+  if(!panel)return;
+  panel.setAttribute('data-pending-status',newStatus);
+  if(label)label.textContent=STATUS_DISPLAY_NAMES[newStatus]||newStatus;
+  panel.style.display='flex';
+}
+function cancelSeasonalIssueStatusChange(issSafeId,prevStatus){
+  var sel=document.getElementById('sea-sel-'+issSafeId);
+  var panel=document.getElementById('sea-confirm-'+issSafeId);
+  if(sel)sel.value=prevStatus;
+  if(panel)panel.style.display='none';
+}
+function confirmSeasonalIssueStatusChange(docId,issSafeId){
+  var panel=document.getElementById('sea-confirm-'+issSafeId);
+  var newStatus=panel?panel.getAttribute('data-pending-status'):null;
+  if(!newStatus)return;
+  var noteInput=document.getElementById('sea-confirm-note-'+issSafeId);
+  var note=(noteInput&&noteInput.value||'').trim();
+  setPropertyIssueStatus(docId,newStatus,note);
+}
+function addSeasonalIssueUpdate(docId,issSafeId){
+  var input=document.getElementById('sea-note-'+issSafeId);
+  var text=(input.value||'').trim();
+  if(!text)return;
+  var now=new Date();
+  var entry={text:text,by:currentUser.name,date:now.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
+  db.collection('property_issues').doc(docId).update({updates:firebase.firestore.FieldValue.arrayUnion(entry)}).then(function(){
+    var iss=_propIssues.find(function(x){return x.id===docId;});
+    if(iss){ if(!iss.updates)iss.updates=[]; iss.updates.push(entry); }
+    input.value='';
+    showToast('Update added');
+    renderSeasonal();
   }).catch(function(){showToast('Error adding update');});
 }
 // Spot Check is the one issue source whose "issue" is also a full standalone document
@@ -1652,6 +1762,18 @@ function supplyItemsSummaryText(items){
   if(!items||!items.length) return '';
   return items.map(function(it){return it.name+(it.qty?' (x'+it.qty+')':'');}).join(', ');
 }
+// Friendly Source badge label (2026-09-28): the underlying x.source field stays the
+// coarse 'Supply Inventory' | 'Check-Out' value the sup-source filter dropdown
+// matches against (unchanged, so the filter keeps working) — but now that supply
+// items flagged during ANY inspection type (Check-In, Check-Out, Back-to-Back,
+// Spring, Fall) create one of these records (see index.html's
+// createSupplyRequestFromInspection), a record from, say, a Spring walkthrough
+// would otherwise misleadingly show "Check-Out". This looks up the actual
+// originating inspection type (x.sourceFormType) for display instead.
+function supplyReqSourceLabel(x){
+  if(x.source==='Check-Out' && x.sourceFormType) return TYPE_LABELS[x.sourceFormType]||x.source;
+  return x.source||'';
+}
 function renderSupplyReqs(){
   var propSel=document.getElementById('sup-prop'), inspSel=document.getElementById('sup-insp');
   if(propSel && propSel.options.length<=1){
@@ -1699,7 +1821,7 @@ function renderSupplyReqs(){
     html+='<td style="white-space:nowrap">'+esc(x.submittedAt?fmtDateTime(x.submittedAt):'')+'</td>';
     html+='<td style="font-weight:600;min-width:160px">'+esc(x.property||'')+'</td>';
     html+='<td>'+esc(x.inspector||'')+'</td>';
-    html+='<td><span class="badge source-badge">'+esc(x.source||'')+'</span></td>';
+    html+='<td><span class="badge source-badge">'+esc(supplyReqSourceLabel(x))+'</span></td>';
     html+='<td style="min-width:220px">'+itemsText+'</td>';
     html+='<td style="min-width:140px">'+esc(x.notes||'')+'</td>';
     html+='<td>'+(xPhotos.length?'<span class="badge b-ok">&#128247; '+xPhotos.length+'</span>':'<span class="no-photo">&mdash;</span>')+'</td>';
