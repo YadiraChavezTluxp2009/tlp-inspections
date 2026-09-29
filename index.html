@@ -662,6 +662,17 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
   var sections = state._sections || [];
   var issueList = [];
   var ok=0,issues=0,na=0,charge=0;
+  // Full per-item Current/Needed snapshot for Kitchen/Linen Inventory (2026-09-29
+  // fix, see kitchen-linen-inventory-dashboard-scoring-fix doc) — previously the
+  // ONLY thing saved to Firestore for these two types was the rolled-up
+  // itemsOk/issuesFound/naCount (which was always 0 before the fix above) and the
+  // list of shortfalls in `issues`. Every item that was NOT a shortfall — the vast
+  // majority of a real inventory — was never persisted anywhere at all; the only
+  // record of it was the emailed report. This snapshot keeps the full Current/
+  // Needed count for every item on the record itself, so a real discrepancy can
+  // always be looked up and, if ever needed, corrected from the database instead
+  // of having to dig up the original email.
+  var inventoryItems = [];
   if (state.formType === 'kitchen_inv' || state.formType === 'linen_inv') {
     // Kitchen/Linen Inventory items record a Current count vs. a Needed count —
     // there's no OK/Issue/N-A status field on them at all, so running them through
@@ -685,7 +696,7 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
         var itm = state.items[key] || {};
         var isBedSize = (state.formType === 'linen_inv' && itemText.indexOf('Bed Size') !== -1);
         if (isBedSize) {
-          if (itm.value !== undefined && itm.value !== '') ok++;
+          if (itm.value !== undefined && itm.value !== '') { ok++; inventoryItems.push({section:sec.title, item:itemText, current:itm.value, needed:''}); }
           return;
         }
         var hasCur = itm.value !== undefined && itm.value !== '';
@@ -693,6 +704,7 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
         if (!hasCur && !hasNeed) return;
         var curN = hasCur ? (parseFloat(itm.value) || 0) : 0;
         var needN = hasNeed ? (parseFloat(itm.needed) || 0) : 0;
+        inventoryItems.push({section:sec.title, item:itemText, current:hasCur?itm.value:'', needed:hasNeed?itm.needed:''});
         if (needN > 0 && curN < needN) {
           issues++;
           issueList.push({section:sec.title, text:itemText, notes:'Have '+(hasCur?itm.value:'0')+', need '+itm.needed, charge:0, photos:itemPhotos[key]||[], key:key, isSupply:false});
@@ -719,6 +731,15 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
     photoUrls:photoUrls, photoCount:photoUrls.length,
     itemPhotos:itemPhotos, photoUploadFailCount:uploadResult.failCount||0,
     managerNotes:state.managerNotes||'', maintenanceNotes:state.maintenanceNotes||'',
+    // Kitchen/Linen Inventory's own "Additional Notes" box (2026-09-29 fix) — this
+    // was being emailed out correctly (see emailReport()) but was never actually
+    // saved to Firestore, so it was invisible on the Dashboard record itself.
+    invNotes: state.invNotes || '',
+    // Full Current/Needed snapshot for Kitchen/Linen Inventory (2026-09-29 fix) —
+    // see the comment above where inventoryItems is built. Empty array for every
+    // other inspection type, same convention as bedroomInstances/kitchenExtraItems
+    // below.
+    inventoryItems: inventoryItems,
     // Maintenance Notes photos (2026-09-24) — uploaded like every other photo
     // (see collectAllPhotos()'s 'maintNotes' key), viewable in the Dashboard
     // record alongside the notes text itself.
@@ -2935,6 +2956,70 @@ var ICON_CAMERA = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" s
 var ICON_UPLOAD = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
 var ICON_LOCK = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>';
 var ICON_CHECK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+// ── Photo compression (2026-09-29 fix) ──────────────────────────────────────
+// WHY THIS EXISTS: every photo used to be stored exactly as the camera
+// produced it — on a modern phone that's commonly 3-8MB per photo as a raw
+// JPEG, which becomes even bigger once base64-encoded for storage (+33%).
+// That collided with two hard limits nothing in the app was accounting for:
+//   1) A browser's local storage for one site is typically only 5-10MB
+//      TOTAL — a single uncompressed photo could eat most or all of that by
+//      itself, which is why saveDraftSilent()'s "retry without photos"
+//      fallback was likely triggering on almost any inspection with a real
+//      phone photo, not just as a rare edge case.
+//   2) Firestore documents have a hard 1MiB (1,048,576 byte) size limit. A
+//      single uncompressed phone photo is already several times that limit
+//      on its own — so the "always back up the full draft, photos included,
+//      to the cloud" safety net in saveDraftSilent() was almost certainly
+//      failing silently (or showing a misleading "no connection" message)
+//      for any in-progress draft with even one real photo in it, meaning
+//      photos on a NOT-YET-SUBMITTED inspection had no reliable backup at
+//      all if the device was lost, the app crashed, or the browser cache got
+//      cleared before the inspector hit Submit.
+// Downscaling every photo to a sane max dimension and re-encoding as JPEG
+// fixes both at once — typically 100-400KB per photo afterward, comfortably
+// inside both limits — while still being plenty sharp for documenting an
+// item's condition (not meant for large-format printing). The final
+// SUBMITTED photos (uploaded via uploadPhotosToStorage() to Firebase
+// Storage, a separate system with no such size limit) were never at risk
+// this way — this specifically protects the draft/in-progress phase.
+var PHOTO_MAX_DIMENSION = 1280;
+var PHOTO_JPEG_QUALITY = 0.65;
+function compressPhotoDataUrl(rawDataUrl, callback) {
+  try {
+    var img = new Image();
+    img.onload = function() {
+      try {
+        var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        if (!w || !h) { callback(rawDataUrl); return; }
+        if (w > PHOTO_MAX_DIMENSION || h > PHOTO_MAX_DIMENSION) {
+          if (w >= h) { h = Math.round(h * (PHOTO_MAX_DIMENSION / w)); w = PHOTO_MAX_DIMENSION; }
+          else { w = Math.round(w * (PHOTO_MAX_DIMENSION / h)); h = PHOTO_MAX_DIMENSION; }
+        }
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        var compressed = canvas.toDataURL('image/jpeg', PHOTO_JPEG_QUALITY);
+        // Guard against a canvas/toDataURL quirk (e.g. a tainted canvas, or an
+        // unsupported source format) producing something unusable — fall back
+        // to the original rather than ever losing the photo over this step.
+        callback((compressed && compressed.indexOf('data:image') === 0) ? compressed : rawDataUrl);
+      } catch (e2) {
+        console.warn('[PHOTO-COMPRESS] Failed mid-compression, using original photo instead:', e2);
+        callback(rawDataUrl);
+      }
+    };
+    img.onerror = function() {
+      console.warn('[PHOTO-COMPRESS] Could not decode photo for compression, using original instead.');
+      callback(rawDataUrl);
+    };
+    img.src = rawDataUrl;
+  } catch (e) {
+    console.warn('[PHOTO-COMPRESS] Unexpected error, using original photo instead:', e);
+    callback(rawDataUrl);
+  }
+}
+
 function makePhotoBtn(key) {
   var hasPhoto = !!(state.photos && state.photos[key]);
   var wrap = document.createElement('div');
@@ -2957,7 +3042,14 @@ function makePhotoBtn(key) {
     inp.onchange = function() {
       var file = inp.files[0]; if (!file) return;
       var reader = new FileReader();
-      reader.onload = function(e) { applyPhoto(e.target.result); };
+      reader.onload = function(e) { compressPhotoDataUrl(e.target.result, applyPhoto); };
+      // 2026-09-29 fix: previously had no onerror handler at all, so a photo
+      // that failed to read (large file, low memory, an unusual camera format)
+      // vanished with zero indication — the inspector sees the camera work
+      // fine and has no way to know the photo never actually attached. Now
+      // shows a visible error so they know to retry immediately instead of
+      // finding out after the fact that a photo they took never saved.
+      reader.onerror = function() { showToast('⚠️ Photo could not be processed — please try again.', 5000); };
       reader.readAsDataURL(file);
     };
     return inp;
@@ -3063,13 +3155,15 @@ function handleMaintNotesPhoto(e) {
   var file = e.target.files[0]; if (!file) return;
   var reader = new FileReader();
   reader.onload = function(ev) {
-    if (!state.maintenanceNotesPhotos) state.maintenanceNotesPhotos = [];
-    var src = ev.target.result;
-    state.maintenanceNotesPhotos.push(src);
-    var pr = document.getElementById('maintNotesPhotoRow');
-    if (pr) addPhotoThumb(pr, src, 'maintNotesPhoto', state.maintenanceNotesPhotos.length-1);
-    saveDraftSilent(); showToast('Photo added');
+    compressPhotoDataUrl(ev.target.result, function(src) {
+      if (!state.maintenanceNotesPhotos) state.maintenanceNotesPhotos = [];
+      state.maintenanceNotesPhotos.push(src);
+      var pr = document.getElementById('maintNotesPhotoRow');
+      if (pr) addPhotoThumb(pr, src, 'maintNotesPhoto', state.maintenanceNotesPhotos.length-1);
+      saveDraftSilent(); showToast('Photo added');
+    });
   };
+  reader.onerror = function() { showToast('⚠️ Photo could not be processed — please try again.', 5000); };
   reader.readAsDataURL(file);
 }
 
@@ -3581,16 +3675,18 @@ function handlePhoto(e, key) {
   var file = e.target.files[0]; if (!file) return;
   var reader = new FileReader();
   reader.onload = function(ev) {
-    if (!state.items[key]) state.items[key]={};
-    if (!state.items[key].photos) state.items[key].photos=[];
-    var src = ev.target.result;
-    state.items[key].photos.push(src);
-    var pr = document.getElementById('photos-'+key);
-    addPhotoThumb(pr, src, key, state.items[key].photos.length-1);
-    var exp = document.getElementById('expand-'+key);
-    if (exp) exp.classList.add('has-notes');
-    saveDraftSilent(); showToast('Photo added');
+    compressPhotoDataUrl(ev.target.result, function(src) {
+      if (!state.items[key]) state.items[key]={};
+      if (!state.items[key].photos) state.items[key].photos=[];
+      state.items[key].photos.push(src);
+      var pr = document.getElementById('photos-'+key);
+      addPhotoThumb(pr, src, key, state.items[key].photos.length-1);
+      var exp = document.getElementById('expand-'+key);
+      if (exp) exp.classList.add('has-notes');
+      saveDraftSilent(); showToast('Photo added');
+    });
   };
+  reader.onerror = function() { showToast('⚠️ Photo could not be processed — please try again.', 5000); };
   reader.readAsDataURL(file);
 }
 
@@ -4081,7 +4177,8 @@ function removeSpotCheckIssue(idx) {
 function addSpotCheckPhoto(e, idx) {
   var file = e.target.files[0]; if (!file) return;
   var reader = new FileReader();
-  reader.onload = function(ev) { spotCheck.issues[idx].photos.push(ev.target.result); renderSpotCheckIssuePhotos(idx); };
+  reader.onload = function(ev) { compressPhotoDataUrl(ev.target.result, function(src) { spotCheck.issues[idx].photos.push(src); renderSpotCheckIssuePhotos(idx); }); };
+  reader.onerror = function() { showToast('⚠️ Photo could not be processed — please try again.', 5000); };
   reader.readAsDataURL(file);
   e.target.value = '';
 }
@@ -4475,7 +4572,8 @@ function toggleSupplyNoneNeeded(checked) {
 function addSupplyInvPhoto(e) {
   var file = e.target.files[0]; if (!file) return;
   var reader = new FileReader();
-  reader.onload = function(ev) { siState.photos.push(ev.target.result); renderSupplyInvPhotos(); };
+  reader.onload = function(ev) { compressPhotoDataUrl(ev.target.result, function(src) { siState.photos.push(src); renderSupplyInvPhotos(); }); };
+  reader.onerror = function() { showToast('⚠️ Photo could not be processed — please try again.', 5000); };
   reader.readAsDataURL(file);
   e.target.value = '';
 }
@@ -4917,14 +5015,31 @@ function saveDraftSilent() {
       }
     }, function(e){
       console.warn('Cloud draft sync failed:', e);
+      // 2026-09-29 fix: a rejection here isn't always "no connection" — a draft
+      // with a lot of photos in it can hit Firestore's own 1MB-per-document
+      // limit even after compression (e.g. a QC Check with many flagged
+      // items, each with its own photo). That's a real, distinct message
+      // from a network problem: retrying won't help, the inspector needs to
+      // finish and submit soon so the photos move to the (unlimited) upload
+      // path instead of sitting in this size-capped draft backup.
+      var msgText = ((e && (e.message || e.code)) || '').toString().toLowerCase();
+      var isSizeLimit = msgText.indexOf('size') !== -1 || msgText.indexOf('too large') !== -1 || msgText.indexOf('invalid-argument') !== -1;
       if (!localOk) {
-        // Nothing succeeded anywhere — the one real data-loss risk left.
-        showSaveError('Not saved — device storage is full and there’s no connection to back this up. Free up space or reconnect, then try again.');
+        showSaveError(isSizeLimit
+          ? 'Not saved — this draft has too many photos to back up as one piece, and device storage is also full. Please finish and submit soon.'
+          : 'Not saved — device storage is full and there’s no connection to back this up. Free up space or reconnect, then try again.');
       } else if (!localFull) {
-        showSaveError('Saved locally without photos — no connection yet to back up the photos');
+        showSaveError(isSizeLimit
+          ? 'Saved locally without photos — this draft has too many photos to also back up to the cloud as one piece. It\'s still safe on this device; try to finish and submit soon.'
+          : 'Saved locally without photos — no connection yet to back up the photos');
+      } else if (isSizeLimit) {
+        // Full local copy exists, so nothing is at risk right now — but flag it,
+        // since it means the CLOUD backup of this draft's photos isn't current.
+        markSaved('Saved on this device — too many photos to also back up to the cloud right now');
       }
-      // If localFull is true, the local copy is already complete, so a
-      // cloud failure here is silent and non-fatal, same as before this fix.
+      // Otherwise (localFull true, not a size issue): the local copy is
+      // already complete, so a cloud failure here is silent and non-fatal,
+      // same as before this fix.
     });
   } else if (!localOk) {
     showSaveError('Not saved — device storage is full. Free up space and try again.');
