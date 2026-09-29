@@ -2645,17 +2645,30 @@ function sendViaHTTP(payload, mailtoFallback, onSuccess) {
       if (document.getElementById('sendingOverlay')) document.body.removeChild(ov);
       if (r.ok || r.status === 202) {
         showToast('Report & photos sent!');
-        if (onSuccess) setTimeout(onSuccess, 600);
       } else {
-        var msg = 'Make.com returned an error (' + r.status + ').\n\nPlease confirm the scenario is saved and active in Make.com.\n\nFalling back to email app.';
+        // BUGFIX (2026-09-29): a non-OK response here does NOT mean the email never
+        // went out — Make.com can fire the email before this response comes back, so
+        // a flaky/slow response can land here even though the report was actually
+        // sent. onSuccess (which saves the inspection to Firestore, the record the
+        // Dashboard and My Inspections both read from) used to only be called in the
+        // success branch above, so a case like this could leave an inspection with a
+        // sent confirmation email but literally no saved record anywhere. The save
+        // must never depend on this HTTP response coming back clean — see the
+        // unconditional onSuccess call below, which now runs in every outcome.
+        var msg = 'Make.com returned an error (' + r.status + ').\n\nPlease confirm the scenario is saved and active in Make.com.\n\nThe inspection itself has still been saved and will not be lost. Falling back to email app as a backup.';
         alert(msg);
         window.location.href = mailtoFallback;
       }
+      if (onSuccess) setTimeout(onSuccess, 600);
     }).catch(function(err) {
       if (document.getElementById('sendingOverlay')) document.body.removeChild(ov);
-      var msg = 'Could not connect to Make.com.\n\nThis usually means:\n1. The scenario is not saved/active, OR\n2. A CORS or network error.\n\nPlease confirm the scenario in Make.com, then try again.\n\nFalling back to email app.';
+      // Same reasoning as the non-OK branch above: a network/CORS error on THIS
+      // response does not prove the email (or the Make.com scenario it triggers)
+      // never fired — so the save still must not be skipped.
+      var msg = 'Could not connect to Make.com.\n\nThis usually means:\n1. The scenario is not saved/active, OR\n2. A CORS or network error.\n\nThe inspection itself has still been saved and will not be lost. Falling back to email app as a backup.';
       alert(msg);
       window.location.href = mailtoFallback;
+      if (onSuccess) setTimeout(onSuccess, 600);
     });
 }
 
