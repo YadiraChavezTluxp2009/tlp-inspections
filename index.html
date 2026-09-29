@@ -662,12 +662,53 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
   var sections = state._sections || [];
   var issueList = [];
   var ok=0,issues=0,na=0,charge=0;
-  collectAllAnswerableItems().forEach(function(x){
-    var it = x.item || {};
-    if (it.status==='ok') ok++;
-    else if (it.status==='issue') { issues++; charge+=it.charge||0; issueList.push({section:x.section,text:x.text,notes:it.notes||'',charge:it.charge||0,photos:itemPhotos[x.key]||[],key:x.key,isSupply:!!x.isSupply}); }
-    else if (it.status==='na') na++;
-  });
+  if (state.formType === 'kitchen_inv' || state.formType === 'linen_inv') {
+    // Kitchen/Linen Inventory items record a Current count vs. a Needed count —
+    // there's no OK/Issue/N-A status field on them at all, so running them through
+    // collectAllAnswerableItems()'s status check below always saw it.status===
+    // undefined for every single item and silently recorded itemsOk:0,
+    // issuesFound:0, naCount:0 no matter what was actually counted. That's the
+    // "21 current / 15 needed" bug: a fully-stocked item and a real shortfall both
+    // showed up identically as nothing checked on the Dashboard. Score these two
+    // types by comparing Current to Needed per item instead:
+    //   - Current entered and (no Needed set, or Current >= Needed) -> OK
+    //   - A Needed amount is set and Current falls short of it -> Issue. This also
+    //     creates a property_issues record via createPropertyIssues() below (same
+    //     as any other flagged item), so a real shortfall shows up on the
+    //     Dashboard's Seasonal Inspections detail / Open Issues like normal.
+    //   - Bed Size text fields (Linen only, no quantity) count as OK once filled in.
+    //   - An item left completely blank (no Current, no Needed) isn't counted at
+    //     all, same as an unanswered item on a normal checklist.
+    sections.forEach(function(sec, si) {
+      (sec.items||[]).forEach(function(itemText, ii) {
+        var key = si + '_' + ii;
+        var itm = state.items[key] || {};
+        var isBedSize = (state.formType === 'linen_inv' && itemText.indexOf('Bed Size') !== -1);
+        if (isBedSize) {
+          if (itm.value !== undefined && itm.value !== '') ok++;
+          return;
+        }
+        var hasCur = itm.value !== undefined && itm.value !== '';
+        var hasNeed = itm.needed !== undefined && itm.needed !== '';
+        if (!hasCur && !hasNeed) return;
+        var curN = hasCur ? (parseFloat(itm.value) || 0) : 0;
+        var needN = hasNeed ? (parseFloat(itm.needed) || 0) : 0;
+        if (needN > 0 && curN < needN) {
+          issues++;
+          issueList.push({section:sec.title, text:itemText, notes:'Have '+(hasCur?itm.value:'0')+', need '+itm.needed, charge:0, photos:itemPhotos[key]||[], key:key, isSupply:false});
+        } else {
+          ok++;
+        }
+      });
+    });
+  } else {
+    collectAllAnswerableItems().forEach(function(x){
+      var it = x.item || {};
+      if (it.status==='ok') ok++;
+      else if (it.status==='issue') { issues++; charge+=it.charge||0; issueList.push({section:x.section,text:x.text,notes:it.notes||'',charge:it.charge||0,photos:itemPhotos[x.key]||[],key:x.key,isSupply:!!x.isSupply}); }
+      else if (it.status==='na') na++;
+    });
+  }
   var info=state.info;
   var docData = {
     formType:state.formType, property:info.property||'', address:info.address||'',
