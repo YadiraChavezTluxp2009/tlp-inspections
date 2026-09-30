@@ -35,6 +35,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
 .logout-btn{background:none;border:1px solid rgba(255,255,255,.4);color:white;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:600}
 .refresh-btn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);color:white;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:6px}
 .refresh-btn:disabled{opacity:.6;cursor:default}
+/* My Houses lives in the top bar (moved out of the crowded tab row below) but
+   still uses the shared .tab-btn / switchTab() machinery, so it needs its own
+   look here rather than the white-background tab-row styling. !important wins
+   over the equal-specificity .tab-btn/.tab-btn.active rules further down. */
+.top-bar-tab-btn{background:rgba(255,255,255,.15) !important;border:1px solid rgba(255,255,255,.4) !important;color:white !important;border-radius:8px !important;padding:6px 14px !important;font-size:12px !important;font-weight:700 !important;margin-bottom:0 !important;border-bottom:1px solid rgba(255,255,255,.4) !important;display:flex;align-items:center;gap:6px}
+.top-bar-tab-btn:hover{color:white !important}
+.top-bar-tab-btn.active{background:rgba(255,255,255,.35) !important;border-color:white !important;border-bottom:1px solid white !important}
 .sync-text{font-size:11px;opacity:.75;white-space:nowrap}
 .tab-nav{background:white;border-bottom:2px solid var(--mid-gray);padding:0 24px;display:flex;gap:0;position:sticky;top:54px;z-index:90;box-shadow:0 2px 6px rgba(0,0,0,.05);overflow-x:auto}
 .tab-btn{padding:15px 18px;border:none;background:none;font-size:13px;font-weight:600;color:var(--dark-gray);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:color .15s}
@@ -111,6 +118,11 @@ tr:hover td{background:#fafbfe}
 .details-btn .chev{display:inline-block;transition:transform .15s}
 .details-btn.open .chev{transform:rotate(90deg)}
 .insp-detail-row td{background:#FAFBFD;padding:14px 20px;border-bottom:2px solid var(--mid-gray)}
+/* MY HOUSES — collapsible sections */
+.mh-sec-hdr{cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px}
+.mh-sec-hdr .chev{display:inline-block;transition:transform .15s;font-size:10px}
+.mh-sec-hdr.open .chev{transform:rotate(90deg)}
+.mh-sec-body{margin-top:8px}
 .insp-issue-item{background:white;border-left:3px solid var(--red);border-radius:6px;padding:8px 12px;margin-bottom:8px;font-size:12.5px;box-shadow:var(--shadow)}
 .insp-issue-item:last-child{margin-bottom:0}
 .insp-issue-section{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--dark-gray)}
@@ -261,10 +273,11 @@ tr:hover td{background:#fafbfe}
     <div class="spacer"></div>
     <span class="sync-text" id="lastSyncedText">Last synced: —</span>
     <button class="refresh-btn" id="refreshBtn" onclick="refreshDashboardData()">🔄 Refresh</button>
+    <button class="tab-btn top-bar-tab-btn" id="myHousesTopBtn" onclick="switchTab('myhouses',this)">🏠 My Houses</button>
     <div class="user-pill" id="userPill"></div>
     <button class="logout-btn" onclick="doLogout()">Log Out</button>
   </div>
-  <div class="tab-nav">
+  <div class="tab-nav" id="tabNav">
     <button class="tab-btn active" onclick="switchTab('insplog',this)">📋 Check-Ins/Check-Outs Log</button>
     <button class="tab-btn" onclick="switchTab('openissues',this)">🛠️ Open Issues</button>
     <button class="tab-btn" onclick="switchTab('supplyinv',this)">📦 Supply Inventory</button>
@@ -294,9 +307,54 @@ tr:hover td{background:#fafbfe}
             <select id="il-days" onchange="renderInspLog()"><option value="0">All Time</option><option value="3">Last 3 Days</option><option value="7">Last 7 Days</option><option value="30">Last 30 Days</option><option value="90">Last 90 Days</option></select>
             <input id="il-prop" oninput="renderInspLog()" placeholder="🔍 Property…" style="width:170px">
             <select id="il-insp" onchange="renderInspLog()"><option value="">All Inspectors</option></select>
+            <select id="il-mgr" onchange="renderInspLog()"><option value="">All Operations Contacts</option></select>
           </div>
         </div>
         <div class="tbl-wrap"><div id="inspLogTable"><div class="loading">Loading…</div></div></div>
+      </div>
+    </div>
+
+    <!-- MY HOUSES -->
+    <div class="tab-panel" id="tab-myhouses">
+      <div class="card">
+        <div class="card-hdr">
+          <div><div class="card-title">🏠 My Houses</div><div class="card-sub">One Operations Contact's own assigned properties — Check-Ins/Check-Outs, Open Issues, Supply Inventory, QC Inspections, Seasonal Inspections, and Complaints, all in one place. Switching the dropdown only changes what's shown here — it never changes any assignment.</div></div>
+          <div class="spacer"></div>
+          <div class="filters">
+            <select id="mh-contact" onchange="onMyHousesContactChange()"><option value="">— Select Operations Contact —</option></select>
+          </div>
+        </div>
+        <div id="mh-heading" style="padding:14px 18px 0;font-weight:700;font-size:15px;color:var(--navy)"></div>
+        <div id="mh-content"></div>
+      </div>
+    </div>
+
+    <!-- PRODUCTIVITY (manager-only — see renderProductivity()'s own role gate; the
+         tab button itself is only ever inserted into the DOM for a manager, in
+         showApp() below) -->
+    <div class="tab-panel" id="tab-productivity">
+      <div class="card">
+        <div class="card-hdr">
+          <div><div class="card-title">📈 Productivity</div><div class="card-sub">Activity timeline built from existing inspection/issue/supply timestamps — visible to Manager accounts only.</div></div>
+          <div class="spacer"></div>
+          <div class="filters">
+            <input type="date" id="pr-datefrom" onchange="renderProductivity()" title="From date">
+            <input type="date" id="pr-dateto" onchange="renderProductivity()" title="To date">
+            <select id="pr-staff" onchange="renderProductivity()"><option value="">All Staff</option></select>
+            <input id="pr-prop" oninput="renderProductivity()" placeholder="🔍 Property…" style="width:170px">
+            <select id="pr-mgr" onchange="renderProductivity()"><option value="">All Operations Contacts</option></select>
+          </div>
+        </div>
+        <div style="margin:0 18px 14px;padding:12px 14px;background:#FFF8E1;border:1px solid #F0D98C;border-radius:8px;font-size:12px;color:#6b5900;line-height:1.5">
+          ⚠️ <strong>Client-side restriction only.</strong> This tab is hidden from non-manager accounts within the app's UI, but there are no Firestore Security Rules anywhere in this project enforcing that restriction at the database level — a technical user could still query Firestore directly from a browser console. Adding real Security Rules to actually enforce this server-side is recommended as separate follow-up work.
+        </div>
+        <div class="stats-row stats-row-compact">
+          <div class="stat-card"><div class="stat-num" id="pr-total">—</div><div class="stat-lbl">Inspections in Range</div></div>
+          <div class="stat-card"><div class="stat-num" id="pr-issues">—</div><div class="stat-lbl">Issues Found</div></div>
+          <div class="stat-card"><div class="stat-num" id="pr-avgelapsed">—</div><div class="stat-lbl">Avg. Elapsed Time (Start→End)</div></div>
+          <div class="stat-card"><div class="stat-num" id="pr-props">—</div><div class="stat-lbl">Properties Covered</div></div>
+        </div>
+        <div class="tbl-wrap"><div id="productivityTable"><div class="loading">Loading…</div></div></div>
       </div>
     </div>
 
@@ -310,6 +368,7 @@ tr:hover td{background:#fafbfe}
             <select id="si-season" onchange="renderSeasonal()"><option value="">All Seasons</option><option value="spring">Spring</option><option value="fall">Fall</option><option value="kitchen_inv">Kitchen Inv</option><option value="linen_inv">Linen Inv</option></select>
             <select id="si-days" onchange="renderSeasonal()"><option value="0">All Time</option><option value="7">Last 7 Days</option><option value="30">Last 30 Days</option><option value="90">Last 90 Days</option></select>
             <input id="si-prop" oninput="renderSeasonal()" placeholder="🔍 Property…" style="width:170px">
+            <select id="si-mgr" onchange="renderSeasonal()"><option value="">All Operations Contacts</option></select>
           </div>
         </div>
         <div class="tbl-wrap"><div id="seasonalTable"><div class="loading">Loading…</div></div></div>
@@ -323,8 +382,8 @@ tr:hover td{background:#fafbfe}
           <div><div class="card-title">📊 Seasonal Dashboard</div><div class="card-sub">Spring · Fall · Kitchen · Linen completion status per property</div></div>
           <div class="spacer"></div>
           <div class="filters">
-            <select id="sd-sort" onchange="renderSeaDash()"><option value="property">Sort: Property A–Z</option><option value="manager">Sort: Manager A–Z</option></select>
-            <select id="sd-mgr" onchange="renderSeaDash()"><option value="">All Managers</option></select>
+            <select id="sd-sort" onchange="renderSeaDash()"><option value="property">Sort: Property A–Z</option><option value="manager">Sort: Operations Contact A–Z</option></select>
+            <select id="sd-mgr" onchange="renderSeaDash()"><option value="">All Operations Contacts</option></select>
             <select id="sd-status" onchange="renderSeaDash()"><option value="">All Statuses</option><option value="Complete">Complete</option><option value="In Progress">In Progress</option><option value="All Pending">All Pending</option></select>
             <input id="sd-prop" oninput="renderSeaDash()" placeholder="🔍 Property…" style="width:170px">
           </div>
@@ -346,9 +405,9 @@ tr:hover td{background:#fafbfe}
           <div><div class="card-title">🔍 QC Dashboard</div><div class="card-sub">Last QC check per property — auto-populated from QC Check form submissions</div></div>
           <div class="spacer"></div>
           <div class="filters">
-            <select id="qd-sort" onchange="renderQCDash()"><option value="property">Sort: Property A–Z</option><option value="manager">Sort: Manager A–Z</option></select>
+            <select id="qd-sort" onchange="renderQCDash()"><option value="property">Sort: Property A–Z</option><option value="manager">Sort: Operations Contact A–Z</option></select>
             <select id="qd-status" onchange="renderQCDash()"><option value="">All Statuses</option><option value="Recent">Recent ✓</option><option value="Due Soon">Due Soon</option><option value="Overdue">Overdue</option><option value="Never Checked">Never Checked</option></select>
-            <select id="qd-mgr" onchange="renderQCDash()"><option value="">All Managers</option></select>
+            <select id="qd-mgr" onchange="renderQCDash()"><option value="">All Operations Contacts</option></select>
             <input id="qd-prop" oninput="renderQCDash()" placeholder="🔍 Property…" style="width:170px">
           </div>
         </div>
@@ -360,17 +419,18 @@ tr:hover td{background:#fafbfe}
     <div class="tab-panel" id="tab-qclog">
       <div class="card">
         <div class="card-hdr">
-          <div><div class="card-title">📝 QC Log</div><div class="card-sub">All QC Check inspections and Spot Check reports (labeled by Type below)</div></div>
+          <div><div class="card-title">📝 QC Log</div><div class="card-sub">All QC Check inspections</div></div>
           <div class="spacer"></div>
           <div class="filters">
             <select id="ql-days" onchange="renderQCLog()"><option value="0">All Time</option><option value="7">Last 7 Days</option><option value="30">Last 30 Days</option><option value="90">Last 90 Days</option></select>
             <input id="ql-prop" oninput="renderQCLog()" placeholder="🔍 Property…" style="width:170px">
-            <select id="ql-mgr" onchange="renderQCLog()"><option value="">All Managers</option></select>
+            <select id="ql-mgr" onchange="renderQCLog()"><option value="">All Operations Contacts</option></select>
           </div>
         </div>
         <div class="tbl-wrap"><div id="qcLogTable"><div class="loading">Loading…</div></div></div>
       </div>
     </div>
+
 
     <!-- TRAININGS -->
     <div class="tab-panel" id="tab-training">
@@ -393,7 +453,7 @@ tr:hover td{background:#fafbfe}
 
       <div class="filters" style="margin-bottom:16px">
         <input id="cp-prop" oninput="renderComplaints()" placeholder="🔍 Search by property…" style="width:220px">
-        <select id="cp-mgr" onchange="renderComplaints()"><option value="">All Managers</option></select>
+        <select id="cp-mgr" onchange="renderComplaints()"><option value="">All Operations Contacts</option></select>
       </div>
 
       <button class="open-complaint-btn" onclick="toggleComplaintForm()">＋ Log New Complaint</button>
@@ -409,7 +469,7 @@ tr:hover td{background:#fafbfe}
             </select>
           </div>
           <div>
-            <label class="flabel">Manager (auto-filled)</label>
+            <label class="flabel">Operations Contact (auto-filled)</label>
             <input class="finput" id="cf-mgr" type="text" readonly placeholder="Auto-filled on property select">
           </div>
         </div>
@@ -430,8 +490,8 @@ tr:hover td{background:#fafbfe}
             </select>
           </div>
           <div>
-            <label class="flabel">House Manager Email</label>
-            <input class="finput" id="cf-email" type="email" placeholder="housemanager@email.com">
+            <label class="flabel">Operations Contact Email</label>
+            <input class="finput" id="cf-email" type="email" placeholder="operationscontact@email.com">
           </div>
         </div>
         <div class="form-row full">
@@ -441,7 +501,7 @@ tr:hover td{background:#fafbfe}
           </div>
         </div>
         <div class="form-btns">
-          <button class="btn-notify" onclick="submitComplaint(true)">📧 Submit &amp; Notify House Manager</button>
+          <button class="btn-notify" onclick="submitComplaint(true)">📧 Submit &amp; Notify Operations Contact</button>
           <button class="btn-save-only" onclick="submitComplaint(false)">💾 Submit Only</button>
           <button class="btn-cancel" onclick="toggleComplaintForm()">Cancel</button>
         </div>
@@ -466,7 +526,7 @@ tr:hover td{background:#fafbfe}
           <div><div class="card-title">🛠️ Open Issues</div><div class="card-sub">Every follow-up issue from every inspection type — QC, Spot Check, Check-In, Check-Out, Back-to-Back — tracked on its property until it's individually resolved or dismissed. This is the only place an issue's status or history is changed; every log elsewhere shows it read-only. Seasonal (Spring/Fall) issues are tracked in the Seasonal Inspections tab instead, and supply needs in the Supply Inventory tab — neither duplicates here.</div></div>
           <div class="spacer"></div>
           <div class="filters">
-            <select id="oi-manager" onchange="renderOpenIssues()"><option value="">All House Managers</option></select>
+            <select id="oi-manager" onchange="renderOpenIssues()"><option value="">All Operations Contacts</option></select>
             <select id="oi-status" onchange="renderOpenIssues()"><option value="">All Statuses</option><option value="open">Open</option><option value="in_progress">In Progress</option><option value="resolved">Resolved</option><option value="dismissed">Dismissed</option></select>
             <select id="oi-source" onchange="renderOpenIssues()"><option value="">All Sources</option><option value="qc_check">QC</option><option value="spot_check">Spot Check</option><option value="checkin_summer">Check-In (Summer)</option><option value="checkin_winter">Check-In (Winter)</option><option value="checkout_summer">Check-Out (Summer)</option><option value="checkout_winter">Check-Out (Winter)</option><option value="b2b_summer">Back-to-Back – Summer</option><option value="b2b_winter">Back-to-Back – Winter</option></select>
             <select id="oi-prop" onchange="renderOpenIssues()"><option value="">All Properties</option></select>
@@ -483,21 +543,21 @@ tr:hover td{background:#fafbfe}
          `supply_requests` collection (see index.html: submitSupplyInventory() and
          createSupplyRequestFromInspection()). -->
     <div class="tab-panel" id="tab-supplyinv">
-      <div class="stats-row stats-row-compact stats-row-5">
+      <div class="stats-row stats-row-compact">
         <div class="stat-card"><div class="stat-num" id="sup-homes">—</div><div class="stat-lbl">Homes Needing Supplies</div></div>
         <div class="stat-card"><div class="stat-num" id="sup-active">—</div><div class="stat-lbl">Total Active Requests</div></div>
         <div class="stat-card red"><div class="stat-num" id="sup-needsshopping">—</div><div class="stat-lbl">Needs Shopping</div></div>
         <div class="stat-card orange"><div class="stat-num" id="sup-purchased">—</div><div class="stat-lbl">Purchased</div></div>
-        <div class="stat-card navy"><div class="stat-num" id="sup-delivered">—</div><div class="stat-lbl">Delivered</div></div>
       </div>
       <div class="card">
         <div class="card-hdr">
-          <div><div class="card-title">📦 Supply Inventory</div><div class="card-sub">Every supply restocking request — reported standalone or through a Check-Out inspection — tracked per property until it's Delivered/Completed or Dismissed. Completed and Dismissed requests stay in history below but are excluded from the active counts above.</div></div>
+          <div><div class="card-title">📦 Supply Inventory</div><div class="card-sub">Every supply restocking request — reported standalone or through a Check-Out inspection — tracked per property until it's Purchased or Dismissed. Dismissed requests stay in history below but are excluded from the active counts above.</div></div>
           <div class="spacer"></div>
           <div class="filters">
-            <select id="sup-status" onchange="renderSupplyReqs()"><option value="">All Statuses</option><option value="Needs Shopping">Needs Shopping</option><option value="Purchased">Purchased</option><option value="Delivered">Delivered</option><option value="Completed">Completed</option><option value="Dismissed">Dismissed</option></select>
+            <select id="sup-status" onchange="renderSupplyReqs()"><option value="">All Statuses</option><option value="Needs Shopping">Needs Shopping</option><option value="Purchased">Purchased</option><option value="Dismissed">Dismissed</option></select>
             <select id="sup-source" onchange="renderSupplyReqs()"><option value="">All Sources</option><option value="Supply Inventory">Supply Inventory</option><option value="Check-Out">Check-Out</option></select>
             <select id="sup-prop" onchange="renderSupplyReqs()"><option value="">All Properties</option></select>
+            <select id="sup-mgr" onchange="renderSupplyReqs()"><option value="">All Operations Contacts</option></select>
             <select id="sup-insp" onchange="renderSupplyReqs()"><option value="">All Inspectors</option></select>
             <input type="date" id="sup-datefrom" onchange="renderSupplyReqs()" title="From date">
             <input type="date" id="sup-dateto" onchange="renderSupplyReqs()" title="To date">
@@ -551,9 +611,38 @@ var db=null;
 try{firebase.initializeApp(FIREBASE_CONFIG);db=firebase.firestore();}catch(e){}
 
 // ── STATIC DATA ───────────────────────────────────────────────────────────────
-var PROPERTIES=[{"name":"12th Tee At Northstar","manager":"Caitlin McDonough"},{"name":"A Walk In The Woods","manager":"Caitlin McDonough"},{"name":"Above & Beyond - Lakeview","manager":"Andrea Degliantoni"},{"name":"Adventure Awaits","manager":"Annie Stryker"},{"name":"Alpen Glow At Northstar","manager":"Scott McBeth"},{"name":"Alpine Perfection","manager":"Christian Cuneo"},{"name":"Anchors Aweigh - Lakefront","manager":"Kobe Robbin"},{"name":"Aspen Paradise","manager":"Charli Martin"},{"name":"Backside 180 at Northstar","manager":"Caitlin McDonough"},{"name":"Bella Vista Sul Lago - Lakeview","manager":"Caitlin McDonough"},{"name":"Belleview's Beauty - Lakefront","manager":"Annie Stryker"},{"name":"Bellissimo Lago - Lakefront","manager":"Pat Hall"},{"name":"Big Sky - Lakeview","manager":"Christopher Mumaw"},{"name":"Black Bear Cottage - Lakefront","manager":"Annie Stryker"},{"name":"Blackwood Creek Chalet","manager":"Trevor Dimino-Simons"},{"name":"Blissful Days - Lakefront","manager":"Charli Martin"},{"name":"Bluebird Days At Palisades","manager":"Christian Cuneo"},{"name":"Boulder Place Lookout At Northstar","manager":"Scott McBeth"},{"name":"Bradley's Bungalow","manager":"Trevor Dimino-Simons"},{"name":"California Sunshine - Lakeview","manager":"Annie Stryker"},{"name":"Candlelight Lodge","manager":"Christian Cuneo"},{"name":"Carnelian Charm - Lakefront","manager":"Caitlin McDonough"},{"name":"Carnelian Haus - Lakefront","manager":"Michael Ballew"},{"name":"Charlie's Den - Lakefront","manager":"Pat Hall"},{"name":"Cherry Lodge","manager":"Christian Cuneo"},{"name":"Constellation #404 Ski-In & Out At Northstar","manager":"Scott McBeth"},{"name":"Constellation #407 Ski-In & Out At Northstar","manager":"Scott McBeth"},{"name":"Creekview","manager":"Charli Martin"},{"name":"Dancing Bear Lodge - Lakefront","manager":"Trevor Dimino-Simons"},{"name":"Donner Lake Dreams - Lakefront","manager":"Christopher Mumaw"},{"name":"Eagle's Nest at Northstar","manager":"Christopher Mumaw"},{"name":"Enchanted Ridge","manager":"Christian Cuneo"},{"name":"First Chair @ Palisades (The Bronson)","manager":"Christian Cuneo"},{"name":"Fleur du Lac #1 - Lakefront","manager":"Charli Martin"},{"name":"Forever Edgewood - Lakeview","manager":"Christian Cuneo"},{"name":"Fresh Tracks at Northstar","manager":"Scott McBeth"},{"name":"Front and Center","manager":"Annie Stryker"},{"name":"Gerry G. - Lakefront","manager":"Michael Ballew"},{"name":"Gonowabie Lodge - Lakefront","manager":"Andrea Degliantoni"},{"name":"Granite Chief Lodge At Palisades","manager":"Christian Cuneo"},{"name":"Heavenly View - Lakefront","manager":"Michael Ballew"},{"name":"Hidden Ridge at Northstar","manager":"Christopher Mumaw"},{"name":"Highlands Holiday","manager":"Kobe Robbin"},{"name":"Holly Hideaway","manager":"Charli Martin"},{"name":"Home Run at Northstar","manager":"Caitlin McDonough"},{"name":"Homewood Trifecta - Lakefront","manager":"Kobe Robbin"},{"name":"In the Wild Woods","manager":"Annie Stryker"},{"name":"Incline Oasis - Lakeview","manager":"Andrea Degliantoni"},{"name":"Just Grand","manager":"Annie Stryker"},{"name":"King's View Lodge - Lakeview","manager":"Andrea Degliantoni"},{"name":"La Dolce Vita - Lakefront","manager":"Kobe Robbin"},{"name":"Lago Azul - Lakefront","manager":"Christina Cifelli"},{"name":"Lake Escape - Lakefront","manager":"Michael Ballew"},{"name":"Lake Of The Sky - Lakeview","manager":"Charli Martin"},{"name":"Lakeside Cedars","manager":"Kobe Robbin"},{"name":"Lakeside Grove - Lakefront","manager":"Trevor Dimino-Simons"},{"name":"Laughing Waters - Lakefront","manager":"Jessie Byers"},{"name":"Laura's Overlook Lodge at Northstar","manager":"Natalie Garnett"},{"name":"Lift and Tee Retreat at Schaffer's Mill","manager":"Trevor Simons"},{"name":"Luxury River Retreat","manager":"Christian Cuneo"},{"name":"Majestic Waters - Lakefront","manager":"Christopher Mumaw"},{"name":"Making Memories - Lakeview","manager":"Andrea Degliantoni"},{"name":"Manzanita House - Lakeview","manager":"Christopher Mumaw"},{"name":"Maybach Lake House - Lakefront","manager":"Christina Cifelli"},{"name":"McKinney Bay Retreat","manager":"Kobe Robbin"},{"name":"Mill Creek Retreat - Incline Village","manager":"Andrea Degliantoni"},{"name":"Moana Mountain Shack - Lakeview","manager":"Kobe Robbin"},{"name":"Modern Marvel - Incline Village","manager":"Andrea Degliantoni"},{"name":"Modern Mountain at Palisades","manager":"Christian Cuneo"},{"name":"Moondance At Tahoe Park","manager":"Charli Martin"},{"name":"Mountain Bear Lodge At Northstar","manager":"Scott McBeth"},{"name":"Mountain Retreat - Lakeview","manager":"Andrea Degliantoni"},{"name":"Palatial Pines - Lakefront","manager":"Tina Geilenfeldt"},{"name":"Peace of Tahoe - Lakefront","manager":"Christina Cifelli"},{"name":"Pier Pleasure - Lakefront","manager":"Trevor Dimino-Simons"},{"name":"Pineland Retreat","manager":"Christina Cifelli"},{"name":"Ramblin' Rose - Lakeview","manager":"Michael Ballew"},{"name":"Reflections - Lakeview","manager":"Michael Ballew"},{"name":"Rise and Shine - Lakefront","manager":"Christina Cifelli"},{"name":"Rising Sun","manager":"Charli Martin"},{"name":"Riverfront Lodge","manager":"Christian Cuneo"},{"name":"Rubicon Shores - Lakefront","manager":"Charli Martin"},{"name":"Sail Away - Lakefront","manager":"Annie Stryker"},{"name":"Sandy Shores - Lakefront","manager":"Andrea Degliantoni"},{"name":"Seek No Further - Lakefront","manager":"Pat Hall"},{"name":"Serendipity - Lakeview","manager":"Andrea Degliantoni"},{"name":"Shimmering Shores - Lakefront","manager":"Scott McBeth"},{"name":"Shore Camp - Lakefront","manager":"Christopher Mumaw"},{"name":"Shoshone Chalet at Palisades","manager":"Christian Cuneo"},{"name":"Sierra Sunset Estate - Lakefront","manager":"Tina Geilenfeldt"},{"name":"Sierra Vista - Lakeview","manager":"Charli Martin"},{"name":"Signature Retreat on the 18th","manager":"Christopher Mumaw"},{"name":"Silverfell Lodge at Northstar","manager":"Caitlin McDonough"},{"name":"Sittin' on the Dock - Lakefront","manager":"Charli Martin"},{"name":"Skippin' Stones - Lakefront","manager":"Trevor Dimino-Simons"},{"name":"Slopeside At Northstar","manager":"Scott McBeth"},{"name":"Solitude","manager":"Trevor Dimino-Simons"},{"name":"Spirit of the Mountain","manager":"Christian Cuneo"},{"name":"Stanford Rock Retreat","manager":"Kobe Robbin"},{"name":"Starry Nights - Lakefront","manager":"Kobe Robbin"},{"name":"Steeple Cove - Lakefront","manager":"Christian Cuneo"},{"name":"Stone Crest Estate - Lakefront","manager":"Pat Hall"},{"name":"Streams and Dreams","manager":"Christopher Mumaw"},{"name":"Sugar Pine Chalet - Lakefront","manager":"Trevor Dimino-Simons"},{"name":"Summer Breeze - Lakefront","manager":"Charli Martin"},{"name":"Summerhouse - Lakefront","manager":"Tina Geilenfeldt"},{"name":"Summit Splendor at Martis Camp","manager":"Trevor Dimino-Simons"},{"name":"Sundance","manager":"Trevor Dimino-Simons"},{"name":"Sunny Days","manager":"Michael Ballew"},{"name":"Sunrise by Sunnyside - Lakefront","manager":"Scott McBeth"},{"name":"Sunset Blue - Lakefront","manager":"Christian Cuneo"},{"name":"Tahoe City Serenity","manager":"Scott McBeth"},{"name":"Tahoe Treehouse","manager":"Kobe Robbin"},{"name":"Tahoe's Ahwahnee - Lakeview","manager":"Pat Hall"},{"name":"Tahoe's Tranquility - Lakeview","manager":"Tina Geilenfeldt"},{"name":"Tall Pines Ski Shack","manager":"Tina Geilenfeldt"},{"name":"Tewesi Manor - Lakefront","manager":"Tina Geilenfeldt"},{"name":"The Duck House","manager":"Andrea Degliantoni"},{"name":"The Frontier","manager":"Andrea Degliantoni"},{"name":"The Lodge at Swiss Lane","manager":"Christopher Mumaw"},{"name":"The View at Big Pine - Lakeview","manager":"Charli Martin"},{"name":"Treetop Lodge","manager":"Annie Stryker"},{"name":"Twilight Ridge","manager":"Annie Stryker"},{"name":"Twin Tips At Northstar","manager":"Scott McBeth"},{"name":"Village Walk Skyline At Northstar","manager":"Caitlin McDonough"},{"name":"Water's Edge - Lakefront","manager":"Michael Ballew"},{"name":"Wendy's Wish - Lakefront","manager":"Kayla Cox"},{"name":"Whispering Winds","manager":"Christian Cuneo"},{"name":"Wildwood at Dollar Point - Lakeview","manager":"Kobe Robbin"},{"name":"Wolf Ridge","manager":"Kobe Robbin"},{"name":"Zoe's North Star at Northstar","manager":"Caitlin McDonough"}];
+var PROPERTIES=[{"name":"12th Tee At Northstar","manager":"Rachael Brigham","alarm":"","owner":"Bret and Kirstin Grainger"},{"name":"A Walk In The Woods","manager":"Rachael Brigham","alarm":"","owner":"Bruno Delagneau & Jennifer Mitchell"},{"name":"Above & Beyond - Lakeview","manager":"Andrea Degliantoni","alarm":"5698-not active","owner":"Mark Logsdon, Michael and Julie Ridgeway"},{"name":"Adventure Awaits","manager":"Annie Stryker","alarm":"5966 inactive","owner":"Janette and Eugene Lupario"},{"name":"Alpen Glow At Northstar","manager":"Scott McBeth","alarm":"","owner":"Kelly MacDonald and Katy Neumer"},{"name":"Alpine Perfection","manager":"Christian Cuneo","alarm":"7357 - TLUXP","owner":"Aramie and Kevin McDonald"},{"name":"Anchors Aweigh - Lakefront","manager":"Kobe Robbin","alarm":"1270-Not Active","owner":"Rachel and Kurt Latta"},{"name":"Aspen Paradise","manager":"Charli Martin","alarm":"","owner":"Tracy Roberts and Gerald Roberts"},{"name":"Backside 180 at Northstar","manager":"Rachael Brigham","alarm":"2468Not Active","owner":"Giles Kennedy"},{"name":"Bella Vista Sul Lago - Lakeview","manager":"Rachael Brigham","alarm":"4850","owner":"Janae, Micheal, and Bonnie Zumbo"},{"name":"Belleview's Beauty - Lakefront","manager":"Annie Stryker","alarm":"1999-not active","owner":"Todd Sperber and Maria Sperber"},{"name":"Bellissimo Lago - Lakefront","manager":"Pat Hall","alarm":"","owner":"Alan and Genia Phillips"},{"name":"Big Sky - Lakeview","manager":"Christopher Mumaw","alarm":"","owner":"Mina Liu"},{"name":"Black Bear Cottage - Lakefront","manager":"Annie Stryker","alarm":"1234","owner":"Michael Bailey"},{"name":"Blackwood Creek Chalet","manager":"Trevor Dimino-Simons","alarm":"","owner":"Todd Berryhill"},{"name":"Blissful Days - Lakefront","manager":"Charli Martin","alarm":"6619 ON/OFF","owner":"Elizabeth Hachman, Greg and Muriel Harris"},{"name":"Bluebird Days At Palisades","manager":"Christian Cuneo","alarm":"","owner":"Amrita Arora and Aditya Chawla"},{"name":"Boulder Place Lookout At Northstar","manager":"Scott McBeth","alarm":"","owner":"Maria Vegas"},{"name":"Bradley's Bungalow","manager":"Trevor Dimino-Simons","alarm":"","owner":"Jennifer and Todd Bradley"},{"name":"California Sunshine - Lakeview","manager":"Annie Stryker","alarm":"","owner":"Christopher and Kimberly  Hall"},{"name":"Candlelight Lodge","manager":"Christian Cuneo","alarm":"8828-not active","owner":"Jon Easterbrook"},{"name":"Carnelian Charm - Lakefront","manager":"Rachael Brigham","alarm":"0711 on/off","owner":""},{"name":"Carnelian Haus - Lakefront","manager":"Michael Ballew","alarm":"","owner":"Brit Hahn"},{"name":"Charlie's Den - Lakefront","manager":"Pat Hall","alarm":"3449 TLUXP","owner":"Paul  and Carrie Dolan"},{"name":"Cherry Lodge","manager":"Christian Cuneo","alarm":"2575","owner":"Eric and Mia Heglie"},{"name":"Constellation #404 Ski-In & Out At Northstar","manager":"Scott McBeth","alarm":"","owner":"Jason Watson"},{"name":"Constellation #407 Ski-In & Out At Northstar","manager":"Scott McBeth","alarm":"","owner":"Tracey and Shane Brisbin"},{"name":"Creekview","manager":"Charli Martin","alarm":"5388","owner":"Susan Russo"},{"name":"Dancing Bear Lodge - Lakefront","manager":"Jennifer Suter","alarm":"3672","owner":"Christopher Legallet"},{"name":"Donner Lake Dreams - Lakefront","manager":"Christopher Mumaw","alarm":"","owner":"Logan Randolph"},{"name":"Eagle's Nest at Northstar","manager":"Christopher Mumaw","alarm":"7547-not active","owner":"Jon Venverloh"},{"name":"Enchanted Ridge","manager":"Christian Cuneo","alarm":"","owner":"Nanette and John Taraya-Vonk"},{"name":"First Chair @ Palisades (The Bronson)","manager":"Christian Cuneo","alarm":"","owner":"Barbara Hetch an d Tatiana Botton"},{"name":"Fleur du Lac #1 - Lakefront","manager":"Charli Martin","alarm":"","owner":"Cecilia Herbert"},{"name":"Forever Edgewood - Lakeview","manager":"Christian Cuneo","alarm":"1139","owner":"Marla Alders"},{"name":"Fresh Tracks at Northstar","manager":"Scott McBeth","alarm":"","owner":"Mark and Michelle Rosenblatt"},{"name":"Front and Center","manager":"Annie Stryker","alarm":"","owner":"Frank and Christina Giambattista"},{"name":"Gerry G. - Lakefront","manager":"Michael Ballew","alarm":"","owner":"James Simkalo"},{"name":"Gonowabie Lodge - Lakefront","manager":"Andrea Degliantoni","alarm":"1234","owner":"Andrew Solomon and Marc Sondheimer"},{"name":"Granite Chief Lodge At Palisades","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Heavenly View - Lakefront","manager":"Michael Ballew","alarm":"2035- Away/Off","owner":"Tatiana Botton and Barbara Hetch"},{"name":"Hidden Ridge at Northstar","manager":"Scott McBeth","alarm":"","owner":"Jane and Chris Clare"},{"name":"Highlands Holiday","manager":"Kobe Robbin","alarm":"1946","owner":"Kathleen Sheehy"},{"name":"Holly Hideaway","manager":"Charli Martin","alarm":"1970-not active","owner":"Eric and Bibi Moore"},{"name":"Home Run at Northstar","manager":"Rachael Brigham","alarm":"1234 - Never Arm","owner":"Alan Strasbaugh and Janice Noll"},{"name":"Homewood Trifecta - Lakefront","manager":"Kobe Robbin","alarm":"3444","owner":"John  Truchard and Elizabeth Imboden"},{"name":"In the Wild Woods","manager":"Annie Stryker","alarm":"","owner":"Matthew and Vanessa Herridge"},{"name":"Incline Oasis - Lakeview","manager":"Andrea Degliantoni","alarm":"1234 1 (off)","owner":"Sandeep and Purvi Kunwar"},{"name":"Just Grand","manager":"Annie Stryker","alarm":"","owner":"Riley and Eryn Parker Strong"},{"name":"King's View Lodge - Lakeview","manager":"Andrea Degliantoni","alarm":"1019","owner":"Albert Stasek and Courtney Robins"},{"name":"La Dolce Vita - Lakefront","manager":"Kobe Robbin","alarm":"","owner":"Dean and Stacey Allara"},{"name":"Lago Azul - Lakefront","manager":"Christina Cifelli","alarm":"","owner":"Alan and Martha Bryan"},{"name":"Lake Escape - Lakefront","manager":"Michael Ballew","alarm":"1234","owner":"Nina Yoshpe"},{"name":"Lake Of The Sky - Lakeview","manager":"Charli Martin","alarm":"","owner":"James and Kimberly Draeger"},{"name":"Lakeside Cedars","manager":"Kobe Robbin","alarm":"","owner":""},{"name":"Lakeside Grove - Lakefront","manager":"Trevor Dimino-Simons","alarm":"1130","owner":"Vince Sosnkowski"},{"name":"Laughing Waters - Lakefront","manager":"Jessie Byers","alarm":"2389 Lake House","owner":"Greg Price"},{"name":"Laura's Overlook Lodge at Northstar","manager":"Natalie Garnett","alarm":"","owner":""},{"name":"Lift and Tee Retreat at Schaffer's Mill","manager":"Trevor Simons","alarm":"","owner":""},{"name":"Luxury River Retreat","manager":"Christian Cuneo","alarm":"1128","owner":"Freya Eduarte"},{"name":"Majestic Waters - Lakefront","manager":"Christopher Mumaw","alarm":"5930-not active","owner":"Brigette Lau"},{"name":"Making Memories - Lakeview","manager":"Andrea Degliantoni","alarm":"0424-not active","owner":"Randall Vallen"},{"name":"Manzanita House - Lakeview","manager":"Christopher Mumaw","alarm":"","owner":"Brenda and Les Seymour"},{"name":"Maybach Lake House - Lakefront","manager":"Christina Cifelli","alarm":"","owner":"Uli Maybach"},{"name":"McKinney Bay Retreat","manager":"Kobe Robbin","alarm":"3254","owner":"Paul Silva"},{"name":"Mill Creek Retreat - Incline Village","manager":"Andrea Degliantoni","alarm":"1234","owner":"Andrew Hansen"},{"name":"Moana Mountain Shack - Lakeview","manager":"Kobe Robbin","alarm":"1214","owner":"Jack and Barbara Britton"},{"name":"Modern Marvel - Incline Village","manager":"Andrea Degliantoni","alarm":"2672 Burgular","owner":"Junaid Qurashi and JJ Zhuang"},{"name":"Modern Mountain at Palisades","manager":"Christian Cuneo","alarm":"9689","owner":"Eldon Mayer and Alyssa Thomas"},{"name":"Moondance At Tahoe Park","manager":"Charli Martin","alarm":"","owner":"Nik and Rajesh Daftary"},{"name":"Mountain Bear Lodge At Northstar","manager":"Scott McBeth","alarm":"0209-Not Active","owner":"Elika and Michael Rosenbaum"},{"name":"Mountain Retreat - Lakeview","manager":"Andrea Degliantoni","alarm":"3499 master code","owner":"Pat, Dena, and Austin McDonald"},{"name":"Palatial Pines - Lakefront","manager":"Tina Geilenfeldt","alarm":"1364","owner":"Robert and Janet Kearn"},{"name":"Peace of Tahoe - Lakefront","manager":"Christina Cifelli","alarm":"9597not active","owner":"Thomas Reilly and Tim Winter"},{"name":"Pier Pleasure - Lakefront","manager":"Trevor Dimino-Simons","alarm":"7981","owner":"Mike and Caroline Buckley"},{"name":"Pineland Retreat","manager":"Christina Cifelli","alarm":"3980","owner":"Joseph Cannata"},{"name":"Ramblin' Rose - Lakeview","manager":"Michael Ballew","alarm":"","owner":"Tim and Tara Guleri"},{"name":"Reflections - Lakeview","manager":"Michael Ballew","alarm":"","owner":"Janelle and Audrey Grimes"},{"name":"Rise and Shine - Lakefront","manager":"Christina Cifelli","alarm":"","owner":""},{"name":"Rising Sun","manager":"Charli Martin","alarm":"8751 TLUXP","owner":"Massey Rafani"},{"name":"Riverfront Lodge","manager":"Christian Cuneo","alarm":"","owner":"Mike and Vicki Riherd"},{"name":"Rubicon Shores - Lakefront","manager":"Charli Martin","alarm":"","owner":"Vanessa Meyers and Erica Desjardins"},{"name":"Sail Away - Lakefront","manager":"Annie Stryker","alarm":"1234","owner":"Michael Bailey"},{"name":"Sandy Shores - Lakefront","manager":"Andrea Degliantoni","alarm":"5050","owner":"Todd Jaksick"},{"name":"Seek No Further - Lakefront","manager":"Pat Hall","alarm":"1313-not active","owner":"Louis Stervinou"},{"name":"Serendipity - Lakeview","manager":"Andrea Degliantoni","alarm":"","owner":"Romina Notarainni"},{"name":"Shimmering Shores - Lakefront","manager":"Scott McBeth","alarm":"5754","owner":"Lynn Olson"},{"name":"Shore Camp - Lakefront","manager":"Christopher Mumaw","alarm":"7547-not active","owner":"Jonathan Venverloh"},{"name":"Shoshone Chalet at Palisades","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Sierra Sunset Estate - Lakefront","manager":"Tina Geilenfeldt","alarm":"3449-not active","owner":"Patrick Willis"},{"name":"Sierra Vista - Lakeview","manager":"Charli Martin","alarm":"2625","owner":"Catriona Fallon"},{"name":"Signature Retreat on the 18th","manager":"Christopher Mumaw","alarm":"","owner":"Margie and Joel Weidert"},{"name":"Silverfell Lodge at Northstar","manager":"Rachael Brigham","alarm":"6148","owner":"Kenneth and Louise Adamson"},{"name":"Sittin' on the Dock - Lakefront","manager":"Charli Martin","alarm":"","owner":"Dylan Alegria"},{"name":"Skippin' Stones - Lakefront","manager":"Trevor Dimino-Simons","alarm":"4800","owner":"Stephen Gordon and Anja Laicher"},{"name":"Slopeside At Northstar","manager":"Scott McBeth","alarm":"1234-Not Active","owner":"Mia Martin and Lisa Franzia"},{"name":"Solitude","manager":"Trevor Dimino-Simons","alarm":"","owner":"Sharon Blunden and Paula Firenze"},{"name":"Spirit of the Mountain","manager":"Christian Cuneo","alarm":"","owner":"Shannon Poulsen"},{"name":"Stanford Rock Retreat","manager":"Kobe Robbin","alarm":"","owner":"Jeremy and Heather Wenner"},{"name":"Starry Nights - Lakefront","manager":"Kobe Robbin","alarm":"1234","owner":"Mike Reidy"},{"name":"Steeple Cove - Lakefront","manager":"Christian Cuneo","alarm":"","owner":"Russell and Janice Foulk"},{"name":"Stone Crest Estate - Lakefront","manager":"Pat Hall","alarm":"","owner":"Anne and Marty Putnam"},{"name":"Streams and Dreams","manager":"Christopher Mumaw","alarm":"","owner":"Brad Squires"},{"name":"Sugar Pine Chalet - Lakefront","manager":"Trevor Dimino-Simons","alarm":"","owner":"Meika Rouda"},{"name":"Summer Breeze - Lakefront","manager":"Charli Martin","alarm":"1058-Not Active","owner":"Sharon Jennings"},{"name":"Summerhouse - Lakefront","manager":"Tina Geilenfeldt","alarm":"5050","owner":"Holly Fuller"},{"name":"Summit Splendor at Martis Camp","manager":"Trevor Dimino-Simons","alarm":"1935","owner":"Jerry Glembocki and Juliette  Davis"},{"name":"Sundance","manager":"Trevor Dimino-Simons","alarm":"","owner":"Darren.Alan, and Andrea Zulberti"},{"name":"Sunny Days","manager":"Michael Ballew","alarm":"","owner":"Luke and Hsian Winter"},{"name":"Sunrise by Sunnyside - Lakefront","manager":"Scott McBeth","alarm":"4251","owner":"Susan Gates"},{"name":"Sunset Blue - Lakefront","manager":"Christian Cuneo","alarm":"9448","owner":"Gina and William Glaser"},{"name":"Tahoe City Serenity","manager":"Michael Ballew","alarm":"","owner":"Vincent Ferrante"},{"name":"Tahoe Treehouse","manager":"Kobe Robbin","alarm":"","owner":"Stuart Sclater-Booth"},{"name":"Tahoe's Ahwahnee - Lakeview","manager":"Pat Hall","alarm":"8541 TLUXP","owner":"Paul LeCoque"},{"name":"Tahoe's Tranquility - Lakeview","manager":"Tina Geilenfeldt","alarm":"4491","owner":"Sara Weinstock"},{"name":"Tall Pines Ski Shack","manager":"Tina Geilenfeldt","alarm":"2250","owner":"Steve Ruths"},{"name":"Tewesi Manor - Lakefront","manager":"Tina Geilenfeldt","alarm":"1957","owner":"Ron and Jason Jenny"},{"name":"The Duck House","manager":"Andrea Degliantoni","alarm":"8134 TLUXP","owner":"Kenn and Shay Kurtz"},{"name":"The Frontier","manager":"Andrea Degliantoni","alarm":"1945-not active","owner":"Alex and  Greg Freemon"},{"name":"The Lodge at Swiss Lane","manager":"Christopher Mumaw","alarm":"1272","owner":"Timothy Hoxie"},{"name":"The View at Big Pine - Lakeview","manager":"Charli Martin","alarm":"3449","owner":"Edwin Baldry"},{"name":"Treetop Lodge","manager":"Annie Stryker","alarm":"","owner":"Peggy O'Connell"},{"name":"Twilight Ridge","manager":"Annie Stryker","alarm":"","owner":"Chris Bowman"},{"name":"Twin Tips At Northstar","manager":"Scott McBeth","alarm":"","owner":"Steven Baker and Marisa Bauer"},{"name":"Village Walk Skyline At Northstar","manager":"Rachael Brigham","alarm":"","owner":"Sean and Morgen Donovan"},{"name":"Water's Edge - Lakefront","manager":"Michael Ballew","alarm":"1991","owner":"Virginia Stock"},{"name":"Wendy's Wish - Lakefront","manager":"Kayla Cox","alarm":"","owner":""},{"name":"Whispering Winds","manager":"Christian Cuneo","alarm":"","owner":"Shannon Poulsen"},{"name":"Wildwood at Dollar Point - Lakeview","manager":"Kobe Robbin","alarm":"194200","owner":"Kim Fennell"},{"name":"Wolf Ridge","manager":"Kobe Robbin","alarm":"","owner":"Kathleen Sheehy"},{"name":"Zoe's North Star at Northstar","manager":"Rachael Brigham","alarm":"1116","owner":"Randolph Charlton and Karen Kemby"}];
 
-var MANAGERS=['Andrea Degliantoni','Annie Stryker','Caitlin McDonough','Charli Martin','Christian Cuneo','Christina Cifelli','Christopher Mumaw','Jessie Byers','Kobe Robbin','Michael Ballew','Pat Hall','Scott McBeth','Tina Geilenfeldt','Trevor Dimino-Simons'];
+// Derived live from PROPERTIES (not a second hand-maintained list) so a newly
+// migrated or newly assigned Operations Contact shows up in every filter dropdown
+// automatically — this used to be a hardcoded array that had already drifted out of
+// sync with PROPERTIES (missing several contacts introduced by the xlsx import).
+var MANAGERS=Array.from(new Set(PROPERTIES.map(function(p){return p.manager;}).filter(Boolean))).sort();
+// ── Shared Operations Contact filter/assignment helpers (features 6+7) ─────────
+// Every per-tab Operations Contact filter and the My Houses screen both go through
+// these two functions so "assigned to contact X" always means exactly the same
+// thing everywhere in the dashboard.
+function contactMatches(propManager,filterValue){
+  if(!filterValue) return true;
+  if(filterValue==='Unassigned') return !propManager;
+  return propManager===filterValue;
+}
+function propertiesForContact(contactName){
+  if(!contactName || contactName==='Unassigned'){
+    return PROPERTIES.filter(function(p){return !p.manager;});
+  }
+  return PROPERTIES.filter(function(p){return p.manager===contactName;});
+}
+// Populates an Operations Contact <select> once (idempotent — checked via
+// options.length, same pattern used by every other lazy-populated filter in this
+// file) with "All Operations Contacts" already in the markup, every live contact
+// from MANAGERS, and a trailing "Unassigned" option.
+function populateContactSelect(id){
+  var el=document.getElementById(id);
+  if(!el||el.options.length>1)return;
+  MANAGERS.forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m;el.appendChild(o);});
+  var un=document.createElement('option');un.value='Unassigned';un.textContent='Unassigned';el.appendChild(un);
+}
 
 var TRAINING_MODULES=['Check In Procedure','Check Out Procedure','Communication w/ Guests & Owners','TLUXP Standards & Branding','Damages Procedure / Claims','Spring / Fall Walkthroughs','Dresscode','Maintenance'];
 
@@ -579,8 +668,8 @@ function doLogin(){
     var u=snap.docs[0].data();
     if(!u.active){err.textContent='Account inactive';err.style.display='block';btn.disabled=false;btn.textContent='Log In';return;}
     if(String(u.pin)!==String(pin)){err.textContent='Invalid username or PIN';err.style.display='block';btn.disabled=false;btn.textContent='Log In';return;}
-    // all active users allowed
-    currentUser={id:snap.docs[0].id,name:u.name,username:u.username,role:u.role};
+    if(!(u.role==='manager'||u.role==='admin')){err.textContent='This account does not have dashboard access';err.style.display='block';btn.disabled=false;btn.textContent='Log In';return;}
+    currentUser={id:snap.docs[0].id,name:u.name,username:u.username,role:u.role,operationsContact:u.operationsContact||null};
     setSession(currentUser); showApp();
   }).catch(function(){err.textContent='Connection error';err.style.display='block';btn.disabled=false;btn.textContent='Log In';});
 }
@@ -592,11 +681,11 @@ function showApp(){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('app').style.display='flex';
   document.getElementById('userPill').textContent=(currentUser.role==='admin'?'⭐ ':'')+currentUser.name;
-  // Populate manager dropdowns
-  ['sd-mgr','qd-mgr','ql-mgr','cp-mgr'].forEach(function(id){
-    var el=document.getElementById(id);
-    MANAGERS.forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m;el.appendChild(o);});
-  });
+  // Populate Operations Contact filter dropdowns — every tab's filter uses the
+  // same live contact list (see MANAGERS/populateContactSelect above).
+  ['sd-mgr','qd-mgr','ql-mgr','cp-mgr','il-mgr','si-mgr','sup-mgr','pr-mgr'].forEach(populateContactSelect);
+  initMyHousesTab();
+  initProductivityTab();
   loadData().then(function(){
     document.getElementById('lastSyncedText').textContent='Last synced: '+fmtDateTime(new Date().toISOString());
   }).catch(function(e){
@@ -647,7 +736,7 @@ function loadData(){
     renderTraining();
   });
 }
-function renderAll(){renderInspLog();renderSeasonal();renderSeaDash();renderQCDash();renderQCLog();renderOpenIssues();renderSupplyReqs();}
+function renderAll(){renderInspLog();renderSeasonal();renderSeaDash();renderQCDash();renderQCLog();renderOpenIssues();renderSupplyReqs();renderMyHouses();renderProductivity();}
 
 // ── MANUAL REFRESH ────────────────────────────────────────────────────────────
 // Re-queries every collection the currently-displayed Dashboard tabs depend on
@@ -742,6 +831,20 @@ function opsMaintenanceBlockHtml(insp){
     : '<div style="font-size:11px;color:var(--red);margin-top:6px;font-weight:700">&#9888; Not yet emailed to Operations'+(insp.opsEmailError?(' &mdash; '+esc(insp.opsEmailError)):'')+' — the inspector can retry this from My Inspections in the app.</div>';
   return '<div class="insp-detail-heading">&#128295; Maintenance Items for Operations</div><div class="insp-notes-block" style="background:#FFF3E0;border-left:3px solid #8a4b00">'+esc(text).replace(/\n/g,'<br>')+'</div>'+statusHtml;
 }
+// "How many" question answers (index.html's quantityItems, see itemHasQty())
+// — shown independently of Issues, since entering a quantity never by itself
+// marks an item an Issue. Returns '' when there are none, so callers can
+// append this unconditionally.
+function quantityItemsBlockHtml(insp){
+  var items=insp.quantityItems||[];
+  if(!items.length) return '';
+  var html='<div class="insp-detail-heading">&#128290; Quantities Recorded</div><div class="insp-notes-block">';
+  items.forEach(function(q){
+    html+='<div>'+esc(q.section||'')+' — '+esc(q.text||'')+': <strong>'+esc(String(q.qty))+'</strong></div>';
+  });
+  html+='</div>';
+  return html;
+}
 // Read-only thumbnail strip for photos attached to the inspector's plain "Maintenance
 // Notes" box (index.html's maintenanceNotesPhotos, uploaded to Storage and saved as
 // maintenanceNotesPhotoUrls). Returns '' when there are none, so callers can append
@@ -813,6 +916,10 @@ function fmtDateTime(iso){
   return y+'-'+mo+'-'+da+' '+time;
 }
 function switchTab(name,btn){
+  // Belt-and-suspenders gate (the Productivity tab button is only ever inserted
+  // into the DOM for a manager in the first place — see showApp() — but this
+  // blocks a forged direct call to switchTab('productivity', ...) too).
+  if(name==='productivity' && !(currentUser&&currentUser.role==='manager')) return;
   document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active');});
   document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
   document.getElementById('tab-'+name).classList.add('active');
@@ -821,16 +928,398 @@ function switchTab(name,btn){
 
 // ── INSPECTION LOG (Check-Ins/Check-Outs only — QC, Kitchen, Linen, Spring, and Fall each have their own separate log/tab) ──
 var CHECKIN_CHECKOUT_TYPES=['checkin_summer','checkin_winter','checkout_summer','checkout_winter','b2b_summer','b2b_winter'];
+
+// ── MY HOUSES ────────────────────────────────────────────────────────────────
+// A read-only, per-Operations-Contact rollup of everything already shown elsewhere
+// in the dashboard — Check-Ins/Check-Outs, Open Issues, Supply Inventory, QC
+// Inspections, Seasonal Inspections, and Complaints — scoped to one contact's
+// assigned properties via propertiesForContact() (the exact same assignment data
+// every per-tab Operations Contact filter uses). Switching the dropdown ONLY
+// changes what's displayed here; it is a pure read and never writes to Firestore.
+//
+// Per user request, EVERY signed-in dashboard user (manager or admin alike) can
+// freely use the dropdown to switch to any Operations Contact — this was
+// originally restricted to managers only, with admin seeing a static explanatory
+// message instead, but that restriction has been removed at the user's direction.
+// Whoever has a currentUser.operationsContact set (assigned by an admin on the
+// Users screen) still defaults to it on first load; anyone without one set just
+// sees the "pick a contact" prompt below until they choose one. Switching the
+// dropdown ONLY changes what's displayed here; it never writes to Firestore.
+//
+// Each section below (Properties, Check-Ins/Check-Outs, Open Issues, Supply
+// Inventory, QC Inspections, Seasonal Inspections, Complaints) is independently
+// collapsible — they all start collapsed so the screen isn't overwhelming, and
+// stay open/closed as you switch Operations Contact within the same session
+// (tracked in _myHousesOpenSections, keyed by section, not by contact).
+//
+// Open Issues gets richer treatment than the other sections: the other sections
+// are read-only summaries (use their own dedicated tab for full detail/editing),
+// but Open Issues here is a full, editable view — the same Details expand, the
+// same status dropdown + confirm-with-note panel, and the same updates log as
+// the main Open Issues tab — so an Operations Contact can review and resolve
+// their own issues without ever leaving My Houses. It writes through the exact
+// same setPropertyIssueStatus()/property_issues-update path as every other
+// issue editor in this app; it only has its own 'mh-'/'mhoi'-prefixed element
+// ids (see stageMyHousesIssueStatusChange etc. below) so its rows and confirm
+// panels never collide with the same issue's row on the main Open Issues tab,
+// since both can exist in the DOM (one per tab-panel) at the same time.
+var _myHousesContact='';
+var _myHousesOpenSections={}; // sectionKey -> true if expanded; absent/false = collapsed (the default)
+// Per-section Property/Status filters (like the ones every main tab already has),
+// scoped independently per section so filtering Open Issues down to one property
+// doesn't also filter Supply Inventory, etc. Survives re-renders the same way
+// _myHousesOpenSections does (plain JS state, read back in at render time).
+var _myHousesFilters={checkinout:{prop:''},openissues:{prop:'',status:''},supply:{prop:'',status:''},qc:{prop:''},seasonal:{prop:''},complaints:{prop:''}};
+function setMyHousesFilter(key,field,value){
+  if(!_myHousesFilters[key])_myHousesFilters[key]={};
+  _myHousesFilters[key][field]=value;
+  renderMyHouses();
+}
+function mhFilterRows(list,key){
+  var f=_myHousesFilters[key]||{};
+  return list.filter(function(x){
+    if(f.prop && x.property!==f.prop) return false;
+    if(f.status && x.status!==f.status) return false;
+    return true;
+  });
+}
+// Builds the Property (+ optional Status) filter bar shown at the top of a
+// section's body when expanded. `statusOptions`, when given, is an array of
+// [value,label] pairs matching the exact wording the corresponding main tab
+// already uses for that status field (Open Issues' or Supply Inventory's).
+function mhFilterBarHtml(key,props,statusOptions){
+  var f=_myHousesFilters[key]||{};
+  var html='<div class="filters" style="margin-bottom:10px">';
+  html+='<select onchange="setMyHousesFilter(\''+key+'\',\'prop\',this.value)" style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px">';
+  html+='<option value="">All Properties</option>';
+  props.forEach(function(p){ html+='<option value="'+esc(p.name)+'"'+(p.name===f.prop?' selected':'')+'>'+esc(p.name)+'</option>'; });
+  html+='</select>';
+  if(statusOptions){
+    html+='<select onchange="setMyHousesFilter(\''+key+'\',\'status\',this.value)" style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px">';
+    html+='<option value="">All Statuses</option>';
+    statusOptions.forEach(function(o){ html+='<option value="'+esc(o[0])+'"'+(o[0]===f.status?' selected':'')+'>'+esc(o[1])+'</option>'; });
+    html+='</select>';
+  }
+  html+='</div>';
+  return html;
+}
+function initMyHousesTab(){
+  populateContactSelect('mh-contact');
+  var sel=document.getElementById('mh-contact');
+  if(!sel)return;
+  sel.disabled=false;
+  _myHousesContact=(currentUser&&currentUser.operationsContact)||'';
+  sel.value=_myHousesContact;
+}
+function onMyHousesContactChange(){
+  _myHousesContact=document.getElementById('mh-contact').value;
+  renderMyHouses();
+}
+function toggleMyHousesSection(key){
+  var body=document.getElementById('mh-body-'+key);
+  var hdr=document.getElementById('mh-hdr-'+key);
+  if(!body)return;
+  var nowOpen=!_myHousesOpenSections[key];
+  _myHousesOpenSections[key]=nowOpen;
+  body.style.display=nowOpen?'block':'none';
+  if(hdr)hdr.classList.toggle('open',nowOpen);
+}
+// Shared collapsible wrapper every My Houses section (including Properties) uses.
+function mhCollapsible(key,title,count,innerHtml){
+  var open=!!_myHousesOpenSections[key];
+  return '<div class="mh-section" style="margin:0 18px 14px">'
+    +'<div class="insp-detail-heading mh-sec-hdr'+(open?' open':'')+'" id="mh-hdr-'+key+'" onclick="toggleMyHousesSection(\''+key+'\')" role="button" tabindex="0"><span class="chev">&#9656;</span> '+title+' ('+count+')</div>'
+    +'<div class="mh-sec-body" id="mh-body-'+key+'" style="display:'+(open?'block':'none')+'">'+innerHtml+'</div>'
+    +'</div>';
+}
+function myHousesSectionHtml(title,rows,cols,key,filterBarHtml){
+  var inner=filterBarHtml||'';
+  if(!rows.length){
+    inner+='<div style="font-size:12px;color:var(--dark-gray);padding:4px 0 8px">None</div>';
+  } else {
+    inner+='<div class="tbl-wrap"><table><thead><tr>'+cols.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr></thead><tbody>';
+    rows.forEach(function(r){ inner+='<tr>'+r+'</tr>'; });
+    inner+='</tbody></table></div>';
+  }
+  return mhCollapsible(key,title,rows.length,inner);
+}
+function renderMyHouses(){
+  var headingEl=document.getElementById('mh-heading');
+  var contentEl=document.getElementById('mh-content');
+  if(!headingEl||!contentEl||!currentUser)return;
+  if(!_myHousesContact){
+    headingEl.textContent='';
+    contentEl.innerHTML='<div class="empty" style="margin:0 18px 18px">'+(currentUser.operationsContact?'':'Your account has no Operations Contact assigned yet — ask an admin to set it on the Users screen, or ')+'pick an Operations Contact above to see their assigned properties.</div>';
+    return;
+  }
+  headingEl.textContent='Houses assigned to: '+_myHousesContact;
+  var props=propertiesForContact(_myHousesContact);
+  if(!props.length){
+    contentEl.innerHTML='<div class="empty" style="margin:0 18px 18px">No properties are currently assigned to '+esc(_myHousesContact)+'.</div>';
+    return;
+  }
+  var propNames={}; props.forEach(function(p){propNames[p.name]=true;});
+  var scopedInsp=(_insp||[]).filter(function(i){return propNames[i.property];});
+  var checkInOut=scopedInsp.filter(function(i){return CHECKIN_CHECKOUT_TYPES.indexOf(i.formType)!==-1;});
+  var qcInsp=scopedInsp.filter(function(i){return i.formType==='qc_check';});
+  var seasonalInsp=scopedInsp.filter(function(i){return ['spring','fall','kitchen_inv','linen_inv'].indexOf(i.formType)!==-1;});
+  var issues=(_propIssues||[]).filter(function(x){return propNames[x.property]&&isOpenIssuesEligible(x);});
+  var supplies=(_supplyReqs||[]).filter(function(x){return propNames[x.property];});
+  var complaintsHere=(_complaints||[]).filter(function(c){return propNames[c.property];});
+  var html='';
+  html+=mhCollapsible('properties','🏡 Properties',props.length,'<div>'+props.map(function(p){return '<span class="badge b-ok" style="margin:2px 4px 2px 0;display:inline-block">'+esc(p.name)+'</span>';}).join('')+'</div>');
+  html+=myHousesSectionHtml('📋 Check-Ins/Check-Outs',mhFilterRows(checkInOut,'checkinout').slice().sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');}).map(function(i){
+    return '<td style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td><td>'+esc(i.property||'')+'</td><td>'+esc(i.inspector||'')+'</td><td>'+esc(TYPE_LABELS[i.formType]||i.formType||'')+'</td><td style="color:'+((i.issuesFound||0)>0?'var(--red)':'inherit')+'">'+(i.issuesFound||0)+'</td>';
+  }),['Date','Property','Inspector','Type','Issues Found'],'checkinout',mhFilterBarHtml('checkinout',props));
+  html+=myHousesIssuesSectionHtml(mhFilterRows(issues,'openissues'),props);
+  html+=myHousesSectionHtml('📦 Supply Inventory',mhFilterRows(supplies,'supply').slice().sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');}).map(function(x){
+    return '<td style="white-space:nowrap">'+esc(x.submittedAt?fmtDateTime(x.submittedAt):'')+'</td><td>'+esc(x.property||'')+'</td><td>'+esc(supplyItemsSummaryText(x.items)||(x.noneNeeded?'None needed':''))+'</td><td>'+supplyStatusBadgeHtml(x.status)+'</td>';
+  }),['Date','Property','Supplies','Status'],'supply',mhFilterBarHtml('supply',props,[['Needs Shopping','Needs Shopping'],['Purchased','Purchased'],['Dismissed','Dismissed']]));
+  html+=myHousesSectionHtml('🔍 QC Inspections',mhFilterRows(qcInsp,'qc').slice().sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');}).map(function(i){
+    var hasIssues=(i.issuesFound||0)>0;
+    return '<td style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td><td>'+esc(i.property||'')+'</td><td>'+esc(i.inspector||'')+'</td><td><span class="badge '+(hasIssues?'b-issue':'b-clear')+'">'+(hasIssues?i.issuesFound+' Issue'+(i.issuesFound!==1?'s':''):'All Clear')+'</span></td>';
+  }),['Date','Property','Checked By','Status'],'qc',mhFilterBarHtml('qc',props));
+  html+=myHousesSectionHtml('🌿 Seasonal Inspections',mhFilterRows(seasonalInsp,'seasonal').slice().sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');}).map(function(i){
+    return '<td style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td><td>'+esc(i.property||'')+'</td><td>'+esc(i.inspector||'')+'</td><td>'+esc(TYPE_LABELS[i.formType]||i.formType||'')+'</td>';
+  }),['Date','Property','Inspector','Type'],'seasonal',mhFilterBarHtml('seasonal',props));
+  html+=myHousesSectionHtml('🚨 Complaints',mhFilterRows(complaintsHere,'complaints').slice().sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');}).map(function(c){
+    return '<td>'+esc(c.date||'')+'</td><td>'+esc(c.property||'')+'</td><td>'+esc(c.category||'')+'</td><td>'+(c.resolved?'<span class="badge b-clear">Resolved</span>':'<span class="badge b-issue">Open</span>')+'</td>';
+  }),['Date','Property','Category','Status'],'complaints',mhFilterBarHtml('complaints',props));
+  contentEl.innerHTML=html;
+  reopenPreservedDetails();
+}
+// My Houses' own editable Open Issues section — full parity with the main Open
+// Issues tab's row+detail markup (category, location, priority, notes, photos,
+// assigned Operations Contact, status dropdown with a confirm-with-note panel,
+// updates log). Uses its own 'mhoi'-prefixed safeId scheme so it never collides
+// with the same issue's row on the main Open Issues tab, and shares the generic
+// toggleInspDetail()/reopenPreservedDetails() Details-expand machinery (those
+// two are already keyed by whatever safeId is passed in, so no change needed
+// there).
+function myHousesIssuesSectionHtml(issues,props){
+  var count=issues.length;
+  var inner=mhFilterBarHtml('openissues',props,[['open','Open'],['in_progress','In Progress'],['resolved','Resolved'],['dismissed','Dismissed']]);
+  if(!count){
+    inner+='<div style="font-size:12px;color:var(--dark-gray);padding:4px 0 8px">None</div>';
+  } else {
+    var sorted=issues.slice().sort(function(a,b){return (b.reportedAt||'').localeCompare(a.reportedAt||'');});
+    inner+='<div class="tbl-wrap"><table><thead><tr><th>Reported</th><th>Property</th><th>Section / Location</th><th>Issue</th><th>Reported By</th><th>Status</th><th>Photos</th><th></th></tr></thead><tbody>';
+    sorted.forEach(function(x){
+      var safeId='mhoi'+x.id.replace(/[^a-zA-Z0-9]/g,'');
+      var xPhotos=normalizePhotoUrls(x.photos,'myHouses:'+x.id);
+      inner+='<tr>';
+      inner+='<td style="white-space:nowrap">'+esc(x.reportedAt?fmtDateTime(x.reportedAt):'')+'</td>';
+      inner+='<td style="font-weight:600;min-width:140px">'+esc(x.property||'')+'</td>';
+      inner+='<td>'+esc(x.section||x.location||'')+'</td>';
+      inner+='<td style="min-width:200px">'+esc(x.text||'')+'</td>';
+      inner+='<td>'+esc(x.reportedByName||'')+'</td>';
+      inner+='<td>'+issueStatusBadgeHtml(x)+'</td>';
+      inner+='<td>'+(xPhotos.length?'<span class="badge b-ok">&#128247; '+xPhotos.length+'</span>':'<span class="no-photo">&mdash;</span>')+'</td>';
+      inner+='<td><button class="details-btn" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
+      inner+='</tr>';
+      inner+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="8">';
+      if((x.notes||'').trim()){
+        inner+='<div class="insp-detail-heading">&#128221; Inspector\'s Note</div><div class="insp-notes-block">'+esc(x.notes).replace(/\n/g,'<br>')+'</div>';
+      }
+      if(x.priority||x.category||x.assignedManagerName){
+        inner+='<div class="insp-detail-heading">&#128295; Details</div><div class="insp-notes-block">'+
+          (x.category?'<strong>Category:</strong> '+esc(x.category)+'<br>':'')+
+          (x.location?'<strong>Location:</strong> '+esc(x.location)+'<br>':'')+
+          (x.priority?'<strong>Priority:</strong> '+esc(x.priority)+'<br>':'')+
+          (x.assignedManagerName?'<strong>Assigned Operations Contact:</strong> '+esc(x.assignedManagerName):'')+
+          '</div>';
+      }
+      if(xPhotos.length){
+        inner+='<div class="insp-detail-heading">&#128247; Photos</div><div class="insp-issue-photos">';
+        xPhotos.forEach(function(url){inner+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
+        inner+='</div>';
+      }
+      inner+='<div class="insp-detail-heading">&#128295; Status &amp; Follow-Up History</div>';
+      inner+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap"><span style="font-size:12px;font-weight:700;color:var(--dark-gray)">Status:</span>'+issueStatusBadgeHtml(x)+
+        '<select id="mh-sel-'+safeId+'" style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px" onchange="stageMyHousesIssueStatusChange(\''+safeId+'\',this.value)">'+
+        '<option value="open"'+(x.status==='open'||!x.status?' selected':'')+'>Open</option>'+
+        '<option value="in_progress"'+(x.status==='in_progress'?' selected':'')+'>In Progress</option>'+
+        '<option value="resolved"'+(x.status==='resolved'?' selected':'')+'>Resolved</option>'+
+        '<option value="dismissed"'+(x.status==='dismissed'?' selected':'')+'>Dismissed / Not an Issue</option>'+
+        '</select></div>';
+      inner+='<div class="status-confirm-panel" id="mh-confirm-'+safeId+'" style="display:none">'+
+        '<div style="font-size:12px;color:var(--dark-gray)">Changing status to <strong id="mh-confirm-label-'+safeId+'"></strong>. Add an optional note (e.g. why it was dismissed, or what was done to resolve it) — it will be saved to this issue\'s history:</div>'+
+        '<textarea id="mh-confirm-note-'+safeId+'" placeholder="Optional note…"></textarea>'+
+        '<div class="sc-btns"><button class="sc-confirm" onclick="confirmMyHousesIssueStatusChange(\''+x.id+'\',\''+safeId+'\')">Confirm</button><button class="sc-cancel" onclick="cancelMyHousesIssueStatusChange(\''+safeId+'\',\''+(x.status||'open')+'\')">Cancel</button></div>'+
+        '</div>';
+      var updates=x.updates||[];
+      var updHtml='';
+      updates.forEach(function(u){updHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
+      inner+='<div class="updates-log">'+(updHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
+      inner+='<div class="add-update-row"><input type="text" id="mh-note-'+safeId+'" placeholder="Add an update&hellip; (e.g. hangers ordered, arriving Friday)"><button onclick="addMyHousesIssueUpdate(\''+x.id+'\',\''+safeId+'\')">+ Add</button></div>';
+      inner+='</td></tr>';
+    });
+    inner+='</tbody></table></div>';
+  }
+  return mhCollapsible('openissues','🛠️ Open Issues',count,inner);
+}
+// Mirrors stageIssueStatusChange/cancelIssueStatusChange/confirmIssueStatusChange
+// (Open Issues tab) exactly, just against 'mh-' prefixed element ids so both can
+// coexist in the DOM at once. The actual write always goes through the one
+// shared setPropertyIssueStatus() function, same as every other issue editor.
+function stageMyHousesIssueStatusChange(safeId,newStatus){
+  var panel=document.getElementById('mh-confirm-'+safeId);
+  var label=document.getElementById('mh-confirm-label-'+safeId);
+  if(!panel)return;
+  panel.setAttribute('data-pending-status',newStatus);
+  if(label)label.textContent=STATUS_DISPLAY_NAMES[newStatus]||newStatus;
+  panel.style.display='flex';
+}
+function cancelMyHousesIssueStatusChange(safeId,prevStatus){
+  var sel=document.getElementById('mh-sel-'+safeId);
+  var panel=document.getElementById('mh-confirm-'+safeId);
+  if(sel)sel.value=prevStatus;
+  if(panel)panel.style.display='none';
+}
+function confirmMyHousesIssueStatusChange(docId,safeId){
+  var panel=document.getElementById('mh-confirm-'+safeId);
+  var newStatus=panel?panel.getAttribute('data-pending-status'):null;
+  if(!newStatus)return;
+  var noteInput=document.getElementById('mh-confirm-note-'+safeId);
+  var note=(noteInput&&noteInput.value||'').trim();
+  setPropertyIssueStatus(docId,newStatus,note);
+}
+// Mirrors addPropertyIssueUpdate (Open Issues tab) -- identical write against the
+// same property_issues doc, just via 'mh-' prefixed input ids.
+function addMyHousesIssueUpdate(docId,safeId){
+  var input=document.getElementById('mh-note-'+safeId);
+  var text=(input.value||'').trim();
+  if(!text)return;
+  var now=new Date();
+  var entry={text:text,by:currentUser.name,date:now.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
+  db.collection('property_issues').doc(docId).update({updates:firebase.firestore.FieldValue.arrayUnion(entry)}).then(function(){
+    var iss=_propIssues.find(function(x){return x.id===docId;});
+    if(iss){ if(!iss.updates)iss.updates=[]; iss.updates.push(entry); }
+    input.value='';
+    showToast('Update added');
+    renderMyHouses();
+    renderOpenIssues();
+  }).catch(function(){showToast('Error adding update');});
+}
+
+// ── PRODUCTIVITY (manager-only) ─────────────────────────────────────────────────
+// Client-side gating only (see the on-page disclosure banner and the plan notes):
+// the tab button below is inserted into the DOM only for role==='manager'
+// (initProductivityTab()), switchTab() refuses to open it for anyone else, and
+// this render function itself refuses to build or display anything unless the
+// signed-in role is 'manager' — checked first, before any data is touched, so a
+// forged direct call to renderProductivity() from devtools fetches nothing new
+// (everything it reads was already loaded into _insp/_propIssues/_supplyReqs by
+// the normal dashboard load, same as any other tab). There are no Firestore
+// Security Rules anywhere in this project, so none of this is enforced at the
+// database level — see the on-page banner.
+//
+// Every timestamp used here already existed for another purpose (submittedAt,
+// startTime/endTime typed by the inspector's own device clock, statusHistory
+// entries) — nothing new is collected. "Elapsed time" always means the plain
+// difference between an inspection's own recorded start and end times, and is
+// never described as verified or actual working hours, since these are
+// unverified, device-local timestamps an inspector could start/stop at will.
+function initProductivityTab(){
+  var nav=document.getElementById('tabNav');
+  var existing=document.getElementById('prodTabBtn');
+  if(existing) existing.remove();
+  if(currentUser && currentUser.role==='manager' && nav){
+    var btn=document.createElement('button');
+    btn.className='tab-btn'; btn.id='prodTabBtn';
+    btn.textContent='📈 Productivity';
+    btn.onclick=function(){switchTab('productivity',btn);};
+    nav.appendChild(btn);
+  }
+}
+// Parses the inspector-device-local strings written by new Date().toLocaleString()
+// (see index.html's state.startTime/endTime). Returns null (not 0) when either
+// timestamp is missing or unparseable, so callers can distinguish "0 minutes" from
+// "unavailable for historical data" rather than showing a misleading zero.
+function elapsedMinutes(startTime,endTime){
+  if(!startTime||!endTime) return null;
+  var s=new Date(startTime), e=new Date(endTime);
+  if(isNaN(s.getTime())||isNaN(e.getTime())) return null;
+  var mins=Math.round((e-s)/60000);
+  if(mins<0) return null;
+  return mins;
+}
+function fmtElapsed(mins){
+  if(mins===null||mins===undefined) return 'unavailable for historical data';
+  if(mins<60) return mins+' min';
+  return Math.floor(mins/60)+'h '+(mins%60)+'m';
+}
+function renderProductivity(){
+  // First line, unconditionally: no data is read or rendered for anyone but a
+  // signed-in manager, regardless of how this function was invoked.
+  if(!currentUser || currentUser.role!=='manager') return;
+  var dateFrom=document.getElementById('pr-datefrom').value;
+  var dateTo=document.getElementById('pr-dateto').value;
+  var staff=document.getElementById('pr-staff').value;
+  var prop=(document.getElementById('pr-prop').value||'').toLowerCase();
+  var mgrF=document.getElementById('pr-mgr').value;
+  var staffSel=document.getElementById('pr-staff');
+  if(staffSel && staffSel.options.length<=1){
+    var staffSet={}; (_insp||[]).forEach(function(i){if(i.inspector)staffSet[i.inspector]=1;});
+    Object.keys(staffSet).sort().forEach(function(s){var o=document.createElement('option');o.value=s;o.textContent=s;staffSel.appendChild(o);});
+  }
+  var list=(_insp||[]).filter(function(i){
+    if(dateFrom && (i.submittedAt||'').slice(0,10) < dateFrom) return false;
+    if(dateTo && (i.submittedAt||'').slice(0,10) > dateTo) return false;
+    if(staff && i.inspector!==staff) return false;
+    if(prop && !(i.property||'').toLowerCase().includes(prop)) return false;
+    if(mgrF){
+      var prMgrRec=PROPERTIES.find(function(p){return p.name===i.property;});
+      if(!contactMatches(prMgrRec?prMgrRec.manager:'',mgrF)) return false;
+    }
+    return true;
+  });
+  var totalIssues=list.reduce(function(s,i){return s+(i.issuesFound||0);},0);
+  var propsCovered=new Set(list.map(function(i){return i.property;})).size;
+  var elapsedList=list.map(function(i){return elapsedMinutes(i.startTime,i.endTime);}).filter(function(m){return m!==null;});
+  var avgElapsed=elapsedList.length?Math.round(elapsedList.reduce(function(a,b){return a+b;},0)/elapsedList.length):null;
+  document.getElementById('pr-total').textContent=list.length;
+  document.getElementById('pr-issues').textContent=totalIssues;
+  document.getElementById('pr-avgelapsed').textContent=avgElapsed===null?'—':fmtElapsed(avgElapsed);
+  document.getElementById('pr-props').textContent=propsCovered;
+  if(!list.length){document.getElementById('productivityTable').innerHTML='<div class="empty">No inspections match these filters</div>';return;}
+  var html='<table><thead><tr><th>Date</th><th>Performed By</th><th>Type</th><th>Property</th><th>Operations Contact</th><th>Elapsed Time (Start&rarr;End)</th><th>Issues Found</th></tr></thead><tbody>';
+  list.slice().sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');}).forEach(function(i){
+    var mgrRec=PROPERTIES.find(function(p){return p.name===i.property;});
+    var mins=elapsedMinutes(i.startTime,i.endTime);
+    html+='<tr>';
+    html+='<td style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td>';
+    // Deliberately separated: the person who performed the inspection is not
+    // necessarily the property's Operations Contact — see the xlsx-migration
+    // conflicts noted in the property data (several properties' contact differs
+    // from whoever happens to inspect them).
+    html+='<td>'+esc(i.inspector||'')+' <span style="font-size:10px;color:var(--dark-gray)">(performed)</span></td>';
+    html+='<td>'+esc(TYPE_LABELS[i.formType]||i.formType||'')+'</td>';
+    html+='<td style="font-weight:600">'+esc(i.property||'')+'</td>';
+    html+='<td>Operations Contact: '+esc(mgrRec?mgrRec.manager:'—')+'</td>';
+    html+='<td>'+esc(fmtElapsed(mins))+'</td>';
+    html+='<td style="color:'+((i.issuesFound||0)>0?'var(--red)':'inherit')+'">'+(i.issuesFound||0)+'</td>';
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('productivityTable').innerHTML=html;
+}
+
 function renderInspLog(){
   var type=document.getElementById('il-type').value;
   var days=parseInt(document.getElementById('il-days').value)||0;
   var prop=(document.getElementById('il-prop').value||'').toLowerCase();
   var insp=document.getElementById('il-insp').value;
+  var mgrF=document.getElementById('il-mgr').value;
   var list=filterDays(_insp,days).filter(function(i){
     if(CHECKIN_CHECKOUT_TYPES.indexOf(i.formType)===-1)return false;
     if(type&&i.formType!==type)return false;
     if(prop&&!(i.property||'').toLowerCase().includes(prop))return false;
     if(insp&&i.inspector!==insp)return false;
+    if(mgrF){
+      var ilMgrRec=PROPERTIES.find(function(p){return p.name===i.property;});
+      if(!contactMatches(ilMgrRec?ilMgrRec.manager:'',mgrF)) return false;
+    }
     return true;
   });
   // Stats
@@ -853,7 +1342,8 @@ function renderInspLog(){
     var updates=i.updates||[];
     var isResolved=!!i.resolved;
     var needsResolution=(i.overallStatus==='not-ready'||i.overallStatus==='conditional');
-    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||needsResolution||isResolved||updates.length>0;
+    var hasQuantities=(i.quantityItems||[]).length>0;
+    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||needsResolution||isResolved||updates.length>0||hasQuantities;
     var photos=normalizePhotoUrls(i.photoUrls,'inspLog:'+i.id);
     var photoCount=photos.length;
     var photoFailCount=i.photoUploadFailCount||0;
@@ -918,6 +1408,7 @@ function renderInspLog(){
       }
       html+=maintNotesPhotosHtml(i);
       html+=opsMaintenanceBlockHtml(i);
+      html+=quantityItemsBlockHtml(i);
       if(needsResolution||isResolved||updates.length){
         html+='<div class="insp-detail-heading">&#128295; Overall Resolution</div>';
         if(isResolved){
@@ -963,15 +1454,20 @@ function renderSeasonal(){
   var season=document.getElementById('si-season').value;
   var days=parseInt(document.getElementById('si-days').value)||0;
   var prop=(document.getElementById('si-prop').value||'').toLowerCase();
+  var mgrF=document.getElementById('si-mgr').value;
   var seasonTypes=['spring','fall','kitchen_inv','linen_inv'];
   var list=filterDays(_insp,days).filter(function(i){
     if(!seasonTypes.includes(i.formType))return false;
     if(season&&i.formType!==season)return false;
     if(prop&&!(i.property||'').toLowerCase().includes(prop))return false;
+    if(mgrF){
+      var siMgrRec=PROPERTIES.find(function(p){return p.name===i.property;});
+      if(!contactMatches(siMgrRec?siMgrRec.manager:'',mgrF)) return false;
+    }
     return true;
   });
   if(!list.length){document.getElementById('seasonalTable').innerHTML='<div class="empty">No seasonal inspections found</div>';return;}
-  var html='<table><thead><tr><th>Date</th><th>Property</th><th>Manager</th><th>Inspector</th><th>Season / Type</th><th>Items OK</th><th>Issues Found</th><th>N/A</th><th>Overall Status</th><th>Details</th><th>Photos</th><th>Notes</th></tr></thead><tbody>';
+  var html='<table><thead><tr><th>Date</th><th>Property</th><th>Operations Contact</th><th>Inspector</th><th>Season / Type</th><th>Items OK</th><th>Issues Found</th><th>N/A</th><th>Overall Status</th><th>Details</th><th>Photos</th><th>Notes</th></tr></thead><tbody>';
   list.forEach(function(i){
     var mgr=PROPERTIES.find(function(p){return p.name===i.property;});
     var issueList=i.issues||[];
@@ -981,7 +1477,8 @@ function renderSeasonal(){
     var opsNotes=(i.opsMaintenanceNotes||'').trim();
     var updates=i.updates||[];
     var isResolved=!!i.resolved;
-    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||isResolved||updates.length>0;
+    var hasQuantities=(i.quantityItems||[]).length>0;
+    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||isResolved||updates.length>0||hasQuantities;
     var photos=normalizePhotoUrls(i.photoUrls,'seasonal:'+i.id);
     var photoCount=photos.length;
     var photoFailCount=i.photoUploadFailCount||0;
@@ -1069,6 +1566,7 @@ function renderSeasonal(){
       }
       html+=maintNotesPhotosHtml(i);
       html+=opsMaintenanceBlockHtml(i);
+      html+=quantityItemsBlockHtml(i);
       if(isResolved||updates.length){
         html+='<div class="insp-detail-heading">&#128295; Overall Resolution</div>';
         if(isResolved){
@@ -1099,7 +1597,7 @@ function renderSeaDash(){
   var byPT={};
   _insp.forEach(function(i){var k=i.property+'|'+i.formType;if(!byPT[k]||i.submittedAt>byPT[k].submittedAt)byPT[k]=i;});
   var props=PROPERTIES.filter(function(p){
-    if(mgrF&&p.manager!==mgrF)return false;
+    if(!contactMatches(p.manager,mgrF))return false;
     if(propF&&!p.name.toLowerCase().includes(propF))return false;
     return true;
   });
@@ -1107,7 +1605,7 @@ function renderSeaDash(){
     if(sortF==='manager')return (a.manager||'').localeCompare(b.manager||'')||a.name.localeCompare(b.name);
     return a.name.localeCompare(b.name);
   });
-  var html='<table><thead><tr><th>Property</th><th>Manager</th><th>Spring</th><th>Fall</th><th>Kitchen Inv</th><th>Linen Inv</th><th>Status</th></tr></thead><tbody>';
+  var html='<table><thead><tr><th>Property</th><th>Operations Contact</th><th>Spring</th><th>Fall</th><th>Kitchen Inv</th><th>Linen Inv</th><th>Status</th></tr></thead><tbody>';
   var shown=0;
   props.forEach(function(p){
     var spring=byPT[p.name+'|spring'];
@@ -1145,7 +1643,7 @@ function renderQCDash(){
   var counts={Recent:0,'Due Soon':0,Overdue:0,'Never Checked':0};
   var rows=[];
   PROPERTIES.forEach(function(p){
-    if(mgrF&&p.manager!==mgrF)return;
+    if(!contactMatches(p.manager,mgrF))return;
     if(propF&&!p.name.toLowerCase().includes(propF))return;
     var last=latestQC[p.name];
     var days=last?Math.floor((Date.now()-new Date(last.submittedAt))/86400000):null;
@@ -1163,7 +1661,7 @@ function renderQCDash(){
   document.getElementById('qd-over').textContent=counts['Overdue']||0;
   document.getElementById('qd-never').textContent=counts['Never Checked']||0;
   if(!rows.length){document.getElementById('qcDashTable').innerHTML='<div class="empty">No properties match filters</div>';return;}
-  var html='<table><thead><tr><th>Property</th><th>Manager</th><th>Last QC Check</th><th>Checked By</th><th>Days Since Check</th><th>Status</th><th>Issues Found</th></tr></thead><tbody>';
+  var html='<table><thead><tr><th>Property</th><th>Operations Contact</th><th>Last QC Check</th><th>Checked By</th><th>Days Since Check</th><th>Status</th><th>Issues Found</th></tr></thead><tbody>';
   rows.forEach(function(r){
     var bClass=r.days===null?'b-never':r.days<=30?'b-recent':r.days<=60?'b-due':'b-overdue';
     var statusLabel=r.days===null?'Never Checked':r.days<=30?'Recent ✓':r.days<=60?'Due Soon':'Overdue';
@@ -1182,86 +1680,60 @@ function renderQCDash(){
 }
 
 // ── QC LOG ────────────────────────────────────────────────────────────────────
-// QC Log shows both full QC Check inspections and quick Spot Check reports side by
-// side (a Spot Check never requires a full QC checklist) — a Type column and badge
-// clearly label which is which. Status is read-only here (via its tied
-// property_issues record, see scEffectiveStatus below) — all status/note editing
-// for a Spot Check's tracked issue happens on the Open Issues tab, same as every
-// other issue source.
+// QC Log shows only full QC Check inspections. Spot Checks are intentionally
+// excluded — they have no dedicated log of their own; they feed straight into
+// the Open Issues tab like any other tracked issue (see isOpenIssuesEligible()).
+// This is a pure read-side filter change: no Spot Check record was deleted,
+// mutated, or duplicated, and it applies retroactively to historical records
+// automatically.
 function renderQCLog(){
   var days=parseInt(document.getElementById('ql-days').value)||0;
   var prop=(document.getElementById('ql-prop').value||'').toLowerCase();
   var mgr=document.getElementById('ql-mgr').value;
   var list=filterDays(_insp,days).filter(function(i){
-    if(i.formType!=='qc_check'&&i.formType!=='spot_check')return false;
+    if(i.formType!=='qc_check')return false;
     if(prop&&!(i.property||'').toLowerCase().includes(prop))return false;
-    if(mgr&&i.inspector!==mgr)return false;
+    // Filters by the PROPERTY's Operations Contact (looked up live from
+    // PROPERTIES), not the inspector who happened to perform this QC Check —
+    // fixes a pre-existing bug where this filter actually compared against
+    // i.inspector despite being labeled "Operations Contact".
+    if(mgr){
+      var qlMgrRec=PROPERTIES.find(function(p){return p.name===i.property;});
+      if(!contactMatches(qlMgrRec?qlMgrRec.manager:'',mgr)) return false;
+    }
     return true;
   });
-  if(!list.length){document.getElementById('qcLogTable').innerHTML='<div class="empty">No QC inspections or Spot Checks found</div>';return;}
-  var html='<table><thead><tr><th>Date</th><th>Type</th><th>Property</th><th>Manager (POC)</th><th>Checked By</th><th>Items Checked</th><th>Items OK</th><th>Issues Found</th><th>N/A</th><th>Overall Status</th><th>Details</th><th>Photos</th></tr></thead><tbody>';
+  if(!list.length){document.getElementById('qcLogTable').innerHTML='<div class="empty">No QC inspections found</div>';return;}
+  var html='<table><thead><tr><th>Date</th><th>Type</th><th>Property</th><th>Operations Contact</th><th>Checked By</th><th>Items Checked</th><th>Items OK</th><th>Issues Found</th><th>N/A</th><th>Overall Status</th><th>Details</th><th>Photos</th></tr></thead><tbody>';
   list.forEach(function(i){
-    var isSC=i.formType==='spot_check';
-    // New-format Spot Checks (submitted after the multi-issue update) carry their own
-    // issues[] array, exactly like a QC Check — each entry has its own key
-    // ('spotcheck_0','spotcheck_1',...) tying it to its own property_issues record, so
-    // it can be displayed and resolved independently. Older Spot Checks submitted
-    // before that update have no issues[] at all (they stored one flattened issue
-    // directly on the inspections doc) and keep rendering exactly as they always have,
-    // via the scLegacy branch below.
-    var scIssues=(isSC&&Array.isArray(i.issues)&&i.issues.length)?i.issues:null;
-    var mgr=PROPERTIES.find(function(p){return p.name===i.property;});
+    var mgrRec=PROPERTIES.find(function(p){return p.name===i.property;});
     var issueList=i.issues||[];
-    var hasIssues=isSC?!!scIssues:i.issuesFound>0;
+    var hasIssues=i.issuesFound>0;
     var mgrNotes=(i.managerNotes||'').trim();
     var maintNotes=(i.maintenanceNotes||'').trim();
     var opsNotes=(i.opsMaintenanceNotes||'').trim();
     var qcUpdates=i.updates||[];
     var qcIsResolved=!!i.resolved;
-    var hasDetails=isSC||hasIssues||mgrNotes||maintNotes||opsNotes||qcIsResolved||qcUpdates.length>0;
+    var hasQuantities=(i.quantityItems||[]).length>0;
+    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||qcIsResolved||qcUpdates.length>0||hasQuantities;
     var photos=normalizePhotoUrls(i.photoUrls,'qcLog:'+i.id);
     var photoCount=photos.length;
     var photoFailCount=i.photoUploadFailCount||0;
     var total=(i.itemsOk||0)+(i.issuesFound||0)+(i.naCount||0);
     var safeId='qc'+i.id.replace(/[^a-zA-Z0-9]/g,'');
-    // Once a legacy (single-issue) Spot Check has a tracked property_issues record
-    // (either backfilled, or — before the multi-issue update — created automatically),
-    // that record is the source of truth for status. A new-format multi-issue Spot
-    // Check never mirrors status here at all (see syncSpotCheckMirror) — each issue's
-    // live status is read straight from its own tied record in the loop below, the
-    // same way QC Check's per-item issues already work.
-    var scTiedForBadge=(isSC&&!scIssues)?findTiedIssue(i.id,'spotcheck'):null;
-    var scEffectiveStatus=scTiedForBadge?scTiedForBadge.status:(i.status==='In Progress'?'in_progress':i.status==='Resolved'?'resolved':i.status==='Dismissed'?'dismissed':'open');
-    var scStatus=ISSUE_STATUS_LABELS[scEffectiveStatus]||ISSUE_STATUS_LABELS.open;
     html+='<tr>';
     html+='<td style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td>';
-    html+='<td><span class="badge b-ok">'+(isSC?'&#128295; Spot Check':'QC Check')+'</span></td>';
+    html+='<td><span class="badge b-ok">QC Check</span></td>';
     html+='<td style="font-weight:600">'+esc(i.property||'')+'</td>';
-    html+='<td>'+esc(mgr?mgr.manager:'')+'</td>';
+    html+='<td>'+esc(mgrRec?mgrRec.manager:'')+'</td>';
     html+='<td>'+esc(i.inspector||'')+'</td>';
-    if(isSC){
-      html+='<td style="text-align:center"><span class="no-photo">&mdash;</span></td>';
-      html+='<td style="text-align:center"><span class="no-photo">&mdash;</span></td>';
-      if(scIssues){
-        html+='<td style="text-align:center;color:var(--red);font-weight:700">'+scIssues.length+'</td>';
-      } else {
-        html+='<td style="text-align:center"><span class="no-photo">&mdash;</span></td>';
-      }
-      html+='<td style="text-align:center"><span class="no-photo">&mdash;</span></td>';
-      if(scIssues){
-        html+='<td><span class="badge '+(qcIsResolved?'b-clear':'b-issue')+'">'+(qcIsResolved?'All Resolved':scIssues.length+' Issue'+(scIssues.length!==1?'s':'')+' Reported')+'</span></td>';
-      } else {
-        html+='<td><span class="badge '+scStatus.cls+'">'+esc(scStatus.txt)+'</span> <span class="badge b-conditional" style="margin-left:4px">'+esc(i.priority||'')+' Priority</span></td>';
-      }
-    } else {
-      html+='<td style="text-align:center">'+total+'</td>';
-      html+='<td style="text-align:center">'+( i.itemsOk||0)+'</td>';
-      html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( i.issuesFound||0)+'</td>';
-      html+='<td style="text-align:center">'+( i.naCount||0)+'</td>';
-      html+='<td><span class="badge '+(hasIssues?'b-issue':'b-clear')+'">'+(hasIssues?i.issuesFound+' Issue'+(i.issuesFound!==1?'s':''):'All Clear')+'</span></td>';
-    }
+    html+='<td style="text-align:center">'+total+'</td>';
+    html+='<td style="text-align:center">'+( i.itemsOk||0)+'</td>';
+    html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( i.issuesFound||0)+'</td>';
+    html+='<td style="text-align:center">'+( i.naCount||0)+'</td>';
+    html+='<td><span class="badge '+(hasIssues?'b-issue':'b-clear')+'">'+(hasIssues?i.issuesFound+' Issue'+(i.issuesFound!==1?'s':''):'All Clear')+'</span></td>';
     if(hasDetails){
-      html+='<td><button class="details-btn'+((hasIssues||isSC)?'':' no-issues')+'" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
+      html+='<td><button class="details-btn'+(hasIssues?'':' no-issues')+'" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
     } else {
       html+='<td><span class="no-photo">&mdash;</span></td>';
     }
@@ -1273,94 +1745,44 @@ function renderQCLog(){
     html+='</tr>';
     if(hasDetails){
       html+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="12">';
-      if(isSC&&scIssues){
-        html+='<div class="insp-detail-heading">&#128295; '+buildIssueStatusSummary(scIssues,i.id)+'</div>';
-        scIssues.forEach(function(iss,idx){
-          var key=iss.key||('spotcheck_'+idx);
-          var tied=findTiedIssue(i.id,key);
-          var issPhotos=normalizePhotoUrls(iss.photos,'qcLog:'+i.id+':scissue'+idx);
-          html+='<div class="insp-issue-item"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div><div class="insp-issue-section">Issue '+(idx+1)+' &middot; '+esc(iss.category||'')+'</div><div class="insp-issue-text">'+esc(iss.description||'').replace(/\n/g,'<br>')+'</div></div>'+issueStatusBadgeHtml(tied)+'</div>';
-          html+='<div style="font-size:11.5px;color:var(--dark-gray);margin-top:4px"><strong>Location:</strong> '+esc(iss.location||'—')+' &nbsp;&bull;&nbsp; <strong>Priority:</strong> '+esc(iss.priority||'—')+'</div>';
-          if(iss.notes)html+='<div class="insp-issue-note">"'+esc(iss.notes)+'"</div>';
-          if(issPhotos.length){
+      if(hasIssues){
+        html+='<div class="insp-detail-heading">&#128295; '+buildIssueStatusSummary(issueList,i.id)+'</div>';
+        issueList.forEach(function(x,xi){
+          var xPhotos=normalizePhotoUrls(x.photos,'qcLog:'+i.id+':issue');
+          var xKey=x.key||('legacyidx_'+xi);
+          var tiedIssue=findTiedIssue(i.id,xKey);
+          html+='<div class="insp-issue-item"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div></div>'+issueStatusBadgeHtml(tiedIssue)+'</div>';
+          if(x.notes)html+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
+          if(x.charge>0)html+='<div class="insp-issue-charge">Charge: $'+Number(x.charge).toFixed(2)+'</div>';
+          if(xPhotos.length){
             html+='<div class="insp-issue-photos">';
-            issPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
+            xPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
             html+='</div>';
           }
           html+='</div>';
         });
-        html+='<div class="insp-notes-block" style="margin-top:4px"><strong>Assigned House Manager:</strong> '+esc(i.assignedManagerName||'—')+(i.assignedManagerEmail?' ('+esc(i.assignedManagerEmail)+')':'')+'</div>';
-        html+='<button class="view-in-openissues-btn" data-prop="'+esc(i.property||'')+'" onclick="jumpToOpenIssues(this.getAttribute(\'data-prop\'))">Manage issues in Open Issues &rarr;</button>';
-        html+=opsMaintenanceBlockHtml(i);
-        html+='<div class="insp-detail-heading" style="margin-top:14px">&#128295; Overall Resolution</div>';
+        html+='<button class="view-in-openissues-btn" data-prop="'+esc(i.property||'')+'" onclick="jumpToOpenIssues(this.getAttribute(\'data-prop\'))">View issues in Open Issues &rarr;</button>';
+      }
+      if(mgrNotes){
+        html+='<div class="insp-detail-heading">&#128221; Manager Notes</div><div class="insp-notes-block">'+esc(mgrNotes).replace(/\n/g,'<br>')+'</div>';
+      }
+      if(maintNotes){
+        html+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
+      }
+      html+=maintNotesPhotosHtml(i);
+      html+=opsMaintenanceBlockHtml(i);
+      html+=quantityItemsBlockHtml(i);
+      if(hasIssues||qcIsResolved||qcUpdates.length){
+        html+='<div class="insp-detail-heading">&#128295; Overall Resolution</div>';
         if(qcIsResolved){
-          html+='<div class="insp-resolved-banner">&#9989; Resolved &mdash; every issue on this Spot Check is Resolved or Dismissed</div>';
-        } else {
+          html+='<div class="insp-resolved-banner">&#9989; Resolved &mdash; every issue on this inspection is Resolved or Dismissed</div>';
+        } else if(hasIssues){
           html+='<div class="insp-unresolved-banner">&#9888;&#65039; Not yet resolved &mdash; one or more issues are still Open or In Progress. Manage each issue\'s status from the Open Issues tab.</div>';
         }
-        var scUpdHtml='';
-        qcUpdates.forEach(function(u){scUpdHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
-        html+='<div class="updates-log">'+(scUpdHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
+        var qcUpdHtml='';
+        qcUpdates.forEach(function(u){qcUpdHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
+        html+='<div class="updates-log">'+(qcUpdHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
         html+='<div class="add-update-row"><input type="text" id="insp-note-'+safeId+'" placeholder="Add an inspection-level note&hellip;"><button onclick="addQCInspUpdate(\''+i.id+'\',\''+safeId+'\')">+ Add</button></div>';
-      } else if(isSC){
-        var scTied=findTiedIssue(i.id,'spotcheck');
-        html+='<div class="insp-detail-heading">&#128295; Spot Check Details</div>';
-        html+='<div class="insp-notes-block"><strong>Category:</strong> '+esc(i.category||'')+'<br><strong>Location:</strong> '+esc(i.location||'')+'<br><strong>Priority:</strong> '+esc(i.priority||'')+'<br><strong>Assigned House Manager:</strong> '+esc(i.assignedManagerName||'—')+(i.assignedManagerEmail?' ('+esc(i.assignedManagerEmail)+')':'')+'</div>';
-        html+='<div class="insp-detail-heading">&#128221; Description</div><div class="insp-notes-block">'+esc(i.description||'').replace(/\n/g,'<br>')+'</div>';
-        if((i.notes||'').trim()){
-          html+='<div class="insp-detail-heading">&#128221; Additional Notes</div><div class="insp-notes-block">'+esc(i.notes).replace(/\n/g,'<br>')+'</div>';
-        }
-        html+='<div class="insp-detail-heading">&#128221; Status</div>';
-        html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:12px;font-weight:700;color:var(--dark-gray)">Current status:</span>'+issueStatusBadgeHtml(scTied)+'</div>';
-        if(scTied){
-          html+='<button class="view-in-openissues-btn" data-prop="'+esc(i.property||'')+'" onclick="jumpToOpenIssues(this.getAttribute(\'data-prop\'))">Manage in Open Issues &rarr;</button>';
-        } else {
-          // Pre-existing Spot Check submitted before the property_issues bridge was added
-          // (or before this Spot Check was backfilled — see the "Backfill Spot Checks"
-          // button on the Open Issues tab). No tracked record yet, so there's nothing to
-          // manage here until it's backfilled.
-          html+='<div style="font-size:12px;color:var(--dark-gray)">This Spot Check has no tracked Open Issues record yet — use "Backfill Spot Checks" on the Open Issues tab to create one.</div>';
-        }
-        html+=opsMaintenanceBlockHtml(i);
-      } else {
-        if(hasIssues){
-          html+='<div class="insp-detail-heading">&#128295; '+buildIssueStatusSummary(issueList,i.id)+'</div>';
-          issueList.forEach(function(x,xi){
-            var xPhotos=normalizePhotoUrls(x.photos,'qcLog:'+i.id+':issue');
-            var xKey=x.key||('legacyidx_'+xi);
-            var tiedIssue=findTiedIssue(i.id,xKey);
-            html+='<div class="insp-issue-item"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div></div>'+issueStatusBadgeHtml(tiedIssue)+'</div>';
-            if(x.notes)html+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
-            if(x.charge>0)html+='<div class="insp-issue-charge">Charge: $'+Number(x.charge).toFixed(2)+'</div>';
-            if(xPhotos.length){
-              html+='<div class="insp-issue-photos">';
-              xPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
-              html+='</div>';
-            }
-            html+='</div>';
-          });
-          html+='<button class="view-in-openissues-btn" data-prop="'+esc(i.property||'')+'" onclick="jumpToOpenIssues(this.getAttribute(\'data-prop\'))">View issues in Open Issues &rarr;</button>';
-        }
-        if(mgrNotes){
-          html+='<div class="insp-detail-heading">&#128221; Manager Notes</div><div class="insp-notes-block">'+esc(mgrNotes).replace(/\n/g,'<br>')+'</div>';
-        }
-        if(maintNotes){
-          html+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
-        }
-        html+=maintNotesPhotosHtml(i);
-        html+=opsMaintenanceBlockHtml(i);
-        if(hasIssues||qcIsResolved||qcUpdates.length){
-          html+='<div class="insp-detail-heading">&#128295; Overall Resolution</div>';
-          if(qcIsResolved){
-            html+='<div class="insp-resolved-banner">&#9989; Resolved &mdash; every issue on this inspection is Resolved or Dismissed</div>';
-          } else if(hasIssues){
-            html+='<div class="insp-unresolved-banner">&#9888;&#65039; Not yet resolved &mdash; one or more issues are still Open or In Progress. Manage each issue\'s status from the Open Issues tab.</div>';
-          }
-          var qcUpdHtml='';
-          qcUpdates.forEach(function(u){qcUpdHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
-          html+='<div class="updates-log">'+(qcUpdHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
-          html+='<div class="add-update-row"><input type="text" id="insp-note-'+safeId+'" placeholder="Add an inspection-level note&hellip;"><button onclick="addQCInspUpdate(\''+i.id+'\',\''+safeId+'\')">+ Add</button></div>';
-        }
       }
       html+='</td></tr>';
     }
@@ -1369,14 +1791,17 @@ function renderQCLog(){
   document.getElementById('qcLogTable').innerHTML=html;
   reopenPreservedDetails();
 }
-// NOTE: Spot Check status/updates used to be edited directly here in the QC Log
-// (formerly addSpotCheckUpdate()/setSpotCheckStatus(), writing straight onto the
-// inspections doc). As of the issue-management workflow update, every issue
-// (Spot Checks included) is edited in exactly one place — the Open Issues tab,
-// via setPropertyIssueStatus()/addPropertyIssueUpdate() below — which then mirrors
-// the result back onto this Spot Check's own inspections doc automatically. Those
-// two functions were removed so there's no second, divergent way to edit the same
-// data; see renderQCLog()'s isSC branch above for the resulting read-only display.
+
+// ── SPOT CHECK — no dedicated log ────────────────────────────────────────────
+// Spot Checks intentionally have no log/tab of their own. They feed straight
+// into Open Issues (see isOpenIssuesEligible()), which already surfaces every
+// field a Spot Check needs — category, location, priority, description/notes,
+// photos, and the assigned Operations Contact — via renderOpenIssues()'s detail
+// row, and is the one place a Spot Check's status/updates are edited (via
+// setPropertyIssueStatus()/addPropertyIssueUpdate() below). A dedicated
+// "Spot Check Log" tab (renderSpotCheckLog()/addSpotCheckInspUpdate()) briefly
+// existed and was removed at the user's request — Spot Checks were never meant
+// to have a home besides Open Issues.
 
 // ── OPEN ISSUES ───────────────────────────────────────────────────────────────
 // Lists every `property_issues` record — one per checklist Issue flagged in the
@@ -1402,7 +1827,11 @@ var STATUS_DISPLAY_NAMES={open:'Open',in_progress:'In Progress',resolved:'Resolv
 // routing update — the property_issues doc itself, and the inspection it came
 // from, are left completely untouched.
 function isOpenIssuesEligible(x){
-  if(x.formType==='spring'||x.formType==='fall') return false;
+  // Spring/Fall/Kitchen Inventory/Linen Inventory issues all have their own
+  // status controls on the Seasonal Inspections tab (see stageSeasonalIssueStatusChange
+  // etc.) -- they're intentionally excluded here so each issue has exactly one home
+  // instead of appearing in two places.
+  if(x.formType==='spring'||x.formType==='fall'||x.formType==='kitchen_inv'||x.formType==='linen_inv') return false;
   if(x.section==='Supply Check'||x.section==='Supply Inventory') return false;
   return true;
 }
@@ -1413,10 +1842,7 @@ function renderOpenIssues(){
     var props={}; eligible.forEach(function(x){if(x.property)props[x.property]=1;});
     Object.keys(props).sort().forEach(function(p){var o=document.createElement('option');o.value=p;o.textContent=p;propSel.appendChild(o);});
   }
-  var mgrSel=document.getElementById('oi-manager');
-  if(mgrSel && mgrSel.options.length<=1){
-    MANAGERS.slice().sort().forEach(function(m){var o=document.createElement('option');o.value=m;o.textContent=m;mgrSel.appendChild(o);});
-  }
+  populateContactSelect('oi-manager');
   var status=document.getElementById('oi-status').value;
   var source=document.getElementById('oi-source').value;
   var prop=document.getElementById('oi-prop').value;
@@ -1428,7 +1854,7 @@ function renderOpenIssues(){
     if(prop && x.property!==prop) return false;
     if(manager){
       var mgrRec=PROPERTIES.find(function(p){return p.name===x.property;});
-      if(!mgrRec || mgrRec.manager!==manager) return false;
+      if(!contactMatches(mgrRec?mgrRec.manager:'',manager)) return false;
     }
     if(search && !((x.property||'').toLowerCase().indexOf(search)!==-1 || (x.text||'').toLowerCase().indexOf(search)!==-1)) return false;
     return true;
@@ -1465,7 +1891,7 @@ function renderOpenIssues(){
         (x.category?'<strong>Category:</strong> '+esc(x.category)+'<br>':'')+
         (x.location?'<strong>Location:</strong> '+esc(x.location)+'<br>':'')+
         (x.priority?'<strong>Priority:</strong> '+esc(x.priority)+'<br>':'')+
-        (x.assignedManagerName?'<strong>Assigned House Manager:</strong> '+esc(x.assignedManagerName):'')+
+        (x.assignedManagerName?'<strong>Assigned Operations Contact:</strong> '+esc(x.assignedManagerName):'')+
         '</div>';
     }
     if(xPhotos.length){
@@ -1564,6 +1990,10 @@ function setPropertyIssueStatus(docId,newStatus,note){
     renderOpenIssues();
     renderQCLog();
     renderInspLog();
+    // My Houses has its own editable copy of this same issue's row (see
+    // myHousesIssuesSectionHtml()) — re-render so a change made from either
+    // screen is reflected in both immediately.
+    renderMyHouses();
     // Seasonal Inspections shows its own spring/fall issues tied to these same
     // property_issues records with inline status controls (see renderSeasonal()) —
     // re-render so a change made from either tab is reflected in both immediately.
@@ -1582,6 +2012,7 @@ function addPropertyIssueUpdate(docId,safeId){
     input.value='';
     showToast('Update added');
     renderOpenIssues();
+    renderMyHouses();
   }).catch(function(){showToast('Error adding update');});
 }
 // ── Seasonal Inspections' own per-issue status controls (2026-09-28 routing update) ──
@@ -1752,10 +2183,22 @@ function backfillSpotCheckPropertyIssues(){
 // sources — the standalone Supply Inventory form and supply items flagged Issue during
 // a Check-Out inspection (see index.html) — both written into this one collection so
 // this tab is the single place to see and act on every restocking need.
-var SUPPLY_STATUS_DISPLAY_NAMES={'Needs Shopping':'Needs Shopping','Purchased':'Purchased','Delivered':'Delivered','Completed':'Completed','Dismissed':'Dismissed'};
-var SUPPLY_STATUS_BADGE_CLASS={'Needs Shopping':'b-needs-shopping','Purchased':'b-purchased','Delivered':'b-delivered','Completed':'b-clear','Dismissed':'b-dismissed'};
-function supplyStatusBadgeHtml(status){
+var SUPPLY_STATUS_DISPLAY_NAMES={'Needs Shopping':'Needs Shopping','Purchased':'Purchased','Dismissed':'Dismissed'};
+var SUPPLY_STATUS_BADGE_CLASS={'Needs Shopping':'b-needs-shopping','Purchased':'b-purchased','Dismissed':'b-dismissed'};
+// Supply Inventory used to have 5 statuses (Needs Shopping / Purchased / Delivered /
+// Completed / Dismissed). It's now collapsed to 3 — this is a read-time normalization
+// only, never a bulk Firestore rewrite, so existing records' raw `status` field (and
+// their statusHistory entries) are left exactly as originally written; every place
+// that displays or filters by status goes through this function instead of reading
+// x.status directly, so a legacy 'Delivered' or 'Completed' record shows and filters
+// as 'Purchased' without its history being touched.
+function normalizeSupplyStatus(status){
   var st=status||'Needs Shopping';
+  if(st==='Delivered'||st==='Completed') return 'Purchased';
+  return st;
+}
+function supplyStatusBadgeHtml(status){
+  var st=normalizeSupplyStatus(status);
   return '<span class="badge '+(SUPPLY_STATUS_BADGE_CLASS[st]||'b-needs-shopping')+'">'+esc(SUPPLY_STATUS_DISPLAY_NAMES[st]||st)+'</span>';
 }
 function supplyItemsSummaryText(items){
@@ -1784,31 +2227,36 @@ function renderSupplyReqs(){
     var insps={}; _supplyReqs.forEach(function(x){if(x.inspector)insps[x.inspector]=1;});
     Object.keys(insps).sort().forEach(function(p){var o=document.createElement('option');o.value=p;o.textContent=p;inspSel.appendChild(o);});
   }
+  populateContactSelect('sup-mgr');
   var status=document.getElementById('sup-status').value;
   var source=document.getElementById('sup-source').value;
   var prop=document.getElementById('sup-prop').value;
   var insp=document.getElementById('sup-insp').value;
+  var mgrF=document.getElementById('sup-mgr').value;
   var dateFrom=document.getElementById('sup-datefrom').value;
   var dateTo=document.getElementById('sup-dateto').value;
   var search=(document.getElementById('sup-search').value||'').toLowerCase();
   var list=_supplyReqs.filter(function(x){
-    if(status && (x.status||'Needs Shopping')!==status) return false;
+    if(status && normalizeSupplyStatus(x.status)!==status) return false;
     if(source && x.source!==source) return false;
     if(prop && x.property!==prop) return false;
     if(insp && x.inspector!==insp) return false;
+    if(mgrF){
+      var supMgrRec=PROPERTIES.find(function(p){return p.name===x.property;});
+      if(!contactMatches(supMgrRec?supMgrRec.manager:'',mgrF)) return false;
+    }
     if(dateFrom && (x.submittedAt||'') < dateFrom) return false;
     if(dateTo && (x.submittedAt||'').slice(0,10) > dateTo) return false;
     if(search && !((x.items||[]).some(function(it){return (it.name||'').toLowerCase().indexOf(search)!==-1;}))) return false;
     return true;
   });
-  // ── Active-need summary (Completed/Dismissed are excluded from "active") ──
-  var activeList=_supplyReqs.filter(function(x){return !x.noneNeeded && x.status!=='Completed' && x.status!=='Dismissed';});
+  // ── Active-need summary (Dismissed is excluded from "active") ──
+  var activeList=_supplyReqs.filter(function(x){return !x.noneNeeded && normalizeSupplyStatus(x.status)!=='Dismissed';});
   var homesSet={}; activeList.forEach(function(x){if(x.property)homesSet[x.property]=1;});
   document.getElementById('sup-homes').textContent=Object.keys(homesSet).length;
   document.getElementById('sup-active').textContent=activeList.length;
-  document.getElementById('sup-needsshopping').textContent=_supplyReqs.filter(function(x){return (x.status||'Needs Shopping')==='Needs Shopping';}).length;
-  document.getElementById('sup-purchased').textContent=_supplyReqs.filter(function(x){return x.status==='Purchased';}).length;
-  document.getElementById('sup-delivered').textContent=_supplyReqs.filter(function(x){return x.status==='Delivered';}).length;
+  document.getElementById('sup-needsshopping').textContent=_supplyReqs.filter(function(x){return normalizeSupplyStatus(x.status)==='Needs Shopping';}).length;
+  document.getElementById('sup-purchased').textContent=_supplyReqs.filter(function(x){return normalizeSupplyStatus(x.status)==='Purchased';}).length;
   var tableEl=document.getElementById('supplyReqTable');
   if(!list.length){ tableEl.innerHTML='<div class="empty">No supply requests found</div>'; return; }
   list.sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');});
@@ -1844,12 +2292,12 @@ function renderSupplyReqs(){
     html+='<div class="insp-detail-heading">🔧 Status &amp; Follow-Up History</div>';
     html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap"><span style="font-size:12px;font-weight:700;color:var(--dark-gray)">Status:</span>'+supplyStatusBadgeHtml(x.status)+
       '<select id="sup-sel-'+safeId+'" style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px" onchange="stageSupplyStatusChange(\''+safeId+'\',this.value)">'+
-      ['Needs Shopping','Purchased','Delivered','Completed','Dismissed'].map(function(s){return '<option value="'+s+'"'+((x.status||'Needs Shopping')===s?' selected':'')+'>'+s+'</option>';}).join('')+
+      ['Needs Shopping','Purchased','Dismissed'].map(function(s){return '<option value="'+s+'"'+(normalizeSupplyStatus(x.status)===s?' selected':'')+'>'+s+'</option>';}).join('')+
       '</select></div>';
     html+='<div class="status-confirm-panel" id="sup-confirm-'+safeId+'" style="display:none">'+
       '<div style="font-size:12px;color:var(--dark-gray)">Changing status to <strong id="sup-confirm-label-'+safeId+'"></strong>. Add an optional note — it will be saved to this request\'s history:</div>'+
       '<textarea id="sup-confirm-note-'+safeId+'" placeholder="Optional note…"></textarea>'+
-      '<div class="sc-btns"><button class="sc-confirm" onclick="confirmSupplyStatusChange(\''+x.id+'\',\''+safeId+'\')">Confirm</button><button class="sc-cancel" onclick="cancelSupplyStatusChange(\''+safeId+'\',\''+(x.status||'Needs Shopping')+'\')">Cancel</button></div>'+
+      '<div class="sc-btns"><button class="sc-confirm" onclick="confirmSupplyStatusChange(\''+x.id+'\',\''+safeId+'\')">Confirm</button><button class="sc-cancel" onclick="cancelSupplyStatusChange(\''+safeId+'\',\''+normalizeSupplyStatus(x.status)+'\')">Cancel</button></div>'+
       '</div>';
     var updates=x.updates||[];
     var updHtml='';
@@ -1879,7 +2327,7 @@ function buildTrackNoteText(x){
     x.items.forEach(function(it){ lines.push('  - '+it.name+(it.qty?' (Qty needed: '+it.qty+')':'')); });
   }
   if((x.notes||'').trim()) lines.push('Notes: '+x.notes.trim());
-  lines.push('Status: '+(SUPPLY_STATUS_DISPLAY_NAMES[x.status]||x.status||'Needs Shopping'));
+  lines.push('Status: '+(SUPPLY_STATUS_DISPLAY_NAMES[normalizeSupplyStatus(x.status)]||'Needs Shopping'));
   return lines.join('\n');
 }
 function copyTrackNote(safeId){
@@ -2002,7 +2450,7 @@ function fmtTrainDate(d){
   return dt.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
 }
 function renderTraining(){
-  var html='<table class="training-table"><thead><tr><th>Manager</th>';
+  var html='<table class="training-table"><thead><tr><th>Operations Contact</th>';
   TRAINING_MODULES.forEach(function(m){html+='<th>'+esc(m)+'</th>';});
   html+='<th>Progress</th></tr></thead><tbody>';
   MANAGERS.forEach(function(mgr){
@@ -2210,6 +2658,7 @@ function loadComplaints(){
   return db.collection('complaints').orderBy('submittedAt','desc').limit(200).get().then(function(snap){
     _complaints=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
     renderComplaints();
+    renderMyHouses();
   });
 }
 
@@ -2218,7 +2667,14 @@ function renderComplaints(){
   var mgrF=document.getElementById('cp-mgr').value;
   var scoped=_complaints.filter(function(c){
     if(propF&&!(c.property||'').toLowerCase().includes(propF))return false;
-    if(mgrF&&c.manager!==mgrF)return false;
+    // Resolved live against PROPERTIES (not the complaint's own possibly-stale
+    // snapshot .manager field) so this filter always means "this property's
+    // CURRENT Operations Contact" — the same assignment data every other tab and
+    // My Houses use.
+    if(mgrF){
+      var cMgrRec=PROPERTIES.find(function(p){return p.name===c.property;});
+      if(!contactMatches(cMgrRec?cMgrRec.manager:'',mgrF)) return false;
+    }
     return true;
   });
   var open=scoped.filter(function(c){return !c.resolved;}).length;
@@ -2238,7 +2694,7 @@ function renderComplaints(){
   var html='';
   list.forEach(function(c,idx){
     var resolvedBadge=c.resolved?'<span class="badge b-clear" style="margin-left:8px">Resolved ✓</span>':'<span class="badge b-issue" style="margin-left:8px">Open</span>';
-    var notifiedBadge=c.notified?'<span class="notified-badge" style="margin-left:6px">House Manager Notified 📧</span>':'';
+    var notifiedBadge=c.notified?'<span class="notified-badge" style="margin-left:6px">Operations Contact Notified 📧</span>':'';
     var vbOpts='<option value="">— Select —</option>';
     VERIFIED_BY.forEach(function(v){vbOpts+='<option value="'+esc(v)+'"'+(c.verifiedBy===v?' selected':'')+'>'+esc(v)+'</option>';});
     var updates=c.updates||[];
@@ -2251,7 +2707,7 @@ function renderComplaints(){
     html+='<span style="margin-left:10px;color:var(--dark-gray);font-size:18px">›</span>';
     html+='</div>';
     html+='<div class="c-body" id="cr-'+idx+'">';
-    html+='<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--dark-gray);margin-bottom:6px;letter-spacing:.5px">Manager: '+esc(c.manager)+'</div>';
+    html+='<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--dark-gray);margin-bottom:6px;letter-spacing:.5px">Operations Contact: '+esc(c.manager)+'</div>';
     html+='<div class="c-complaint-text">'+esc(c.complaint)+'</div>';
     html+='<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">Updates</div>';
     html+='<div class="updates-log" id="ul-'+idx+'">'+(updHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
