@@ -329,13 +329,13 @@ tr:hover td{background:#fafbfe}
       </div>
     </div>
 
-    <!-- PRODUCTIVITY (manager-only — see renderProductivity()'s own role gate; the
-         tab button itself is only ever inserted into the DOM for a manager, in
+    <!-- PRODUCTIVITY (manager and admin — see renderProductivity()'s own role gate; the
+         tab button itself is only ever inserted into the DOM for those roles, in
          showApp() below) -->
     <div class="tab-panel" id="tab-productivity">
       <div class="card">
         <div class="card-hdr">
-          <div><div class="card-title">📈 Productivity</div><div class="card-sub">Activity timeline built from existing inspection/issue/supply timestamps — visible to Manager accounts only.</div></div>
+          <div><div class="card-title">📈 Productivity</div><div class="card-sub">Activity timeline built from existing inspection/issue/supply timestamps — visible to Manager and Admin accounts only.</div></div>
           <div class="spacer"></div>
           <div class="filters">
             <input type="date" id="pr-datefrom" onchange="renderProductivity()" title="From date">
@@ -346,7 +346,7 @@ tr:hover td{background:#fafbfe}
           </div>
         </div>
         <div style="margin:0 18px 14px;padding:12px 14px;background:#FFF8E1;border:1px solid #F0D98C;border-radius:8px;font-size:12px;color:#6b5900;line-height:1.5">
-          ⚠️ <strong>Client-side restriction only.</strong> This tab is hidden from non-manager accounts within the app's UI, but there are no Firestore Security Rules anywhere in this project enforcing that restriction at the database level — a technical user could still query Firestore directly from a browser console. Adding real Security Rules to actually enforce this server-side is recommended as separate follow-up work.
+          ⚠️ <strong>Client-side restriction only.</strong> This tab is hidden from accounts that aren't Manager or Admin within the app's UI, but there are no Firestore Security Rules anywhere in this project enforcing that restriction at the database level — a technical user could still query Firestore directly from a browser console. Adding real Security Rules to actually enforce this server-side is recommended as separate follow-up work.
         </div>
         <div class="stats-row stats-row-compact">
           <div class="stat-card"><div class="stat-num" id="pr-total">—</div><div class="stat-lbl">Inspections in Range</div></div>
@@ -668,7 +668,7 @@ function doLogin(){
     var u=snap.docs[0].data();
     if(!u.active){err.textContent='Account inactive';err.style.display='block';btn.disabled=false;btn.textContent='Log In';return;}
     if(String(u.pin)!==String(pin)){err.textContent='Invalid username or PIN';err.style.display='block';btn.disabled=false;btn.textContent='Log In';return;}
-    if(!(u.role==='manager'||u.role==='admin')){err.textContent='This account does not have dashboard access';err.style.display='block';btn.disabled=false;btn.textContent='Log In';return;}
+    if(!(u.role==='manager'||u.role==='admin'||u.role==='inspector')){err.textContent='This account does not have dashboard access';err.style.display='block';btn.disabled=false;btn.textContent='Log In';return;}
     currentUser={id:snap.docs[0].id,name:u.name,username:u.username,role:u.role,operationsContact:u.operationsContact||null};
     setSession(currentUser); showApp();
   }).catch(function(){err.textContent='Connection error';err.style.display='block';btn.disabled=false;btn.textContent='Log In';});
@@ -917,9 +917,9 @@ function fmtDateTime(iso){
 }
 function switchTab(name,btn){
   // Belt-and-suspenders gate (the Productivity tab button is only ever inserted
-  // into the DOM for a manager in the first place — see showApp() — but this
-  // blocks a forged direct call to switchTab('productivity', ...) too).
-  if(name==='productivity' && !(currentUser&&currentUser.role==='manager')) return;
+  // into the DOM for a manager or admin in the first place — see showApp() —
+  // but this blocks a forged direct call to switchTab('productivity', ...) too).
+  if(name==='productivity' && !(currentUser&&(currentUser.role==='manager'||currentUser.role==='admin'))) return;
   document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active');});
   document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
   document.getElementById('tab-'+name).classList.add('active');
@@ -1202,17 +1202,22 @@ function addMyHousesIssueUpdate(docId,safeId){
   }).catch(function(){showToast('Error adding update');});
 }
 
-// ── PRODUCTIVITY (manager-only) ─────────────────────────────────────────────────
+// ── PRODUCTIVITY (manager and admin) ─────────────────────────────────────────────
 // Client-side gating only (see the on-page disclosure banner and the plan notes):
-// the tab button below is inserted into the DOM only for role==='manager'
-// (initProductivityTab()), switchTab() refuses to open it for anyone else, and
-// this render function itself refuses to build or display anything unless the
-// signed-in role is 'manager' — checked first, before any data is touched, so a
-// forged direct call to renderProductivity() from devtools fetches nothing new
-// (everything it reads was already loaded into _insp/_propIssues/_supplyReqs by
-// the normal dashboard load, same as any other tab). There are no Firestore
-// Security Rules anywhere in this project, so none of this is enforced at the
-// database level — see the on-page banner.
+// the tab button below is inserted into the DOM only for role==='manager' or
+// 'admin' (initProductivityTab()), switchTab() refuses to open it for anyone
+// else, and this render function itself refuses to build or display anything
+// unless the signed-in role is one of those two — checked first, before any
+// data is touched, so a forged direct call to renderProductivity() from
+// devtools fetches nothing new (everything it reads was already loaded into
+// _insp/_propIssues/_supplyReqs by the normal dashboard load, same as any other
+// tab). Originally manager-only; opened up to admin too at the user's request.
+// Inspector accounts CAN log into the dashboard now (see doLogin()'s role
+// check) to update issues from Open Issues/My Houses/etc, but Productivity
+// specifically stays off-limits to them — this is the one tab still gated to
+// manager/admin only. There are no Firestore Security Rules anywhere in this
+// project, so none of this is enforced at the database level — see the
+// on-page banner.
 //
 // Every timestamp used here already existed for another purpose (submittedAt,
 // startTime/endTime typed by the inspector's own device clock, statusHistory
@@ -1224,7 +1229,7 @@ function initProductivityTab(){
   var nav=document.getElementById('tabNav');
   var existing=document.getElementById('prodTabBtn');
   if(existing) existing.remove();
-  if(currentUser && currentUser.role==='manager' && nav){
+  if(currentUser && (currentUser.role==='manager'||currentUser.role==='admin') && nav){
     var btn=document.createElement('button');
     btn.className='tab-btn'; btn.id='prodTabBtn';
     btn.textContent='📈 Productivity';
@@ -1251,8 +1256,8 @@ function fmtElapsed(mins){
 }
 function renderProductivity(){
   // First line, unconditionally: no data is read or rendered for anyone but a
-  // signed-in manager, regardless of how this function was invoked.
-  if(!currentUser || currentUser.role!=='manager') return;
+  // signed-in manager or admin, regardless of how this function was invoked.
+  if(!currentUser || (currentUser.role!=='manager' && currentUser.role!=='admin')) return;
   var dateFrom=document.getElementById('pr-datefrom').value;
   var dateTo=document.getElementById('pr-dateto').value;
   var staff=document.getElementById('pr-staff').value;
@@ -2807,7 +2812,7 @@ function deleteComplaint(docId){
 // ── BOOT ──────────────────────────────────────────────────────────────────────
 window.onload=function(){
   var s=getSession();
-  if(s&&(s.role==='manager'||s.role==='admin')){currentUser=s;showApp();}
+  if(s&&(s.role==='manager'||s.role==='admin'||s.role==='inspector')){currentUser=s;showApp();}
 };
 </script>
 </body>
