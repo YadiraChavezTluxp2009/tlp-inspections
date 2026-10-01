@@ -1321,6 +1321,7 @@ function operationsContactOptions() {
   PROPERTIES.forEach(function(p){
     if (p.contact && !seen[p.contact]) { seen[p.contact] = true; out.push(p.contact); }
   });
+  out = out.filter(function(name){ return RETIRED_CONTACTS.indexOf(name)===-1; });
   out.sort();
   return out;
 }
@@ -1481,6 +1482,17 @@ var PROPERTIES = [
 {"name":"Wolf Ridge","address":"820 Arch Way  - Carnelian Bay, CA 96140 US","occupancy":8,"bedrooms":4,"bathrooms":"3 + 1 half","size":"2800 sq. ft.","pets":true,"contact":"Kobe Robbin","lockbox":"1946","bear":"No","checkinNotes":"Known Problems: \nOttoman in front of the TV has a hole - This existed prior to TLUXP Rentals \nDownstairs ensuite bathroom sink faucet handle pulls out","email":"wolfridge@tluxp.com","alarm":"","owner":"Kathleen Sheehy"},
 {"name":"Zoe's North Star at Northstar","address":"1709 Grouse Ridge Road  - Truckee, CA 96161 US","occupancy":10,"bedrooms":4,"bathrooms":"3 + 1 half","size":"2639 sq. ft.","pets":false,"contact":"Rachael Brigham","lockbox":"1116 + Ultra Loq","bear":"No","checkinNotes":"Check Conos for all HO check-ins - make sure all 5 speakers are working\nPlease cover after each guest - the ping pong table in the garage, the barbecue, & the outdoor furniture.","email":"zoesnorthstar@tluxp.com","alarm":"1116","owner":"Randolph Charlton and Karen Kemby"}
 ];
+
+// Operations Contacts who no longer have any active homes (per explicit user
+// confirmation, 2026-10-01) -- kept out of operationsContactOptions() below
+// (the Users-admin "assign Operations Contact" picker) so an admin can't
+// newly assign anyone to a retired contact. Deliberately does NOT touch
+// PROPERTIES itself -- Wendy's Wish - Lakefront (Kayla Cox) and Laura's
+// Overlook Lodge at Northstar (Natalie Garnett) keep their existing
+// `contact` value and every existing record is unaffected; this only keeps
+// the two names out of that one picker. Mirrors dashboard.html's identical
+// RETIRED_CONTACTS/MANAGERS filter.
+var RETIRED_CONTACTS=['Kayla Cox','Natalie Garnett'];
 
 function getBedroomItems(n, type) {
   var items = [];
