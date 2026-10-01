@@ -73,6 +73,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
    width, while still inheriting its compact padding/font sizing. */
 .stats-row-5{grid-template-columns:repeat(5,1fr)}
 @media (max-width:700px){ .stats-row-5{grid-template-columns:repeat(2,1fr)} }
+/* PRODUCTIVITY — per-inspector summary cards, one per staff member, sorted
+   highest-activity-first, clickable to filter the detail table below to just
+   that person (click again to clear). Purely a client-side grouping of the
+   same _insp data the detail table already reads — no new data collected. */
+.staff-card-row{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px}
+.staff-card{background:white;border:1.5px solid var(--mid-gray);border-radius:var(--radius);padding:12px 16px;min-width:190px;flex:1 1 190px;max-width:260px;cursor:pointer;box-shadow:var(--shadow);transition:border-color .15s,transform .1s}
+.staff-card:hover{border-color:var(--blue)}
+.staff-card.active{border-color:var(--blue);background:var(--light-blue)}
+.staff-card .sc-name{font-weight:800;font-size:13px;color:var(--navy);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 2x2 grid rather than a single row -- comfortably fits 4 stats (Inspections,
+   Issues, Resolved, Avg Time) without the card having to grow very wide. */
+.staff-card .sc-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 12px}
+.staff-card .sc-stat{font-size:9.5px;color:var(--dark-gray);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.staff-card .sc-stat b{display:block;font-size:16px;color:var(--text);font-weight:800;text-transform:none;letter-spacing:0}
+.staff-card .sc-bar{height:4px;border-radius:2px;background:var(--light-blue);margin-top:10px;overflow:hidden}
+.staff-card.active .sc-bar{background:rgba(255,255,255,.6)}
+.staff-card .sc-bar-fill{height:100%;background:var(--blue);border-radius:2px}
+@media (max-width:700px){ .staff-card{min-width:46%;max-width:none} }
 /* TABLE CARD */
 .card{background:white;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:20px}
 .card-hdr{padding:14px 20px;border-bottom:1px solid var(--mid-gray);display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:white}
@@ -118,11 +136,98 @@ tr:hover td{background:#fafbfe}
 .details-btn .chev{display:inline-block;transition:transform .15s}
 .details-btn.open .chev{transform:rotate(90deg)}
 .insp-detail-row td{background:#FAFBFD;padding:14px 20px;border-bottom:2px solid var(--mid-gray)}
-/* MY HOUSES — collapsible sections */
-.mh-sec-hdr{cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px}
-.mh-sec-hdr .chev{display:inline-block;transition:transform .15s;font-size:10px}
-.mh-sec-hdr.open .chev{transform:rotate(90deg)}
-.mh-sec-body{margin-top:8px}
+/* ══════════════════════════ MY HOUSES (redesigned 2026-10-01) ══════════════════════════
+   Visual language: light-gray page background (inherited from body), white cards with a
+   thin border + soft shadow, navy headings/active states, outline icons (mhIcon(), see
+   JS) instead of emoji, status badges reusing the existing .badge system everywhere so
+   colors stay consistent with the rest of the dashboard. */
+.mh-header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:18px;padding:2px 2px 22px}
+.mh-header-left{display:flex;gap:14px;align-items:flex-start}
+.mh-header-icon{width:46px;height:46px;border-radius:12px;background:var(--light-blue);color:var(--navy);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mh-title{font-size:25px;font-weight:800;color:var(--navy);line-height:1.2}
+.mh-subtitle{font-size:13.5px;color:var(--dark-gray);margin-top:3px}
+.mh-propcount{font-size:12.5px;color:var(--dark-gray);margin-top:10px}
+.mh-header-right{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.mh-contact-wrap{display:flex;flex-direction:column;gap:5px}
+.mh-contact-wrap label{font-size:10.5px;font-weight:700;color:var(--dark-gray);text-transform:uppercase;letter-spacing:.6px}
+.mh-contact-select-row{display:flex;align-items:center;gap:8px;border:1.5px solid var(--mid-gray);border-radius:10px;padding:8px 12px;background:white;min-width:230px}
+.mh-contact-select-row svg{flex-shrink:0;color:var(--dark-gray)}
+.mh-contact-select-row select{border:none;outline:none;font-size:13.5px;font-weight:600;color:var(--text);background:transparent;width:100%}
+.mh-refresh-col{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.mh-refresh-btn{background:var(--navy);color:white;border:none;border-radius:10px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.mh-refresh-btn:hover{background:var(--blue)}
+.mh-refresh-btn:disabled{opacity:.6;cursor:default}
+.mh-last-synced{font-size:11px;color:var(--dark-gray)}
+
+.mh-stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+@media (max-width:900px){.mh-stats-row{grid-template-columns:repeat(2,1fr)}}
+.mh-stat-card{background:white;border:1px solid var(--mid-gray);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow);display:flex;align-items:center;gap:14px;cursor:pointer;transition:border-color .15s,transform .1s;text-align:left;width:100%}
+.mh-stat-card:hover{border-color:var(--blue);transform:translateY(-1px)}
+.mh-stat-icon{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mh-stat-icon.blue{background:var(--light-blue);color:var(--blue)}
+.mh-stat-icon.orange{background:var(--orange-light);color:var(--orange)}
+.mh-stat-icon.green{background:#E3F6EC;color:#1C8A5E}
+.mh-stat-icon.red{background:var(--red-light);color:var(--red)}
+.mh-stat-label{font-size:13px;color:var(--dark-gray);font-weight:600}
+.mh-stat-num{font-size:25px;font-weight:800;color:var(--navy);margin-top:1px}
+
+.mh-card{background:white;border:1px solid var(--mid-gray);border-radius:14px;box-shadow:var(--shadow);margin-bottom:18px;overflow:hidden}
+.mh-card-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding:18px 20px;border-bottom:1px solid var(--mid-gray);flex-wrap:wrap;gap:12px}
+.mh-card-hdr-left{display:flex;align-items:flex-start;gap:12px}
+.mh-card-hdr-icon{width:36px;height:36px;border-radius:9px;background:var(--orange-light);color:var(--orange);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.mh-card-title{font-size:16px;font-weight:800;color:var(--navy)}
+.mh-card-sub{font-size:12.5px;color:var(--dark-gray);margin-top:2px}
+.mh-viewall-btn{border:1.5px solid var(--mid-gray);background:white;color:var(--navy);font-weight:700;font-size:12.5px;border-radius:9px;padding:9px 15px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.mh-viewall-btn:hover{border-color:var(--blue)}
+
+.mh-table{width:100%;border-collapse:collapse}
+.mh-table th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--dark-gray);font-weight:700;padding:10px 20px;background:var(--gray);border-bottom:1px solid var(--mid-gray);white-space:nowrap}
+.mh-table td{padding:13px 20px;border-bottom:1px solid var(--mid-gray);font-size:13.5px;vertical-align:middle}
+.mh-table tbody tr:last-child td{border-bottom:none}
+.mh-house-cell{font-weight:700;color:var(--navy)}
+.mh-type-cell{display:flex;align-items:center;gap:8px;color:var(--dark-gray);white-space:nowrap}
+.mh-type-cell svg{flex-shrink:0;color:var(--dark-gray)}
+.mh-view-btn{border:1.5px solid var(--mid-gray);background:white;border-radius:8px;padding:7px 15px;font-size:12.5px;font-weight:700;color:var(--navy);cursor:pointer;white-space:nowrap}
+.mh-view-btn:hover{border-color:var(--blue)}
+.mh-activity-icon{display:inline-flex;align-items:center;gap:7px;color:var(--dark-gray)}
+.mh-empty{padding:34px 20px;text-align:center;color:var(--dark-gray);font-size:13px}
+.mh-loading{padding:34px 20px;text-align:center;color:var(--dark-gray);font-size:13px}
+.mh-error{padding:20px;margin:16px 20px;background:var(--red-light);border:1px solid #F3C3C0;border-radius:10px;color:var(--red);font-size:13px;font-weight:600}
+
+/* Properties panel (opened from the Properties summary card) */
+.mh-props-panel{padding:18px 20px;border-bottom:1px solid var(--mid-gray);background:#FAFBFD}
+.mh-props-panel-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.mh-props-panel-title{font-size:13px;font-weight:800;color:var(--navy)}
+.mh-props-panel-close{background:none;border:none;color:var(--dark-gray);cursor:pointer;font-size:18px;line-height:1;padding:0 4px}
+.mh-props-chip-row{display:flex;flex-wrap:wrap;gap:8px}
+.mh-props-chip{background:white;border:1.5px solid var(--mid-gray);border-radius:8px;padding:7px 13px;font-size:12.5px;font-weight:600;color:var(--navy)}
+
+/* Property Activity — tabs */
+.mh-tabs{display:flex;gap:0;padding:0 20px;border-bottom:1px solid var(--mid-gray);overflow-x:auto}
+.mh-tab-btn{background:none;border:none;padding:16px 4px;margin-right:24px;font-size:13.5px;font-weight:700;color:var(--dark-gray);cursor:pointer;border-bottom:3px solid transparent;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.mh-tab-btn .mh-tab-count{background:var(--gray);color:var(--dark-gray);font-size:11px;font-weight:700;border-radius:20px;padding:2px 9px;min-width:20px;text-align:center;display:inline-block}
+.mh-tab-btn.active{color:var(--navy);border-bottom-color:var(--navy)}
+.mh-tab-btn.active .mh-tab-count{background:var(--navy);color:white}
+
+.mh-activity-toolbar{display:flex;gap:10px;align-items:center;padding:16px 20px;flex-wrap:wrap}
+.mh-search-wrap{position:relative;flex:1;min-width:200px;max-width:300px}
+.mh-search-wrap svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--dark-gray);pointer-events:none}
+.mh-search-wrap input{width:100%;padding:9px 12px 9px 34px;border:1.5px solid var(--mid-gray);border-radius:9px;font-size:13px;box-sizing:border-box}
+.mh-filter-select{border:1.5px solid var(--mid-gray);border-radius:9px;padding:9px 12px;font-size:13px;background:white}
+.mh-active-filters{padding:0 20px 14px;font-size:12px;color:var(--dark-gray);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.mh-filter-chip{background:var(--light-blue);color:var(--navy);border-radius:20px;padding:5px 8px 5px 12px;font-weight:700;display:inline-flex;align-items:center;gap:7px}
+.mh-filter-chip button{background:rgba(6,52,97,.12);border:none;color:var(--navy);cursor:pointer;font-weight:800;line-height:1;padding:3px 6px;border-radius:50%;font-size:10px}
+
+@media (max-width:760px){
+  .mh-table thead{display:none}
+  .mh-table, .mh-table tbody, .mh-table tr, .mh-table td{display:block;width:100%}
+  .mh-table tr{padding:12px 20px;border-bottom:8px solid var(--gray)}
+  .mh-table td{border-bottom:none;padding:5px 0;display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:right}
+  .mh-table td::before{content:attr(data-label);font-weight:700;color:var(--dark-gray);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;text-align:left}
+  .mh-stats-row{grid-template-columns:1fr}
+  .mh-header-right{width:100%;justify-content:space-between}
+  .mh-contact-select-row{min-width:0;flex:1}
+}
 .insp-issue-item{background:white;border-left:3px solid var(--red);border-radius:6px;padding:8px 12px;margin-bottom:8px;font-size:12.5px;box-shadow:var(--shadow)}
 .insp-issue-item:last-child{margin-bottom:0}
 .insp-issue-section{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--dark-gray)}
@@ -314,19 +419,33 @@ tr:hover td{background:#fafbfe}
       </div>
     </div>
 
-    <!-- MY HOUSES -->
+    <!-- MY HOUSES (redesigned 2026-10-01 -- see the long comment above the JS
+         My Houses block for what changed and why) -->
     <div class="tab-panel" id="tab-myhouses">
-      <div class="card">
-        <div class="card-hdr">
-          <div><div class="card-title">🏠 My Houses</div><div class="card-sub">One Operations Contact's own assigned properties — Check-Ins/Check-Outs, Open Issues, Supply Inventory, QC Inspections, Seasonal Inspections, and Complaints, all in one place. Switching the dropdown only changes what's shown here — it never changes any assignment.</div></div>
-          <div class="spacer"></div>
-          <div class="filters">
-            <select id="mh-contact" onchange="onMyHousesContactChange()"><option value="">— Select Operations Contact —</option></select>
+      <div class="mh-header">
+        <div class="mh-header-left">
+          <div class="mh-header-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5a.5.5 0 0 0 .5.5h4v-6h4v6h4a.5.5 0 0 0 .5-.5V10"/></svg></div>
+          <div>
+            <div class="mh-title">My Houses</div>
+            <div class="mh-subtitle">Your properties and daily priorities in one place</div>
+            <div class="mh-propcount" id="mh-propcount"></div>
           </div>
         </div>
-        <div id="mh-heading" style="padding:14px 18px 0;font-weight:700;font-size:15px;color:var(--navy)"></div>
-        <div id="mh-content"></div>
+        <div class="mh-header-right">
+          <div class="mh-contact-wrap">
+            <label>House Manager</label>
+            <div class="mh-contact-select-row">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/></svg>
+              <select id="mh-contact" onchange="onMyHousesContactChange()"><option value="">— Select Operations Contact —</option></select>
+            </div>
+          </div>
+          <div class="mh-refresh-col">
+            <button class="mh-refresh-btn" id="mh-refresh-btn" onclick="refreshMyHouses()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v5.5h5.5"/><path d="M20 20v-5.5h-5.5"/><path d="M5 14a8 8 0 0 0 13.9 3.1M19 10A8 8 0 0 0 5.1 6.9"/></svg><span>Refresh</span></button>
+            <div class="mh-last-synced" id="mh-last-synced">Last synced: —</div>
+          </div>
+        </div>
       </div>
+      <div id="mh-body-wrap"><div class="mh-loading">Loading your properties…</div></div>
     </div>
 
     <!-- PRODUCTIVITY (manager and admin — see renderProductivity()'s own role gate; the
@@ -350,6 +469,10 @@ tr:hover td{background:#fafbfe}
           <div class="stat-card"><div class="stat-num" id="pr-issues">—</div><div class="stat-lbl">Issues Found</div></div>
           <div class="stat-card"><div class="stat-num" id="pr-avgelapsed">—</div><div class="stat-lbl">Avg. Elapsed Time (Start→End)</div></div>
           <div class="stat-card"><div class="stat-num" id="pr-props">—</div><div class="stat-lbl">Properties Covered</div></div>
+        </div>
+        <div style="margin:0 18px 18px">
+          <div style="font-size:11px;font-weight:700;color:var(--dark-gray);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">🧑‍💼 By Operations Contact — click a card to filter the log below</div>
+          <div id="productivityContactCards" class="staff-card-row"><div class="loading">Loading…</div></div>
         </div>
         <div class="tbl-wrap"><div id="productivityTable"><div class="loading">Loading…</div></div></div>
       </div>
@@ -608,13 +731,42 @@ var db=null;
 try{firebase.initializeApp(FIREBASE_CONFIG);db=firebase.firestore();}catch(e){}
 
 // ── STATIC DATA ───────────────────────────────────────────────────────────────
-var PROPERTIES=[{"name":"12th Tee At Northstar","manager":"Rachael Brigham","alarm":"","owner":"Bret and Kirstin Grainger"},{"name":"A Walk In The Woods","manager":"Rachael Brigham","alarm":"","owner":"Bruno Delagneau & Jennifer Mitchell"},{"name":"Above & Beyond - Lakeview","manager":"Andrea Degliantoni","alarm":"5698-not active","owner":"Mark Logsdon, Michael and Julie Ridgeway"},{"name":"Adventure Awaits","manager":"Annie Stryker","alarm":"5966 inactive","owner":"Janette and Eugene Lupario"},{"name":"Alpen Glow At Northstar","manager":"Scott McBeth","alarm":"","owner":"Kelly MacDonald and Katy Neumer"},{"name":"Alpine Perfection","manager":"Christian Cuneo","alarm":"7357 - TLUXP","owner":"Aramie and Kevin McDonald"},{"name":"Anchors Aweigh - Lakefront","manager":"Kobe Robbin","alarm":"1270-Not Active","owner":"Rachel and Kurt Latta"},{"name":"Aspen Paradise","manager":"Charli Martin","alarm":"","owner":"Tracy Roberts and Gerald Roberts"},{"name":"Backside 180 at Northstar","manager":"Rachael Brigham","alarm":"2468Not Active","owner":"Giles Kennedy"},{"name":"Bella Vista Sul Lago - Lakeview","manager":"Rachael Brigham","alarm":"4850","owner":"Janae, Micheal, and Bonnie Zumbo"},{"name":"Belleview's Beauty - Lakefront","manager":"Annie Stryker","alarm":"1999-not active","owner":"Todd Sperber and Maria Sperber"},{"name":"Bellissimo Lago - Lakefront","manager":"Pat Hall","alarm":"","owner":"Alan and Genia Phillips"},{"name":"Big Sky - Lakeview","manager":"Christopher Mumaw","alarm":"","owner":"Mina Liu"},{"name":"Black Bear Cottage - Lakefront","manager":"Annie Stryker","alarm":"1234","owner":"Michael Bailey"},{"name":"Blackwood Creek Chalet","manager":"Trevor Dimino-Simons","alarm":"","owner":"Todd Berryhill"},{"name":"Blissful Days - Lakefront","manager":"Charli Martin","alarm":"6619 ON/OFF","owner":"Elizabeth Hachman, Greg and Muriel Harris"},{"name":"Bluebird Days At Palisades","manager":"Christian Cuneo","alarm":"","owner":"Amrita Arora and Aditya Chawla"},{"name":"Boulder Place Lookout At Northstar","manager":"Scott McBeth","alarm":"","owner":"Maria Vegas"},{"name":"Bradley's Bungalow","manager":"Trevor Dimino-Simons","alarm":"","owner":"Jennifer and Todd Bradley"},{"name":"California Sunshine - Lakeview","manager":"Annie Stryker","alarm":"","owner":"Christopher and Kimberly  Hall"},{"name":"Candlelight Lodge","manager":"Christian Cuneo","alarm":"8828-not active","owner":"Jon Easterbrook"},{"name":"Carnelian Charm - Lakefront","manager":"Rachael Brigham","alarm":"0711 on/off","owner":""},{"name":"Carnelian Haus - Lakefront","manager":"Michael Ballew","alarm":"","owner":"Brit Hahn"},{"name":"Charlie's Den - Lakefront","manager":"Pat Hall","alarm":"3449 TLUXP","owner":"Paul  and Carrie Dolan"},{"name":"Cherry Lodge","manager":"Christian Cuneo","alarm":"2575","owner":"Eric and Mia Heglie"},{"name":"Constellation #404 Ski-In & Out At Northstar","manager":"Scott McBeth","alarm":"","owner":"Jason Watson"},{"name":"Constellation #407 Ski-In & Out At Northstar","manager":"Scott McBeth","alarm":"","owner":"Tracey and Shane Brisbin"},{"name":"Creekview","manager":"Charli Martin","alarm":"5388","owner":"Susan Russo"},{"name":"Dancing Bear Lodge - Lakefront","manager":"Jennifer Suter","alarm":"3672","owner":"Christopher Legallet"},{"name":"Donner Lake Dreams - Lakefront","manager":"Christopher Mumaw","alarm":"","owner":"Logan Randolph"},{"name":"Eagle's Nest at Northstar","manager":"Christopher Mumaw","alarm":"7547-not active","owner":"Jon Venverloh"},{"name":"Enchanted Ridge","manager":"Christian Cuneo","alarm":"","owner":"Nanette and John Taraya-Vonk"},{"name":"First Chair @ Palisades (The Bronson)","manager":"Christian Cuneo","alarm":"","owner":"Barbara Hetch an d Tatiana Botton"},{"name":"Fleur du Lac #1 - Lakefront","manager":"Charli Martin","alarm":"","owner":"Cecilia Herbert"},{"name":"Forever Edgewood - Lakeview","manager":"Christian Cuneo","alarm":"1139","owner":"Marla Alders"},{"name":"Fresh Tracks at Northstar","manager":"Scott McBeth","alarm":"","owner":"Mark and Michelle Rosenblatt"},{"name":"Front and Center","manager":"Annie Stryker","alarm":"","owner":"Frank and Christina Giambattista"},{"name":"Gerry G. - Lakefront","manager":"Michael Ballew","alarm":"","owner":"James Simkalo"},{"name":"Gonowabie Lodge - Lakefront","manager":"Andrea Degliantoni","alarm":"1234","owner":"Andrew Solomon and Marc Sondheimer"},{"name":"Granite Chief Lodge At Palisades","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Heavenly View - Lakefront","manager":"Michael Ballew","alarm":"2035- Away/Off","owner":"Tatiana Botton and Barbara Hetch"},{"name":"Hidden Ridge at Northstar","manager":"Scott McBeth","alarm":"","owner":"Jane and Chris Clare"},{"name":"Highlands Holiday","manager":"Kobe Robbin","alarm":"1946","owner":"Kathleen Sheehy"},{"name":"Holly Hideaway","manager":"Charli Martin","alarm":"1970-not active","owner":"Eric and Bibi Moore"},{"name":"Home Run at Northstar","manager":"Rachael Brigham","alarm":"1234 - Never Arm","owner":"Alan Strasbaugh and Janice Noll"},{"name":"Homewood Trifecta - Lakefront","manager":"Kobe Robbin","alarm":"3444","owner":"John  Truchard and Elizabeth Imboden"},{"name":"In the Wild Woods","manager":"Annie Stryker","alarm":"","owner":"Matthew and Vanessa Herridge"},{"name":"Incline Oasis - Lakeview","manager":"Andrea Degliantoni","alarm":"1234 1 (off)","owner":"Sandeep and Purvi Kunwar"},{"name":"Just Grand","manager":"Annie Stryker","alarm":"","owner":"Riley and Eryn Parker Strong"},{"name":"King's View Lodge - Lakeview","manager":"Andrea Degliantoni","alarm":"1019","owner":"Albert Stasek and Courtney Robins"},{"name":"La Dolce Vita - Lakefront","manager":"Kobe Robbin","alarm":"","owner":"Dean and Stacey Allara"},{"name":"Lago Azul - Lakefront","manager":"Christina Cifelli","alarm":"","owner":"Alan and Martha Bryan"},{"name":"Lake Escape - Lakefront","manager":"Michael Ballew","alarm":"1234","owner":"Nina Yoshpe"},{"name":"Lake Of The Sky - Lakeview","manager":"Charli Martin","alarm":"","owner":"James and Kimberly Draeger"},{"name":"Lakeside Cedars","manager":"Kobe Robbin","alarm":"","owner":""},{"name":"Lakeside Grove - Lakefront","manager":"Trevor Dimino-Simons","alarm":"1130","owner":"Vince Sosnkowski"},{"name":"Laughing Waters - Lakefront","manager":"Jessie Byers","alarm":"2389 Lake House","owner":"Greg Price"},{"name":"Laura's Overlook Lodge at Northstar","manager":"Natalie Garnett","alarm":"","owner":""},{"name":"Lift and Tee Retreat at Schaffer's Mill","manager":"Trevor Simons","alarm":"","owner":""},{"name":"Luxury River Retreat","manager":"Christian Cuneo","alarm":"1128","owner":"Freya Eduarte"},{"name":"Majestic Waters - Lakefront","manager":"Christopher Mumaw","alarm":"5930-not active","owner":"Brigette Lau"},{"name":"Making Memories - Lakeview","manager":"Andrea Degliantoni","alarm":"0424-not active","owner":"Randall Vallen"},{"name":"Manzanita House - Lakeview","manager":"Christopher Mumaw","alarm":"","owner":"Brenda and Les Seymour"},{"name":"Maybach Lake House - Lakefront","manager":"Christina Cifelli","alarm":"","owner":"Uli Maybach"},{"name":"McKinney Bay Retreat","manager":"Kobe Robbin","alarm":"3254","owner":"Paul Silva"},{"name":"Mill Creek Retreat - Incline Village","manager":"Andrea Degliantoni","alarm":"1234","owner":"Andrew Hansen"},{"name":"Moana Mountain Shack - Lakeview","manager":"Kobe Robbin","alarm":"1214","owner":"Jack and Barbara Britton"},{"name":"Modern Marvel - Incline Village","manager":"Andrea Degliantoni","alarm":"2672 Burgular","owner":"Junaid Qurashi and JJ Zhuang"},{"name":"Modern Mountain at Palisades","manager":"Christian Cuneo","alarm":"9689","owner":"Eldon Mayer and Alyssa Thomas"},{"name":"Moondance At Tahoe Park","manager":"Charli Martin","alarm":"","owner":"Nik and Rajesh Daftary"},{"name":"Mountain Bear Lodge At Northstar","manager":"Scott McBeth","alarm":"0209-Not Active","owner":"Elika and Michael Rosenbaum"},{"name":"Mountain Retreat - Lakeview","manager":"Andrea Degliantoni","alarm":"3499 master code","owner":"Pat, Dena, and Austin McDonald"},{"name":"Palatial Pines - Lakefront","manager":"Tina Geilenfeldt","alarm":"1364","owner":"Robert and Janet Kearn"},{"name":"Peace of Tahoe - Lakefront","manager":"Christina Cifelli","alarm":"9597not active","owner":"Thomas Reilly and Tim Winter"},{"name":"Pier Pleasure - Lakefront","manager":"Trevor Dimino-Simons","alarm":"7981","owner":"Mike and Caroline Buckley"},{"name":"Pineland Retreat","manager":"Christina Cifelli","alarm":"3980","owner":"Joseph Cannata"},{"name":"Ramblin' Rose - Lakeview","manager":"Michael Ballew","alarm":"","owner":"Tim and Tara Guleri"},{"name":"Reflections - Lakeview","manager":"Michael Ballew","alarm":"","owner":"Janelle and Audrey Grimes"},{"name":"Rise and Shine - Lakefront","manager":"Christina Cifelli","alarm":"","owner":""},{"name":"Rising Sun","manager":"Charli Martin","alarm":"8751 TLUXP","owner":"Massey Rafani"},{"name":"Riverfront Lodge","manager":"Christian Cuneo","alarm":"","owner":"Mike and Vicki Riherd"},{"name":"Rubicon Shores - Lakefront","manager":"Charli Martin","alarm":"","owner":"Vanessa Meyers and Erica Desjardins"},{"name":"Sail Away - Lakefront","manager":"Annie Stryker","alarm":"1234","owner":"Michael Bailey"},{"name":"Sandy Shores - Lakefront","manager":"Andrea Degliantoni","alarm":"5050","owner":"Todd Jaksick"},{"name":"Seek No Further - Lakefront","manager":"Pat Hall","alarm":"1313-not active","owner":"Louis Stervinou"},{"name":"Serendipity - Lakeview","manager":"Andrea Degliantoni","alarm":"","owner":"Romina Notarainni"},{"name":"Shimmering Shores - Lakefront","manager":"Scott McBeth","alarm":"5754","owner":"Lynn Olson"},{"name":"Shore Camp - Lakefront","manager":"Christopher Mumaw","alarm":"7547-not active","owner":"Jonathan Venverloh"},{"name":"Shoshone Chalet at Palisades","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Sierra Sunset Estate - Lakefront","manager":"Tina Geilenfeldt","alarm":"3449-not active","owner":"Patrick Willis"},{"name":"Sierra Vista - Lakeview","manager":"Charli Martin","alarm":"2625","owner":"Catriona Fallon"},{"name":"Signature Retreat on the 18th","manager":"Christopher Mumaw","alarm":"","owner":"Margie and Joel Weidert"},{"name":"Silverfell Lodge at Northstar","manager":"Rachael Brigham","alarm":"6148","owner":"Kenneth and Louise Adamson"},{"name":"Sittin' on the Dock - Lakefront","manager":"Charli Martin","alarm":"","owner":"Dylan Alegria"},{"name":"Skippin' Stones - Lakefront","manager":"Trevor Dimino-Simons","alarm":"4800","owner":"Stephen Gordon and Anja Laicher"},{"name":"Slopeside At Northstar","manager":"Scott McBeth","alarm":"1234-Not Active","owner":"Mia Martin and Lisa Franzia"},{"name":"Solitude","manager":"Trevor Dimino-Simons","alarm":"","owner":"Sharon Blunden and Paula Firenze"},{"name":"Spirit of the Mountain","manager":"Christian Cuneo","alarm":"","owner":"Shannon Poulsen"},{"name":"Stanford Rock Retreat","manager":"Kobe Robbin","alarm":"","owner":"Jeremy and Heather Wenner"},{"name":"Starry Nights - Lakefront","manager":"Kobe Robbin","alarm":"1234","owner":"Mike Reidy"},{"name":"Steeple Cove - Lakefront","manager":"Christian Cuneo","alarm":"","owner":"Russell and Janice Foulk"},{"name":"Stone Crest Estate - Lakefront","manager":"Pat Hall","alarm":"","owner":"Anne and Marty Putnam"},{"name":"Streams and Dreams","manager":"Christopher Mumaw","alarm":"","owner":"Brad Squires"},{"name":"Sugar Pine Chalet - Lakefront","manager":"Trevor Dimino-Simons","alarm":"","owner":"Meika Rouda"},{"name":"Summer Breeze - Lakefront","manager":"Charli Martin","alarm":"1058-Not Active","owner":"Sharon Jennings"},{"name":"Summerhouse - Lakefront","manager":"Tina Geilenfeldt","alarm":"5050","owner":"Holly Fuller"},{"name":"Summit Splendor at Martis Camp","manager":"Trevor Dimino-Simons","alarm":"1935","owner":"Jerry Glembocki and Juliette  Davis"},{"name":"Sundance","manager":"Trevor Dimino-Simons","alarm":"","owner":"Darren.Alan, and Andrea Zulberti"},{"name":"Sunny Days","manager":"Michael Ballew","alarm":"","owner":"Luke and Hsian Winter"},{"name":"Sunrise by Sunnyside - Lakefront","manager":"Scott McBeth","alarm":"4251","owner":"Susan Gates"},{"name":"Sunset Blue - Lakefront","manager":"Christian Cuneo","alarm":"9448","owner":"Gina and William Glaser"},{"name":"Tahoe City Serenity","manager":"Michael Ballew","alarm":"","owner":"Vincent Ferrante"},{"name":"Tahoe Treehouse","manager":"Kobe Robbin","alarm":"","owner":"Stuart Sclater-Booth"},{"name":"Tahoe's Ahwahnee - Lakeview","manager":"Pat Hall","alarm":"8541 TLUXP","owner":"Paul LeCoque"},{"name":"Tahoe's Tranquility - Lakeview","manager":"Tina Geilenfeldt","alarm":"4491","owner":"Sara Weinstock"},{"name":"Tall Pines Ski Shack","manager":"Tina Geilenfeldt","alarm":"2250","owner":"Steve Ruths"},{"name":"Tewesi Manor - Lakefront","manager":"Tina Geilenfeldt","alarm":"1957","owner":"Ron and Jason Jenny"},{"name":"The Duck House","manager":"Andrea Degliantoni","alarm":"8134 TLUXP","owner":"Kenn and Shay Kurtz"},{"name":"The Frontier","manager":"Andrea Degliantoni","alarm":"1945-not active","owner":"Alex and  Greg Freemon"},{"name":"The Lodge at Swiss Lane","manager":"Christopher Mumaw","alarm":"1272","owner":"Timothy Hoxie"},{"name":"The View at Big Pine - Lakeview","manager":"Charli Martin","alarm":"3449","owner":"Edwin Baldry"},{"name":"Treetop Lodge","manager":"Annie Stryker","alarm":"","owner":"Peggy O'Connell"},{"name":"Twilight Ridge","manager":"Annie Stryker","alarm":"","owner":"Chris Bowman"},{"name":"Twin Tips At Northstar","manager":"Scott McBeth","alarm":"","owner":"Steven Baker and Marisa Bauer"},{"name":"Village Walk Skyline At Northstar","manager":"Rachael Brigham","alarm":"","owner":"Sean and Morgen Donovan"},{"name":"Water's Edge - Lakefront","manager":"Michael Ballew","alarm":"1991","owner":"Virginia Stock"},{"name":"Wendy's Wish - Lakefront","manager":"Kayla Cox","alarm":"","owner":""},{"name":"Whispering Winds","manager":"Christian Cuneo","alarm":"","owner":"Shannon Poulsen"},{"name":"Wildwood at Dollar Point - Lakeview","manager":"Kobe Robbin","alarm":"194200","owner":"Kim Fennell"},{"name":"Wolf Ridge","manager":"Kobe Robbin","alarm":"","owner":"Kathleen Sheehy"},{"name":"Zoe's North Star at Northstar","manager":"Rachael Brigham","alarm":"1116","owner":"Randolph Charlton and Karen Kemby"}];
+var PROPERTIES=[{"name":"12th Tee At Northstar","manager":"Rachael Brigham","alarm":"","owner":"Bret and Kirstin Grainger"},{"name":"A Walk In The Woods","manager":"Rachael Brigham","alarm":"","owner":"Bruno Delagneau & Jennifer Mitchell"},{"name":"Above & Beyond - Lakeview","manager":"Andrea Degliantoni","alarm":"5698-not active","owner":"Mark Logsdon, Michael and Julie Ridgeway"},{"name":"Adventure Awaits","manager":"Annie Stryker","alarm":"5966 inactive","owner":"Janette and Eugene Lupario"},{"name":"Alpen Glow At Northstar","manager":"Scott McBeth","alarm":"","owner":"Kelly MacDonald and Katy Neumer"},{"name":"Alpine Perfection","manager":"Christian Cuneo","alarm":"7357 - TLUXP","owner":"Aramie and Kevin McDonald"},{"name":"Anchors Aweigh - Lakefront","manager":"Kobe Robbin","alarm":"1270-Not Active","owner":"Rachel and Kurt Latta"},{"name":"Aspen Paradise","manager":"Charli Martin","alarm":"","owner":"Tracy Roberts and Gerald Roberts"},{"name":"Backside 180 at Northstar","manager":"Rachael Brigham","alarm":"2468Not Active","owner":"Giles Kennedy"},{"name":"Bella Vista Sul Lago - Lakeview","manager":"Rachael Brigham","alarm":"4850","owner":"Janae, Micheal, and Bonnie Zumbo"},{"name":"Belleview's Beauty - Lakefront","manager":"Annie Stryker","alarm":"1999-not active","owner":"Todd Sperber and Maria Sperber"},{"name":"Bellissimo Lago - Lakefront","manager":"Pat Hall","alarm":"","owner":"Alan and Genia Phillips"},{"name":"Big Sky - Lakeview","manager":"Christopher Mumaw","alarm":"","owner":"Mina Liu"},{"name":"Black Bear Cottage - Lakefront","manager":"Annie Stryker","alarm":"1234","owner":"Michael Bailey"},{"name":"Blackwood Creek Chalet","manager":"Trevor Dimino-Simons","alarm":"","owner":"Todd Berryhill"},{"name":"Blissful Days - Lakefront","manager":"Charli Martin","alarm":"6619 ON/OFF","owner":"Elizabeth Hachman, Greg and Muriel Harris"},{"name":"Bluebird Days At Palisades","manager":"Christian Cuneo","alarm":"","owner":"Amrita Arora and Aditya Chawla"},{"name":"Boulder Place Lookout At Northstar","manager":"Scott McBeth","alarm":"","owner":"Maria Vegas"},{"name":"Bradley's Bungalow","manager":"Trevor Dimino-Simons","alarm":"","owner":"Jennifer and Todd Bradley"},{"name":"California Sunshine - Lakeview","manager":"Annie Stryker","alarm":"","owner":"Christopher and Kimberly  Hall"},{"name":"Candlelight Lodge","manager":"Christian Cuneo","alarm":"8828-not active","owner":"Jon Easterbrook"},{"name":"Carnelian Charm - Lakefront","manager":"Rachael Brigham","alarm":"0711 on/off","owner":""},{"name":"Carnelian Haus - Lakefront","manager":"Michael Ballew","alarm":"","owner":"Brit Hahn"},{"name":"Charlie's Den - Lakefront","manager":"Pat Hall","alarm":"3449 TLUXP","owner":"Paul  and Carrie Dolan"},{"name":"Cherry Lodge","manager":"Christian Cuneo","alarm":"2575","owner":"Eric and Mia Heglie"},{"name":"Constellation #404 Ski-In & Out At Northstar","manager":"Scott McBeth","alarm":"","owner":"Jason Watson"},{"name":"Constellation #407 Ski-In & Out At Northstar","manager":"Scott McBeth","alarm":"","owner":"Tracey and Shane Brisbin"},{"name":"Creekview","manager":"Charli Martin","alarm":"5388","owner":"Susan Russo"},{"name":"Dancing Bear Lodge - Lakefront","manager":"Jennifer Suter","alarm":"3672","owner":"Christopher Legallet"},{"name":"Donner Lake Dreams - Lakefront","manager":"Christopher Mumaw","alarm":"","owner":"Logan Randolph"},{"name":"Eagle's Nest at Northstar","manager":"Christopher Mumaw","alarm":"7547-not active","owner":"Jon Venverloh"},{"name":"Enchanted Ridge","manager":"Christian Cuneo","alarm":"","owner":"Nanette and John Taraya-Vonk"},{"name":"First Chair @ Palisades (The Bronson)","manager":"Christian Cuneo","alarm":"","owner":"Barbara Hetch an d Tatiana Botton"},{"name":"Fleur du Lac #1 - Lakefront","manager":"Charli Martin","alarm":"","owner":"Cecilia Herbert"},{"name":"Forever Edgewood - Lakeview","manager":"Christian Cuneo","alarm":"1139","owner":"Marla Alders"},{"name":"Fresh Tracks at Northstar","manager":"Scott McBeth","alarm":"","owner":"Mark and Michelle Rosenblatt"},{"name":"Front and Center","manager":"Annie Stryker","alarm":"","owner":"Frank and Christina Giambattista"},{"name":"Gerry G. - Lakefront","manager":"Michael Ballew","alarm":"","owner":"James Simkalo"},{"name":"Gonowabie Lodge - Lakefront","manager":"Andrea Degliantoni","alarm":"1234","owner":"Andrew Solomon and Marc Sondheimer"},{"name":"Granite Chief Lodge At Palisades","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Heavenly View - Lakefront","manager":"Michael Ballew","alarm":"2035- Away/Off","owner":"Tatiana Botton and Barbara Hetch"},{"name":"Hidden Ridge at Northstar","manager":"Scott McBeth","alarm":"","owner":"Jane and Chris Clare"},{"name":"Highlands Holiday","manager":"Kobe Robbin","alarm":"1946","owner":"Kathleen Sheehy"},{"name":"Holly Hideaway","manager":"Charli Martin","alarm":"1970-not active","owner":"Eric and Bibi Moore"},{"name":"Home Run at Northstar","manager":"Rachael Brigham","alarm":"1234 - Never Arm","owner":"Alan Strasbaugh and Janice Noll"},{"name":"Homewood Trifecta - Lakefront","manager":"Kobe Robbin","alarm":"3444","owner":"John  Truchard and Elizabeth Imboden"},{"name":"In the Wild Woods","manager":"Annie Stryker","alarm":"","owner":"Matthew and Vanessa Herridge"},{"name":"Incline Oasis - Lakeview","manager":"Andrea Degliantoni","alarm":"1234 1 (off)","owner":"Sandeep and Purvi Kunwar"},{"name":"Just Grand","manager":"Annie Stryker","alarm":"","owner":"Riley and Eryn Parker Strong"},{"name":"King's View Lodge - Lakeview","manager":"Andrea Degliantoni","alarm":"1019","owner":"Albert Stasek and Courtney Robins"},{"name":"La Dolce Vita - Lakefront","manager":"Kobe Robbin","alarm":"","owner":"Dean and Stacey Allara"},{"name":"Lago Azul - Lakefront","manager":"Christina Cifelli","alarm":"","owner":"Alan and Martha Bryan"},{"name":"Lake Escape - Lakefront","manager":"Michael Ballew","alarm":"1234","owner":"Nina Yoshpe"},{"name":"Lake Of The Sky - Lakeview","manager":"Charli Martin","alarm":"","owner":"James and Kimberly Draeger"},{"name":"Lakeside Cedars","manager":"Kobe Robbin","alarm":"","owner":""},{"name":"Lakeside Grove - Lakefront","manager":"Trevor Dimino-Simons","alarm":"1130","owner":"Vince Sosnkowski"},{"name":"Laughing Waters - Lakefront","manager":"Jessie Byers","alarm":"2389 Lake House","owner":"Greg Price"},{"name":"Laura's Overlook Lodge at Northstar","manager":"Natalie Garnett","alarm":"","owner":""},{"name":"Lift and Tee Retreat at Schaffer's Mill","manager":"Trevor Dimino-Simons","alarm":"","owner":""},{"name":"Luxury River Retreat","manager":"Christian Cuneo","alarm":"1128","owner":"Freya Eduarte"},{"name":"Majestic Waters - Lakefront","manager":"Christopher Mumaw","alarm":"5930-not active","owner":"Brigette Lau"},{"name":"Making Memories - Lakeview","manager":"Andrea Degliantoni","alarm":"0424-not active","owner":"Randall Vallen"},{"name":"Manzanita House - Lakeview","manager":"Christopher Mumaw","alarm":"","owner":"Brenda and Les Seymour"},{"name":"Maybach Lake House - Lakefront","manager":"Christina Cifelli","alarm":"","owner":"Uli Maybach"},{"name":"McKinney Bay Retreat","manager":"Kobe Robbin","alarm":"3254","owner":"Paul Silva"},{"name":"Mill Creek Retreat - Incline Village","manager":"Andrea Degliantoni","alarm":"1234","owner":"Andrew Hansen"},{"name":"Moana Mountain Shack - Lakeview","manager":"Kobe Robbin","alarm":"1214","owner":"Jack and Barbara Britton"},{"name":"Modern Marvel - Incline Village","manager":"Andrea Degliantoni","alarm":"2672 Burgular","owner":"Junaid Qurashi and JJ Zhuang"},{"name":"Modern Mountain at Palisades","manager":"Christian Cuneo","alarm":"9689","owner":"Eldon Mayer and Alyssa Thomas"},{"name":"Moondance At Tahoe Park","manager":"Charli Martin","alarm":"","owner":"Nik and Rajesh Daftary"},{"name":"Mountain Bear Lodge At Northstar","manager":"Scott McBeth","alarm":"0209-Not Active","owner":"Elika and Michael Rosenbaum"},{"name":"Mountain Retreat - Lakeview","manager":"Andrea Degliantoni","alarm":"3499 master code","owner":"Pat, Dena, and Austin McDonald"},{"name":"Palatial Pines - Lakefront","manager":"Tina Geilenfeldt","alarm":"1364","owner":"Robert and Janet Kearn"},{"name":"Peace of Tahoe - Lakefront","manager":"Christina Cifelli","alarm":"9597not active","owner":"Thomas Reilly and Tim Winter"},{"name":"Pier Pleasure - Lakefront","manager":"Trevor Dimino-Simons","alarm":"7981","owner":"Mike and Caroline Buckley"},{"name":"Pineland Retreat","manager":"Christina Cifelli","alarm":"3980","owner":"Joseph Cannata"},{"name":"Ramblin' Rose - Lakeview","manager":"Michael Ballew","alarm":"","owner":"Tim and Tara Guleri"},{"name":"Reflections - Lakeview","manager":"Michael Ballew","alarm":"","owner":"Janelle and Audrey Grimes"},{"name":"Rise and Shine - Lakefront","manager":"Christina Cifelli","alarm":"","owner":""},{"name":"Rising Sun","manager":"Charli Martin","alarm":"8751 TLUXP","owner":"Massey Rafani"},{"name":"Riverfront Lodge","manager":"Christian Cuneo","alarm":"","owner":"Mike and Vicki Riherd"},{"name":"Rubicon Shores - Lakefront","manager":"Charli Martin","alarm":"","owner":"Vanessa Meyers and Erica Desjardins"},{"name":"Sail Away - Lakefront","manager":"Annie Stryker","alarm":"1234","owner":"Michael Bailey"},{"name":"Sandy Shores - Lakefront","manager":"Andrea Degliantoni","alarm":"5050","owner":"Todd Jaksick"},{"name":"Seek No Further - Lakefront","manager":"Pat Hall","alarm":"1313-not active","owner":"Louis Stervinou"},{"name":"Serendipity - Lakeview","manager":"Andrea Degliantoni","alarm":"","owner":"Romina Notarainni"},{"name":"Shimmering Shores - Lakefront","manager":"Scott McBeth","alarm":"5754","owner":"Lynn Olson"},{"name":"Shore Camp - Lakefront","manager":"Christopher Mumaw","alarm":"7547-not active","owner":"Jonathan Venverloh"},{"name":"Shoshone Chalet at Palisades","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Sierra Sunset Estate - Lakefront","manager":"Tina Geilenfeldt","alarm":"3449-not active","owner":"Patrick Willis"},{"name":"Sierra Vista - Lakeview","manager":"Charli Martin","alarm":"2625","owner":"Catriona Fallon"},{"name":"Signature Retreat on the 18th","manager":"Christopher Mumaw","alarm":"","owner":"Margie and Joel Weidert"},{"name":"Silverfell Lodge at Northstar","manager":"Rachael Brigham","alarm":"6148","owner":"Kenneth and Louise Adamson"},{"name":"Sittin' on the Dock - Lakefront","manager":"Charli Martin","alarm":"","owner":"Dylan Alegria"},{"name":"Skippin' Stones - Lakefront","manager":"Trevor Dimino-Simons","alarm":"4800","owner":"Stephen Gordon and Anja Laicher"},{"name":"Slopeside At Northstar","manager":"Scott McBeth","alarm":"1234-Not Active","owner":"Mia Martin and Lisa Franzia"},{"name":"Solitude","manager":"Trevor Dimino-Simons","alarm":"","owner":"Sharon Blunden and Paula Firenze"},{"name":"Spirit of the Mountain","manager":"Christian Cuneo","alarm":"","owner":"Shannon Poulsen"},{"name":"Stanford Rock Retreat","manager":"Kobe Robbin","alarm":"","owner":"Jeremy and Heather Wenner"},{"name":"Starry Nights - Lakefront","manager":"Kobe Robbin","alarm":"1234","owner":"Mike Reidy"},{"name":"Steeple Cove - Lakefront","manager":"Christian Cuneo","alarm":"","owner":"Russell and Janice Foulk"},{"name":"Stone Crest Estate - Lakefront","manager":"Pat Hall","alarm":"","owner":"Anne and Marty Putnam"},{"name":"Streams and Dreams","manager":"Christopher Mumaw","alarm":"","owner":"Brad Squires"},{"name":"Sugar Pine Chalet - Lakefront","manager":"Trevor Dimino-Simons","alarm":"","owner":"Meika Rouda"},{"name":"Summer Breeze - Lakefront","manager":"Charli Martin","alarm":"1058-Not Active","owner":"Sharon Jennings"},{"name":"Summerhouse - Lakefront","manager":"Tina Geilenfeldt","alarm":"5050","owner":"Holly Fuller"},{"name":"Summit Splendor at Martis Camp","manager":"Trevor Dimino-Simons","alarm":"1935","owner":"Jerry Glembocki and Juliette  Davis"},{"name":"Sundance","manager":"Trevor Dimino-Simons","alarm":"","owner":"Darren.Alan, and Andrea Zulberti"},{"name":"Sunny Days","manager":"Michael Ballew","alarm":"","owner":"Luke and Hsian Winter"},{"name":"Sunrise by Sunnyside - Lakefront","manager":"Scott McBeth","alarm":"4251","owner":"Susan Gates"},{"name":"Sunset Blue - Lakefront","manager":"Christian Cuneo","alarm":"9448","owner":"Gina and William Glaser"},{"name":"Tahoe City Serenity","manager":"Michael Ballew","alarm":"","owner":"Vincent Ferrante"},{"name":"Tahoe Treehouse","manager":"Kobe Robbin","alarm":"","owner":"Stuart Sclater-Booth"},{"name":"Tahoe's Ahwahnee - Lakeview","manager":"Pat Hall","alarm":"8541 TLUXP","owner":"Paul LeCoque"},{"name":"Tahoe's Tranquility - Lakeview","manager":"Tina Geilenfeldt","alarm":"4491","owner":"Sara Weinstock"},{"name":"Tall Pines Ski Shack","manager":"Tina Geilenfeldt","alarm":"2250","owner":"Steve Ruths"},{"name":"Tewesi Manor - Lakefront","manager":"Tina Geilenfeldt","alarm":"1957","owner":"Ron and Jason Jenny"},{"name":"The Duck House","manager":"Andrea Degliantoni","alarm":"8134 TLUXP","owner":"Kenn and Shay Kurtz"},{"name":"The Frontier","manager":"Andrea Degliantoni","alarm":"1945-not active","owner":"Alex and  Greg Freemon"},{"name":"The Lodge at Swiss Lane","manager":"Christopher Mumaw","alarm":"1272","owner":"Timothy Hoxie"},{"name":"The View at Big Pine - Lakeview","manager":"Charli Martin","alarm":"3449","owner":"Edwin Baldry"},{"name":"Treetop Lodge","manager":"Annie Stryker","alarm":"","owner":"Peggy O'Connell"},{"name":"Twilight Ridge","manager":"Annie Stryker","alarm":"","owner":"Chris Bowman"},{"name":"Twin Tips At Northstar","manager":"Scott McBeth","alarm":"","owner":"Steven Baker and Marisa Bauer"},{"name":"Village Walk Skyline At Northstar","manager":"Rachael Brigham","alarm":"","owner":"Sean and Morgen Donovan"},{"name":"Water's Edge - Lakefront","manager":"Michael Ballew","alarm":"1991","owner":"Virginia Stock"},{"name":"Wendy's Wish - Lakefront","manager":"Kayla Cox","alarm":"","owner":""},{"name":"Whispering Winds","manager":"Christian Cuneo","alarm":"","owner":"Shannon Poulsen"},{"name":"Wildwood at Dollar Point - Lakeview","manager":"Kobe Robbin","alarm":"194200","owner":"Kim Fennell"},{"name":"Wolf Ridge","manager":"Kobe Robbin","alarm":"","owner":"Kathleen Sheehy"},{"name":"Zoe's North Star at Northstar","manager":"Rachael Brigham","alarm":"1116","owner":"Randolph Charlton and Karen Kemby"}];
 
+// Operations Contacts who no longer have any active homes (per explicit user
+// confirmation, 2026-10-01) -- kept out of every Operations Contact picker
+// (every tab's filter dropdown, My Houses' House Manager select, and the
+// Training tracker's roster, since MANAGERS below feeds all of them) so the
+// dropdowns don't keep offering people with nothing current to show. This
+// deliberately does NOT touch PROPERTIES itself -- Wendy's Wish - Lakefront
+// (Kayla Cox) and Laura's Overlook Lodge at Northstar (Natalie Garnett) keep
+// their existing `manager` value and their historical records are completely
+// unaffected; they're just no longer selectable as a live Operations Contact
+// anywhere in the dashboard. If either property is reassigned to someone
+// active, or genuinely retired from the app, handle that separately.
+var RETIRED_CONTACTS=['Kayla Cox','Natalie Garnett'];
 // Derived live from PROPERTIES (not a second hand-maintained list) so a newly
 // migrated or newly assigned Operations Contact shows up in every filter dropdown
 // automatically — this used to be a hardcoded array that had already drifted out of
-// sync with PROPERTIES (missing several contacts introduced by the xlsx import).
-var MANAGERS=Array.from(new Set(PROPERTIES.map(function(p){return p.manager;}).filter(Boolean))).sort();
+// sync with PROPERTIES (missing several contacts introduced by the xlsx import) --
+// minus RETIRED_CONTACTS above.
+var MANAGERS=Array.from(new Set(PROPERTIES.map(function(p){return p.manager;}).filter(Boolean))).sort().filter(function(m){return RETIRED_CONTACTS.indexOf(m)===-1;});
+// The current, actively-staffed Operations Team point-of-contact roster (user-
+// provided 2026-10-01, trimmed 2026-10-01 to remove Christina Cifelli, Pat
+// Hall, and Trevor Dimino-Simons -- they're Managers, not Operations
+// Contacts, so they don't belong in this per-contact breakdown; "Trevor
+// Simons" was also merged into "Trevor Dimino-Simons" the same day -- same
+// person, previously recorded under two different names on one property).
+// PROPERTIES.manager / MANAGERS above still contains a handful of older/
+// non-roster names from properties that haven't been reassigned yet (e.g.
+// Annie Stryker, Jennifer Suter, Jessie Byers, and now also Christina
+// Cifelli/Pat Hall/Trevor Dimino-Simons) -- those are left untouched
+// everywhere else in the dashboard (filters, My Houses, property records)
+// since their historical/property data is still real and still needs a
+// home. This roster ONLY trims which Operations Contacts get their own
+// summary card on the Productivity tab, so that row doesn't get crowded
+// with names that aren't actually Operations Contacts doing this work.
+var ACTIVE_OPERATIONS_CONTACTS=['Christopher Mumaw','Charli Martin','Andrea Degliantoni','Michael Ballew','Christian Cuneo','Tina Geilenfeldt','Scott McBeth','Kobe Robbin','Rachael Brigham'];
 // ── Shared Operations Contact filter/assignment helpers (features 6+7) ─────────
 // Every per-tab Operations Contact filter and the My Houses screen both go through
 // these two functions so "assigned to contact X" always means exactly the same
@@ -684,10 +836,12 @@ function showApp(){
   initMyHousesTab();
   initProductivityTab();
   loadData().then(function(){
-    document.getElementById('lastSyncedText').textContent='Last synced: '+fmtDateTime(new Date().toISOString());
+    updateLastSyncedDisplays();
   }).catch(function(e){
     console.error('[LOAD] initial dashboard load failed',e);
     showToast('Failed to load dashboard data — check your connection');
+    var mhWrap=document.getElementById('mh-body-wrap');
+    if(mhWrap) mhWrap.innerHTML='<div class="mh-card"><div class="mh-error">Couldn\'t load your properties — check your connection and try Refresh.</div></div>';
   });
   loadComplaints();
 }
@@ -741,25 +895,78 @@ function renderAll(){renderInspLog();renderSeasonal();renderSeaDash();renderQCDa
 // loadComplaints()) directly from Firestore — never just re-rendering the
 // locally-cached _insp/_propIssues/_complaints arrays — and only updates "Last
 // synced" once all of them have actually succeeded.
-var _dashRefreshing=false;
+// Shared "Last synced" timestamp, read by both the top-bar display and My
+// Houses' own (every screen that shows a sync time reads this one value, so
+// they can never disagree). null until the first successful load/refresh.
+var _lastSyncedAt=null;
+// Deliberately its own formatter, not fmtDateTime() -- that helper only shows
+// hour:minute, so two refreshes inside the same minute (very normal when
+// someone double-checks after fixing something) would display an identical
+// "Last synced" time and look like the button did nothing. Seconds make every
+// successful refresh visibly update.
+function fmtSyncTime(iso){
+  var d=new Date(iso);
+  if(isNaN(d.getTime()))return '';
+  var y=d.getFullYear(), mo=String(d.getMonth()+1).padStart(2,'0'), da=String(d.getDate()).padStart(2,'0');
+  var time=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit'});
+  return y+'-'+mo+'-'+da+' '+time;
+}
+function updateLastSyncedDisplays(){
+  _lastSyncedAt=new Date().toISOString();
+  var text='Last synced: '+fmtSyncTime(_lastSyncedAt);
+  var a=document.getElementById('lastSyncedText'); if(a)a.textContent=text;
+  var b=document.getElementById('mh-last-synced'); if(b)b.textContent=text;
+}
+var _dashRefreshing=false, _dashRefreshPromise=null;
 function refreshDashboardData(){
-  if(_dashRefreshing)return;
+  // Reentrant: a refresh already in flight (triggered from either the top bar
+  // or My Houses' own Refresh button) hands back the SAME promise rather than
+  // silently doing nothing, so a caller's own button-state logic (see
+  // refreshMyHouses()) still resolves correctly either way.
+  if(_dashRefreshing) return _dashRefreshPromise;
   _dashRefreshing=true;
   var btn=document.getElementById('refreshBtn');
-  btn.disabled=true; btn.textContent='⏳ Refreshing…';
-  Promise.all([loadData(),loadComplaints()]).then(function(){
-    document.getElementById('lastSyncedText').textContent='Last synced: '+fmtDateTime(new Date().toISOString());
+  if(btn){btn.disabled=true; btn.textContent='⏳ Refreshing…';}
+  _dashRefreshPromise=Promise.all([loadData(),loadComplaints()]).then(function(){
+    updateLastSyncedDisplays();
     showToast('Dashboard refreshed ✓');
   }).catch(function(e){
     console.error('[REFRESH] failed',e);
     showToast('Refresh failed — check your connection and try again');
   }).finally(function(){
-    _dashRefreshing=false; btn.disabled=false; btn.innerHTML='🔄 Refresh';
+    _dashRefreshing=false; _dashRefreshPromise=null;
+    if(btn){btn.disabled=false; btn.innerHTML='🔄 Refresh';}
   });
+  return _dashRefreshPromise;
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+// Small set of hand-drawn outline icons (consistent stroke style, "currentColor")
+// used by the redesigned My Houses screen in place of emoji, per the 2026-10-01
+// redesign request. Kept intentionally simple/generic (no brand or third-party
+// icon set dependency) -- every call site sets its own color via CSS.
+var MH_ICON_PATHS={
+  home:'<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5a.5.5 0 0 0 .5.5h4v-6h4v6h4a.5.5 0 0 0 .5-.5V10"/>',
+  clipboard:'<rect x="6" y="4" width="12" height="17" rx="1.5"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M9 11h6M9 14.5h6M9 17.5h3.5"/>',
+  box:'<path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5Z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/>',
+  chat:'<path d="M4.5 5a1 1 0 0 1 1-1h13a1 1 0 0 1 1 1v9.5a1 1 0 0 1-1 1H9.5l-4 3.5v-3.5H5.5a1 1 0 0 1-1-1Z"/>',
+  alertTriangle:'<path d="M12 3.5 2.5 20h19Z"/><path d="M12 9.5v4.5"/><circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none"/>',
+  calendar:'<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/>',
+  search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="M19.5 19.5 15 15"/>',
+  refresh:'<path d="M4 4v5.5h5.5"/><path d="M20 20v-5.5h-5.5"/><path d="M5 14a8 8 0 0 0 13.9 3.1M19 10A8 8 0 0 0 5.1 6.9"/>',
+  chevronRight:'<path d="M9 5.5 15.5 12 9 18.5"/>',
+  arrowRight:'<path d="M4 12h15.5M13.5 6l6 6-6 6"/>',
+  swap:'<path d="M6 7h12l-3.5-3.5"/><path d="M18 17H6l3.5 3.5"/>',
+  wrench:'<path d="M14.5 6.2a4 4 0 0 1-5 5.1L4 17l3 3 5.7-5.5a4 4 0 0 1 5.1-5L15.3 12 12 8.7Z"/>',
+  eye:'<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/>',
+  user:'<circle cx="12" cy="8" r="3.5"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/>'
+};
+function mhIcon(name,size,extraAttrs){
+  var p=MH_ICON_PATHS[name]||'';
+  size=size||18;
+  return '<svg viewBox="0 0 24 24" width="'+size+'" height="'+size+'" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"'+(extraAttrs?' '+extraAttrs:'')+'>'+p+'</svg>';
+}
 // Normalizes an inspection's stored photo data into a plain array of usable
 // URLs, tolerating every shape old or new records might have: a modern
 // array of Storage URLs, a single legacy URL saved as a bare string, or a
@@ -926,80 +1133,44 @@ function switchTab(name,btn){
 // ── INSPECTION LOG (Check-Ins/Check-Outs only — QC, Kitchen, Linen, Spring, and Fall each have their own separate log/tab) ──
 var CHECKIN_CHECKOUT_TYPES=['checkin_summer','checkin_winter','checkout_summer','checkout_winter','b2b_summer','b2b_winter'];
 
-// ── MY HOUSES ────────────────────────────────────────────────────────────────
-// A read-only, per-Operations-Contact rollup of everything already shown elsewhere
-// in the dashboard — Check-Ins/Check-Outs, Open Issues, Supply Inventory, QC
-// Inspections, Seasonal Inspections, and Complaints — scoped to one contact's
-// assigned properties via propertiesForContact() (the exact same assignment data
-// every per-tab Operations Contact filter uses). Switching the dropdown ONLY
-// changes what's displayed here; it is a pure read and never writes to Firestore.
+// ── MY HOUSES (redesigned 2026-10-01) ───────────────────────────────────────
+// Per-Operations-Contact command-center view: a header (contact picker +
+// refresh), four live summary cards, a "Needs Attention" rollup of every
+// actionable record across that contact's houses, and a tabbed "Property
+// Activity" browser (Check-Ins/Check-Outs, Issues, Supplies, QC, Seasonal,
+// Complaints) with a house-name search and per-tab status/date filters.
 //
-// Per user request, EVERY signed-in dashboard user (manager or admin alike) can
-// freely use the dropdown to switch to any Operations Contact — this was
-// originally restricted to managers only, with admin seeing a static explanatory
-// message instead, but that restriction has been removed at the user's direction.
-// Whoever has a currentUser.operationsContact set (assigned by an admin on the
-// Users screen) still defaults to it on first load; anyone without one set just
-// sees the "pick a contact" prompt below until they choose one. Switching the
-// dropdown ONLY changes what's displayed here; it never writes to Firestore.
+// This is still a pure, read-only ROLLUP of data that already lives (and is
+// still edited) elsewhere: Supply requests still only ever get written by
+// Supply Inventory's own code path, seasonal issues still only ever get
+// written by Seasonal Inspections' own code path, and the Issues tab here
+// writes through the exact same setPropertyIssueStatus()/property_issues
+// path as the main Open Issues tab (shared 'mhoi'/'mh-' prefixed element ids
+// so both can coexist in the DOM at once -- see myHousesIssuesSectionHtml
+// below, carried over unchanged in spirit from the previous design).
+// Supplies and Complaints are intentionally read-only summaries here (their
+// own "View" buttons jump to the real Supply Inventory / Complaints tabs,
+// where the actual status-change actions already live) so this screen never
+// forks a second editable copy of that logic.
 //
-// Each section below (Properties, Check-Ins/Check-Outs, Open Issues, Supply
-// Inventory, QC Inspections, Seasonal Inspections, Complaints) is independently
-// collapsible — they all start collapsed so the screen isn't overwhelming, and
-// stay open/closed as you switch Operations Contact within the same session
-// (tracked in _myHousesOpenSections, keyed by section, not by contact).
-//
-// Open Issues gets richer treatment than the other sections: the other sections
-// are read-only summaries (use their own dedicated tab for full detail/editing),
-// but Open Issues here is a full, editable view — the same Details expand, the
-// same status dropdown + confirm-with-note panel, and the same updates log as
-// the main Open Issues tab — so an Operations Contact can review and resolve
-// their own issues without ever leaving My Houses. It writes through the exact
-// same setPropertyIssueStatus()/property_issues-update path as every other
-// issue editor in this app; it only has its own 'mh-'/'mhoi'-prefixed element
-// ids (see stageMyHousesIssueStatusChange etc. below) so its rows and confirm
-// panels never collide with the same issue's row on the main Open Issues tab,
-// since both can exist in the DOM (one per tab-panel) at the same time.
+// Anyone signed into the dashboard (manager, admin, or inspector) can use the
+// House Manager dropdown to view any Operations Contact's houses -- that
+// restriction was removed at the user's direction earlier in this project.
+// Switching it, or any filter/search/tab on this screen, never writes to
+// Firestore; only the Issues tab's status-change/add-update actions do, via
+// the shared functions noted above.
 var _myHousesContact='';
-var _myHousesOpenSections={}; // sectionKey -> true if expanded; absent/false = collapsed (the default)
-// Per-section Property/Status filters (like the ones every main tab already has),
-// scoped independently per section so filtering Open Issues down to one property
-// doesn't also filter Supply Inventory, etc. Survives re-renders the same way
-// _myHousesOpenSections does (plain JS state, read back in at render time).
-var _myHousesFilters={checkinout:{prop:''},openissues:{prop:'',status:''},supply:{prop:'',status:''},qc:{prop:''},seasonal:{prop:''},complaints:{prop:''}};
-function setMyHousesFilter(key,field,value){
-  if(!_myHousesFilters[key])_myHousesFilters[key]={};
-  _myHousesFilters[key][field]=value;
-  renderMyHouses();
-}
-function mhFilterRows(list,key){
-  var f=_myHousesFilters[key]||{};
-  return list.filter(function(x){
-    if(f.prop && x.property!==f.prop) return false;
-    if(f.status && x.status!==f.status) return false;
-    return true;
-  });
-}
-// Builds the Property (+ optional Status) filter bar shown at the top of a
-// section's body when expanded. `statusOptions`, when given, is an array of
-// [value,label] pairs matching the exact wording the corresponding main tab
-// already uses for that status field (Open Issues' or Supply Inventory's).
-function mhFilterBarHtml(key,props,statusOptions){
-  var f=_myHousesFilters[key]||{};
-  var html='<div class="filters" style="margin-bottom:10px">';
-  html+='<select onchange="setMyHousesFilter(\''+key+'\',\'prop\',this.value)" style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px">';
-  html+='<option value="">All Properties</option>';
-  props.forEach(function(p){ html+='<option value="'+esc(p.name)+'"'+(p.name===f.prop?' selected':'')+'>'+esc(p.name)+'</option>'; });
-  html+='</select>';
-  if(statusOptions){
-    html+='<select onchange="setMyHousesFilter(\''+key+'\',\'status\',this.value)" style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px">';
-    html+='<option value="">All Statuses</option>';
-    statusOptions.forEach(function(o){ html+='<option value="'+esc(o[0])+'"'+(o[0]===f.status?' selected':'')+'>'+esc(o[1])+'</option>'; });
-    html+='</select>';
-  }
-  html+='</div>';
-  return html;
-}
+var _myHousesPropsPanelOpen=false;
+var _myHousesNeedsAttentionExpanded=false;
+var _myHousesActivityTab='checkinout';
+var _myHousesSearch=''; // shared free-text house-name search across every Property Activity tab
+// Per-tab secondary filter. Meaning differs by tab (documented where used):
+// a days-since-submission bucket for checkinout/qc, a season for seasonal, a
+// status for openissues/supply/complaints (openissues also accepts the
+// synthetic value 'unresolved' meaning Open+In Progress combined, which is
+// what the Open Issues summary card jumps to).
+var _myHousesSecondary={checkinout:'',openissues:'',supply:'',qc:'',seasonal:'',complaints:''};
+
 function initMyHousesTab(){
   populateContactSelect('mh-contact');
   var sel=document.getElementById('mh-contact');
@@ -1010,49 +1181,164 @@ function initMyHousesTab(){
 }
 function onMyHousesContactChange(){
   _myHousesContact=document.getElementById('mh-contact').value;
+  // A fresh contact's data has nothing to do with whatever Needs-Attention
+  // expansion state was left behind, but activity tab/search/filters are
+  // left as-is -- if you were looking at open Issues for Andrea, switching
+  // to Charli and still seeing her open Issues is the expected, useful case.
+  _myHousesNeedsAttentionExpanded=false;
+  _myHousesPropsPanelOpen=false;
   renderMyHouses();
 }
-function toggleMyHousesSection(key){
-  var body=document.getElementById('mh-body-'+key);
-  var hdr=document.getElementById('mh-hdr-'+key);
-  if(!body)return;
-  var nowOpen=!_myHousesOpenSections[key];
-  _myHousesOpenSections[key]=nowOpen;
-  body.style.display=nowOpen?'block':'none';
-  if(hdr)hdr.classList.toggle('open',nowOpen);
+function refreshMyHouses(){
+  var btn=document.getElementById('mh-refresh-btn');
+  if(btn){btn.disabled=true;btn.querySelector('span').textContent='Refreshing…';}
+  var result=refreshDashboardData();
+  var done=function(){ if(btn){btn.disabled=false;btn.querySelector('span').textContent='Refresh';} };
+  if(result && typeof result.then==='function'){ result.then(done,done); } else { done(); }
 }
-// Shared collapsible wrapper every My Houses section (including Properties) uses.
-function mhCollapsible(key,title,count,innerHtml){
-  var open=!!_myHousesOpenSections[key];
-  return '<div class="mh-section" style="margin:0 18px 14px">'
-    +'<div class="insp-detail-heading mh-sec-hdr'+(open?' open':'')+'" id="mh-hdr-'+key+'" onclick="toggleMyHousesSection(\''+key+'\')" role="button" tabindex="0"><span class="chev">&#9656;</span> '+title+' ('+count+')</div>'
-    +'<div class="mh-sec-body" id="mh-body-'+key+'" style="display:'+(open?'block':'none')+'">'+innerHtml+'</div>'
-    +'</div>';
+function toggleMyHousesPropsPanel(){
+  _myHousesPropsPanelOpen=!_myHousesPropsPanelOpen;
+  renderMyHouses();
 }
-function myHousesSectionHtml(title,rows,cols,key,filterBarHtml){
-  var inner=filterBarHtml||'';
-  if(!rows.length){
-    inner+='<div style="font-size:12px;color:var(--dark-gray);padding:4px 0 8px">None</div>';
-  } else {
-    inner+='<div class="tbl-wrap"><table><thead><tr>'+cols.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr></thead><tbody>';
-    rows.forEach(function(r){ inner+='<tr>'+r+'</tr>'; });
-    inner+='</tbody></table></div>';
-  }
-  return mhCollapsible(key,title,rows.length,inner);
+function toggleMyHousesNeedsAttention(){
+  _myHousesNeedsAttentionExpanded=!_myHousesNeedsAttentionExpanded;
+  renderMyHouses();
+}
+function setMyHousesActivityTab(key){
+  _myHousesActivityTab=key;
+  renderMyHouses();
+}
+function setMyHousesSearch(value){
+  _myHousesSearch=value;
+  renderMyHouses();
+  // Re-render rebuilds the input from scratch -- put the caret back so typing
+  // isn't interrupted every keystroke.
+  var el=document.getElementById('mh-search-input');
+  if(el){ el.focus(); var v=el.value; el.value=''; el.value=v; }
+}
+function setMyHousesSecondary(key,value){
+  _myHousesSecondary[key]=value;
+  renderMyHouses();
+}
+function clearMyHousesSearch(){ _myHousesSearch=''; renderMyHouses(); }
+function clearMyHousesSecondary(key){ _myHousesSecondary[key]=''; renderMyHouses(); }
+// Clicking a summary card jumps straight to the relevant, already-filtered
+// view -- Properties opens the house-name panel; the other three switch
+// Property Activity to that tab and pre-set its filter to the same
+// actionable-only definition the card's own number is counted from.
+function mhCardClick(which){
+  if(which==='properties'){ toggleMyHousesPropsPanel(); return; }
+  _myHousesSearch='';
+  if(which==='openissues'){ _myHousesActivityTab='openissues'; _myHousesSecondary.openissues='unresolved'; }
+  else if(which==='supply'){ _myHousesActivityTab='supply'; _myHousesSecondary.supply='Needs Shopping'; }
+  else if(which==='complaints'){ _myHousesActivityTab='complaints'; _myHousesSecondary.complaints='open'; }
+  renderMyHouses();
+  var el=document.getElementById('mh-activity-card');
+  if(el) setTimeout(function(){ el.scrollIntoView({behavior:'smooth',block:'start'}); },30);
+}
+// "View" on a Needs-Attention or Issues-tab row: stay on this screen, switch
+// to the Issues tab, clear whatever would hide it, and expand its own Details
+// row (shares the exact same generic toggleInspDetail()/_openDetailIds
+// machinery as every other Details button in the app).
+function mhViewIssue(issueId){
+  _myHousesActivityTab='openissues';
+  _myHousesSecondary.openissues='';
+  _myHousesSearch='';
+  renderMyHouses();
+  setTimeout(function(){
+    var safeId='mhoi'+String(issueId).replace(/[^a-zA-Z0-9]/g,'');
+    var row=document.getElementById('insp-detail-'+safeId);
+    if(row && row.style.display==='none') toggleInspDetail(safeId);
+    var btn=document.getElementById('insp-btn-'+safeId);
+    var tr=btn?btn.closest('tr'):null;
+    if(tr) tr.scrollIntoView({behavior:'smooth',block:'center'});
+  },30);
+}
+// "View" on a Supply row: Supplies has no second editable copy on this screen
+// (see the file-level comment above) -- jump to the real Supply Inventory tab,
+// which already has full status-change actions, filtered to this property.
+function jumpToSupplyInventory(propertyName){
+  var tabBtn=document.querySelector('.tab-btn[onclick*="supplyinv"]');
+  document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  var panel=document.getElementById('tab-supplyinv'); if(panel)panel.classList.add('active');
+  if(tabBtn)tabBtn.classList.add('active');
+  // #sup-prop's <option>s are only populated lazily, inside renderSupplyReqs()
+  // itself -- if this is the tab's first-ever render, the property's <option>
+  // doesn't exist yet and setting .value below would silently no-op. Render
+  // once first to seed the options, then apply the filter, then render again.
+  renderSupplyReqs();
+  var propSel=document.getElementById('sup-prop'); if(propSel)propSel.value=propertyName||'';
+  var statusSel=document.getElementById('sup-status'); if(statusSel)statusSel.value='';
+  var sourceSel=document.getElementById('sup-source'); if(sourceSel)sourceSel.value='';
+  var inspSel=document.getElementById('sup-insp'); if(inspSel)inspSel.value='';
+  var fromEl=document.getElementById('sup-datefrom'); if(fromEl)fromEl.value='';
+  var toEl=document.getElementById('sup-dateto'); if(toEl)toEl.value='';
+  var mgrSel=document.getElementById('sup-mgr'); if(mgrSel)mgrSel.value='';
+  renderSupplyReqs();
+}
+// "View" on a Complaint row: same reasoning -- jump to the real Complaints tab.
+function jumpToComplaints(propertyName){
+  var tabBtn=document.querySelector('.tab-btn[onclick*="complaints"]');
+  document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  var panel=document.getElementById('tab-complaints'); if(panel)panel.classList.add('active');
+  if(tabBtn)tabBtn.classList.add('active');
+  var propInput=document.getElementById('cp-prop'); if(propInput)propInput.value=propertyName||'';
+  var mgrSel=document.getElementById('cp-mgr'); if(mgrSel)mgrSel.value='';
+  renderComplaints();
+}
+function mhViewNeedsAttentionRow(type,id,propertyName){
+  if(type==='issue') mhViewIssue(id);
+  else if(type==='supply') jumpToSupplyInventory(propertyName);
+  else if(type==='complaint') jumpToComplaints(propertyName);
+}
+// "Today" / "Yesterday" / "N days ago" / a plain date, used anywhere this
+// screen shows when a record was last updated -- purely a display choice;
+// the underlying stored timestamp is never touched or reinterpreted.
+function mhRelativeDate(iso){
+  if(!iso) return '—';
+  var d=new Date(iso);
+  if(isNaN(d.getTime())) return esc(String(iso));
+  var startOfDay=function(dt){return new Date(dt.getFullYear(),dt.getMonth(),dt.getDate()).getTime();};
+  var diffDays=Math.round((startOfDay(new Date())-startOfDay(d))/86400000);
+  if(diffDays===0) return 'Today';
+  if(diffDays===1) return 'Yesterday';
+  if(diffDays>1 && diffDays<7) return diffDays+' days ago';
+  return fmtDateTime(iso).slice(0,10);
+}
+// Generic responsive table builder shared by Needs Attention and every
+// Property Activity tab except Issues (which needs its own expandable-detail
+// row markup) -- `data-label` attributes are what let the @media rule in the
+// CSS turn this into a stacked card layout on narrow screens.
+function mhTableHtml(columns,rows){
+  if(!rows.length) return '<div class="mh-empty">No records match these filters.</div>';
+  var html='<div class="tbl-wrap"><table class="mh-table"><thead><tr>'+columns.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr></thead><tbody>';
+  rows.forEach(function(cells){
+    html+='<tr>'+cells.map(function(cellHtml,i){return '<td data-label="'+esc(columns[i])+'">'+cellHtml+'</td>';}).join('')+'</tr>';
+  });
+  html+='</tbody></table></div>';
+  return html;
+}
+function mhActivityTypeIconHtml(formType){
+  if(formType==='b2b_summer'||formType==='b2b_winter') return mhIcon('swap',16);
+  return mhIcon('arrowRight',16);
 }
 function renderMyHouses(){
-  var headingEl=document.getElementById('mh-heading');
-  var contentEl=document.getElementById('mh-content');
-  if(!headingEl||!contentEl||!currentUser)return;
+  var wrap=document.getElementById('mh-body-wrap');
+  var propcountEl=document.getElementById('mh-propcount');
+  var syncedEl=document.getElementById('mh-last-synced');
+  if(syncedEl) syncedEl.textContent=_lastSyncedAt?('Last synced: '+fmtSyncTime(_lastSyncedAt)):'Last synced: —';
+  if(!wrap||!currentUser)return;
   if(!_myHousesContact){
-    headingEl.textContent='';
-    contentEl.innerHTML='<div class="empty" style="margin:0 18px 18px">'+(currentUser.operationsContact?'':'Your account has no Operations Contact assigned yet — ask an admin to set it on the Users screen, or ')+'pick an Operations Contact above to see their assigned properties.</div>';
+    if(propcountEl) propcountEl.textContent='';
+    wrap.innerHTML='<div class="mh-card"><div class="mh-empty">'+(currentUser.operationsContact?'':'Your account has no Operations Contact assigned yet — ask an admin to set it on the Users screen, or ')+'pick a House Manager above to see their assigned properties.</div></div>';
     return;
   }
-  headingEl.textContent='Houses assigned to: '+_myHousesContact;
   var props=propertiesForContact(_myHousesContact);
+  if(propcountEl) propcountEl.textContent=props.length+' assigned propert'+(props.length===1?'y':'ies');
   if(!props.length){
-    contentEl.innerHTML='<div class="empty" style="margin:0 18px 18px">No properties are currently assigned to '+esc(_myHousesContact)+'.</div>';
+    wrap.innerHTML='<div class="mh-card"><div class="mh-empty">No properties are currently assigned to '+esc(_myHousesContact)+'.</div></div>';
     return;
   }
   var propNames={}; props.forEach(function(p){propNames[p.name]=true;});
@@ -1063,97 +1349,237 @@ function renderMyHouses(){
   var issues=(_propIssues||[]).filter(function(x){return propNames[x.property]&&isOpenIssuesEligible(x);});
   var supplies=(_supplyReqs||[]).filter(function(x){return propNames[x.property];});
   var complaintsHere=(_complaints||[]).filter(function(c){return propNames[c.property];});
+
+  // ── Summary-card counts (actionable/unresolved only, per the existing status
+  // rules each record type already uses elsewhere in the dashboard) ──────────
+  var openIssuesCount=issues.filter(function(x){return x.status==='open'||x.status==='in_progress'||!x.status;}).length;
+  var supplyActionableCount=supplies.filter(function(x){return normalizeSupplyStatus(x.status)==='Needs Shopping';}).length;
+  var complaintsOpenCount=complaintsHere.filter(function(c){return !c.resolved;}).length;
+
   var html='';
-  html+=mhCollapsible('properties','🏡 Properties',props.length,'<div>'+props.map(function(p){return '<span class="badge b-ok" style="margin:2px 4px 2px 0;display:inline-block">'+esc(p.name)+'</span>';}).join('')+'</div>');
-  html+=myHousesSectionHtml('📋 Check-Ins/Check-Outs',mhFilterRows(checkInOut,'checkinout').slice().sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');}).map(function(i){
-    return '<td style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td><td>'+esc(i.property||'')+'</td><td>'+esc(i.inspector||'')+'</td><td>'+esc(TYPE_LABELS[i.formType]||i.formType||'')+'</td><td style="color:'+((i.issuesFound||0)>0?'var(--red)':'inherit')+'">'+(i.issuesFound||0)+'</td>';
-  }),['Date','Property','Inspector','Type','Issues Found'],'checkinout',mhFilterBarHtml('checkinout',props));
-  html+=myHousesIssuesSectionHtml(mhFilterRows(issues,'openissues'),props);
-  html+=myHousesSectionHtml('📦 Supply Inventory',mhFilterRows(supplies,'supply').slice().sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');}).map(function(x){
-    return '<td style="white-space:nowrap">'+esc(x.submittedAt?fmtDateTime(x.submittedAt):'')+'</td><td>'+esc(x.property||'')+'</td><td>'+esc(supplyItemsSummaryText(x.items)||(x.noneNeeded?'None needed':''))+'</td><td>'+supplyStatusBadgeHtml(x.status)+'</td>';
-  }),['Date','Property','Supplies','Status'],'supply',mhFilterBarHtml('supply',props,[['Needs Shopping','Needs Shopping'],['Purchased','Purchased'],['Dismissed','Dismissed']]));
-  html+=myHousesSectionHtml('🔍 QC Inspections',mhFilterRows(qcInsp,'qc').slice().sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');}).map(function(i){
-    var hasIssues=(i.issuesFound||0)>0;
-    return '<td style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td><td>'+esc(i.property||'')+'</td><td>'+esc(i.inspector||'')+'</td><td><span class="badge '+(hasIssues?'b-issue':'b-clear')+'">'+(hasIssues?i.issuesFound+' Issue'+(i.issuesFound!==1?'s':''):'All Clear')+'</span></td>';
-  }),['Date','Property','Checked By','Status'],'qc',mhFilterBarHtml('qc',props));
-  html+=myHousesSectionHtml('🌿 Seasonal Inspections',mhFilterRows(seasonalInsp,'seasonal').slice().sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');}).map(function(i){
-    return '<td style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td><td>'+esc(i.property||'')+'</td><td>'+esc(i.inspector||'')+'</td><td>'+esc(TYPE_LABELS[i.formType]||i.formType||'')+'</td>';
-  }),['Date','Property','Inspector','Type'],'seasonal',mhFilterBarHtml('seasonal',props));
-  html+=myHousesSectionHtml('🚨 Complaints',mhFilterRows(complaintsHere,'complaints').slice().sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');}).map(function(c){
-    return '<td>'+esc(c.date||'')+'</td><td>'+esc(c.property||'')+'</td><td>'+esc(c.category||'')+'</td><td>'+(c.resolved?'<span class="badge b-clear">Resolved</span>':'<span class="badge b-issue">Open</span>')+'</td>';
-  }),['Date','Property','Category','Status'],'complaints',mhFilterBarHtml('complaints',props));
-  contentEl.innerHTML=html;
+  html+='<div class="mh-stats-row">';
+  html+='<button class="mh-stat-card" onclick="mhCardClick(\'properties\')"><div class="mh-stat-icon blue">'+mhIcon('home',22)+'</div><div><div class="mh-stat-label">Properties</div><div class="mh-stat-num">'+props.length+'</div></div></button>';
+  html+='<button class="mh-stat-card" onclick="mhCardClick(\'openissues\')"><div class="mh-stat-icon orange">'+mhIcon('clipboard',22)+'</div><div><div class="mh-stat-label">Open Issues</div><div class="mh-stat-num">'+openIssuesCount+'</div></div></button>';
+  html+='<button class="mh-stat-card" onclick="mhCardClick(\'supply\')"><div class="mh-stat-icon green">'+mhIcon('box',22)+'</div><div><div class="mh-stat-label">Supply Requests</div><div class="mh-stat-num">'+supplyActionableCount+'</div></div></button>';
+  html+='<button class="mh-stat-card" onclick="mhCardClick(\'complaints\')"><div class="mh-stat-icon red">'+mhIcon('chat',22)+'</div><div><div class="mh-stat-label">Complaints</div><div class="mh-stat-num">'+complaintsOpenCount+'</div></div></button>';
+  html+='</div>';
+
+  // ── Properties panel (toggled by the Properties card) ───────────────────
+  html+='<div class="mh-card" id="mh-props-card" style="'+(_myHousesPropsPanelOpen?'':'display:none')+'">';
+  html+='<div class="mh-props-panel"><div class="mh-props-panel-hdr"><div class="mh-props-panel-title">Assigned Properties ('+props.length+')</div><button class="mh-props-panel-close" onclick="toggleMyHousesPropsPanel()" aria-label="Close">&times;</button></div>';
+  html+='<div class="mh-props-chip-row">'+props.slice().sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(p){return '<span class="mh-props-chip">'+esc(p.name)+'</span>';}).join('')+'</div>';
+  html+='</div></div>';
+
+  // ── Needs Attention ──────────────────────────────────────────────────────
+  var naItems=[];
+  issues.forEach(function(x){
+    if(!(x.status==='open'||x.status==='in_progress'||!x.status)) return;
+    naItems.push({type:'issue',id:x.id,property:x.property,item:x.text||'(no description)',typeIcon:mhIcon('wrench',15),typeLabel:'Maintenance',statusHtml:issueStatusBadgeHtml(x),updatedIso:(x.updates&&x.updates.length?null:x.reportedAt)||x.reportedAt});
+  });
+  supplies.forEach(function(x){
+    if(normalizeSupplyStatus(x.status)!=='Needs Shopping') return;
+    naItems.push({type:'supply',id:x.id,property:x.property,item:supplyItemsSummaryText(x.items)||'Supplies needed',typeIcon:mhIcon('box',15),typeLabel:'Supplies',statusHtml:supplyStatusBadgeHtml(x.status),updatedIso:x.submittedAt});
+  });
+  complaintsHere.forEach(function(c){
+    if(c.resolved) return;
+    naItems.push({type:'complaint',id:c.id,property:c.property,item:(c.complaint||c.category||'Complaint').slice(0,80),typeIcon:mhIcon('chat',15),typeLabel:'Complaint',statusHtml:'<span class="badge b-issue">Open</span>',updatedIso:c.submittedAt||c.date});
+  });
+  naItems.sort(function(a,b){return (b.updatedIso||'').localeCompare(a.updatedIso||'');});
+  var naTotal=naItems.length;
+  var naShown=_myHousesNeedsAttentionExpanded?naItems:naItems.slice(0,6);
+  html+='<div class="mh-card">';
+  html+='<div class="mh-card-hdr"><div class="mh-card-hdr-left"><div class="mh-card-hdr-icon" style="background:var(--orange-light);color:var(--orange)">'+mhIcon('alertTriangle',18)+'</div><div><div class="mh-card-title">Needs Attention</div><div class="mh-card-sub">Unresolved items across your assigned houses</div></div></div>'
+    +(naTotal>6?'<button class="mh-viewall-btn" onclick="toggleMyHousesNeedsAttention()">'+(_myHousesNeedsAttentionExpanded?'Show less':'View all ('+naTotal+')')+' '+mhIcon('chevronRight',14)+'</button>':'')
+    +'</div>';
+  if(!naTotal){
+    html+='<div class="mh-empty">Nothing needs attention right now — all clear ✓</div>';
+  } else {
+    html+=mhTableHtml(['House','Item','Type','Status','Updated',''],naShown.map(function(it){
+      return [
+        '<span class="mh-house-cell">'+esc(it.property||'')+'</span>',
+        esc(it.item),
+        '<span class="mh-type-cell">'+it.typeIcon+' '+it.typeLabel+'</span>',
+        it.statusHtml,
+        esc(mhRelativeDate(it.updatedIso)),
+        '<button class="mh-view-btn" onclick="mhViewNeedsAttentionRow(\''+it.type+'\',\''+String(it.id).replace(/'/g,"\\'")+'\',\''+esc(it.property||'').replace(/'/g,"\\'")+'\')">View</button>'
+      ];
+    }));
+  }
+  html+='</div>';
+
+  // ── Property Activity (tabbed) ──────────────────────────────────────────
+  var searchLc=_myHousesSearch.trim().toLowerCase();
+  function bySearch(list){ if(!searchLc) return list; return list.filter(function(x){return (x.property||'').toLowerCase().indexOf(searchLc)!==-1;}); }
+  var f=_myHousesSecondary;
+  var checkInOutFiltered=bySearch(checkInOut).filter(function(i){return mhDaysMatch(i.submittedAt,f.checkinout);});
+  var qcFiltered=bySearch(qcInsp).filter(function(i){return mhDaysMatch(i.submittedAt,f.qc);});
+  var seasonalFiltered=bySearch(seasonalInsp).filter(function(i){return !f.seasonal||i.formType===f.seasonal;});
+  var issuesFiltered=bySearch(issues).filter(function(x){return mhIssueStatusMatch(x.status,f.openissues);});
+  var supplyFiltered=bySearch(supplies).filter(function(x){return !f.supply||normalizeSupplyStatus(x.status)===f.supply;});
+  var complaintsFiltered=bySearch(complaintsHere).filter(function(c){return !f.complaints||(f.complaints==='open'?!c.resolved:c.resolved);});
+
+  var TABS=[
+    {key:'checkinout',label:'Check-Ins / Check-Outs',count:checkInOutFiltered.length},
+    {key:'openissues',label:'Issues',count:issuesFiltered.length},
+    {key:'supply',label:'Supplies',count:supplyFiltered.length},
+    {key:'qc',label:'QC',count:qcFiltered.length},
+    {key:'seasonal',label:'Seasonal',count:seasonalFiltered.length},
+    {key:'complaints',label:'Complaints',count:complaintsFiltered.length}
+  ];
+  var active=_myHousesActivityTab;
+  html+='<div class="mh-card" id="mh-activity-card">';
+  html+='<div class="mh-card-hdr"><div class="mh-card-hdr-left"><div class="mh-card-hdr-icon" style="background:var(--light-blue);color:var(--blue)">'+mhIcon('calendar',18)+'</div><div><div class="mh-card-title">Property Activity</div><div class="mh-card-sub">Every logged activity for '+esc(_myHousesContact)+'\'s houses</div></div></div></div>';
+  html+='<div class="mh-tabs">'+TABS.map(function(t){return '<button class="mh-tab-btn'+(t.key===active?' active':'')+'" onclick="setMyHousesActivityTab(\''+t.key+'\')">'+esc(t.label)+' <span class="mh-tab-count">'+t.count+'</span></button>';}).join('')+'</div>';
+  html+='<div class="mh-activity-toolbar">';
+  html+='<div class="mh-search-wrap">'+mhIcon('search',15)+'<input type="text" id="mh-search-input" placeholder="Search houses…" value="'+esc(_myHousesSearch)+'" oninput="setMyHousesSearch(this.value)"></div>';
+  html+=mhSecondaryFilterHtml(active,f[active]);
+  html+='</div>';
+  var chips=mhActiveFilterChipsHtml(active,f[active]);
+  if(chips) html+='<div class="mh-active-filters">'+chips+'</div>';
+
+  if(active==='checkinout'){
+    html+=mhTableHtml(['House','Activity','Date','Inspector','Status'],checkInOutFiltered.slice().sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');}).map(function(i){
+      var hasIssues=(i.issuesFound||0)>0;
+      return [
+        '<span class="mh-house-cell">'+esc(i.property||'')+'</span>',
+        '<span class="mh-activity-icon">'+mhActivityTypeIconHtml(i.formType)+' '+esc(TYPE_LABELS[i.formType]||i.formType||'')+'</span>',
+        esc(i.submittedAt?fmtDateTime(i.submittedAt):''),
+        esc(i.inspector||''),
+        hasIssues?'<span class="badge b-issue">'+i.issuesFound+' Issue'+(i.issuesFound!==1?'s':'')+'</span>':'<span class="badge b-clear">All Clear</span>'
+      ];
+    }));
+  } else if(active==='openissues'){
+    html+=myHousesIssuesSectionHtml(issuesFiltered);
+  } else if(active==='supply'){
+    html+=myHousesSupplySectionHtml(supplyFiltered);
+  } else if(active==='qc'){
+    html+=myHousesQCSectionHtml(qcFiltered);
+  } else if(active==='seasonal'){
+    html+=myHousesSeasonalSectionHtml(seasonalFiltered);
+  } else if(active==='complaints'){
+    html+=myHousesComplaintsSectionHtml(complaintsFiltered);
+  }
+  html+='</div>'; // mh-activity-card
+
+  wrap.innerHTML=html;
   reopenPreservedDetails();
 }
-// My Houses' own editable Open Issues section — full parity with the main Open
-// Issues tab's row+detail markup (category, location, priority, notes, photos,
-// assigned Operations Contact, status dropdown with a confirm-with-note panel,
-// updates log). Uses its own 'mhoi'-prefixed safeId scheme so it never collides
-// with the same issue's row on the main Open Issues tab, and shares the generic
-// toggleInspDetail()/reopenPreservedDetails() Details-expand machinery (those
-// two are already keyed by whatever safeId is passed in, so no change needed
-// there).
-function myHousesIssuesSectionHtml(issues,props){
-  var count=issues.length;
-  var inner=mhFilterBarHtml('openissues',props,[['open','Open'],['in_progress','In Progress'],['resolved','Resolved'],['dismissed','Dismissed']]);
-  if(!count){
-    inner+='<div style="font-size:12px;color:var(--dark-gray);padding:4px 0 8px">None</div>';
-  } else {
-    var sorted=issues.slice().sort(function(a,b){return (b.reportedAt||'').localeCompare(a.reportedAt||'');});
-    inner+='<div class="tbl-wrap"><table><thead><tr><th>Reported</th><th>Property</th><th>Section / Location</th><th>Issue</th><th>Reported By</th><th>Status</th><th>Photos</th><th></th></tr></thead><tbody>';
-    sorted.forEach(function(x){
-      var safeId='mhoi'+x.id.replace(/[^a-zA-Z0-9]/g,'');
-      var xPhotos=normalizePhotoUrls(x.photos,'myHouses:'+x.id);
-      inner+='<tr>';
-      inner+='<td style="white-space:nowrap">'+esc(x.reportedAt?fmtDateTime(x.reportedAt):'')+'</td>';
-      inner+='<td style="font-weight:600;min-width:140px">'+esc(x.property||'')+'</td>';
-      inner+='<td>'+esc(x.section||x.location||'')+'</td>';
-      inner+='<td style="min-width:200px">'+esc(x.text||'')+'</td>';
-      inner+='<td>'+esc(x.reportedByName||'')+'</td>';
-      inner+='<td>'+issueStatusBadgeHtml(x)+'</td>';
-      inner+='<td>'+(xPhotos.length?'<span class="badge b-ok">&#128247; '+xPhotos.length+'</span>':'<span class="no-photo">&mdash;</span>')+'</td>';
-      inner+='<td><button class="details-btn" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
-      inner+='</tr>';
-      inner+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="8">';
-      if((x.notes||'').trim()){
-        inner+='<div class="insp-detail-heading">&#128221; Inspector\'s Note</div><div class="insp-notes-block">'+esc(x.notes).replace(/\n/g,'<br>')+'</div>';
-      }
-      if(x.priority||x.category||x.assignedManagerName){
-        inner+='<div class="insp-detail-heading">&#128295; Details</div><div class="insp-notes-block">'+
-          (x.category?'<strong>Category:</strong> '+esc(x.category)+'<br>':'')+
-          (x.location?'<strong>Location:</strong> '+esc(x.location)+'<br>':'')+
-          (x.priority?'<strong>Priority:</strong> '+esc(x.priority)+'<br>':'')+
-          (x.assignedManagerName?'<strong>Assigned Operations Contact:</strong> '+esc(x.assignedManagerName):'')+
-          '</div>';
-      }
-      if(xPhotos.length){
-        inner+='<div class="insp-detail-heading">&#128247; Photos</div><div class="insp-issue-photos">';
-        xPhotos.forEach(function(url){inner+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
-        inner+='</div>';
-      }
-      inner+='<div class="insp-detail-heading">&#128295; Status &amp; Follow-Up History</div>';
-      inner+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap"><span style="font-size:12px;font-weight:700;color:var(--dark-gray)">Status:</span>'+issueStatusBadgeHtml(x)+
-        '<select id="mh-sel-'+safeId+'" style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px" onchange="stageMyHousesIssueStatusChange(\''+safeId+'\',this.value)">'+
-        '<option value="open"'+(x.status==='open'||!x.status?' selected':'')+'>Open</option>'+
-        '<option value="in_progress"'+(x.status==='in_progress'?' selected':'')+'>In Progress</option>'+
-        '<option value="resolved"'+(x.status==='resolved'?' selected':'')+'>Resolved</option>'+
-        '<option value="dismissed"'+(x.status==='dismissed'?' selected':'')+'>Dismissed / Not an Issue</option>'+
-        '</select></div>';
-      inner+='<div class="status-confirm-panel" id="mh-confirm-'+safeId+'" style="display:none">'+
-        '<div style="font-size:12px;color:var(--dark-gray)">Changing status to <strong id="mh-confirm-label-'+safeId+'"></strong>. Add an optional note (e.g. why it was dismissed, or what was done to resolve it) — it will be saved to this issue\'s history:</div>'+
-        '<textarea id="mh-confirm-note-'+safeId+'" placeholder="Optional note…"></textarea>'+
-        '<div class="sc-btns"><button class="sc-confirm" onclick="confirmMyHousesIssueStatusChange(\''+x.id+'\',\''+safeId+'\')">Confirm</button><button class="sc-cancel" onclick="cancelMyHousesIssueStatusChange(\''+safeId+'\',\''+(x.status||'open')+'\')">Cancel</button></div>'+
-        '</div>';
-      var updates=x.updates||[];
-      var updHtml='';
-      updates.forEach(function(u){updHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
-      inner+='<div class="updates-log">'+(updHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
-      inner+='<div class="add-update-row"><input type="text" id="mh-note-'+safeId+'" placeholder="Add an update&hellip; (e.g. hangers ordered, arriving Friday)"><button onclick="addMyHousesIssueUpdate(\''+x.id+'\',\''+safeId+'\')">+ Add</button></div>';
-      inner+='</td></tr>';
-    });
-    inner+='</tbody></table></div>';
+// `secondary` filter-value helpers for the two tabs (checkinout/qc) whose
+// relevant filter is "how recently was this submitted" rather than a status.
+function mhDaysMatch(submittedAt,bucket){
+  if(!bucket) return true;
+  var days=parseInt(bucket,10); if(!days) return true;
+  return (Date.now()-new Date(submittedAt))<days*86400000;
+}
+// Open Issues' secondary filter also accepts the synthetic 'unresolved' value
+// (Open + In Progress combined) that the Open Issues summary card jumps to.
+function mhIssueStatusMatch(status,filterVal){
+  if(!filterVal) return true;
+  if(filterVal==='unresolved') return status==='open'||status==='in_progress'||!status;
+  return status===filterVal || (filterVal==='open' && !status);
+}
+function mhSecondaryFilterHtml(tabKey,value){
+  var opts=null;
+  if(tabKey==='checkinout'||tabKey==='qc'){
+    opts=[['','All Time'],['7','Last 7 Days'],['30','Last 30 Days'],['90','Last 90 Days']];
+  } else if(tabKey==='openissues'){
+    opts=[['','All Statuses'],['unresolved','Needs Action (Open + In Progress)'],['open','Open'],['in_progress','In Progress'],['resolved','Resolved'],['dismissed','Dismissed']];
+  } else if(tabKey==='supply'){
+    opts=[['','All Statuses'],['Needs Shopping','Needs Shopping'],['Purchased','Purchased'],['Dismissed','Dismissed']];
+  } else if(tabKey==='seasonal'){
+    opts=[['','All Types'],['spring','Spring'],['fall','Fall'],['kitchen_inv','Kitchen Inventory'],['linen_inv','Linen Inventory']];
+  } else if(tabKey==='complaints'){
+    opts=[['','All Statuses'],['open','Open'],['resolved','Resolved']];
   }
-  return mhCollapsible('openissues','🛠️ Open Issues',count,inner);
+  if(!opts) return '';
+  return '<select class="mh-filter-select" onchange="setMyHousesSecondary(\''+tabKey+'\',this.value)">'+opts.map(function(o){return '<option value="'+esc(o[0])+'"'+(o[0]===(value||'')?' selected':'')+'>'+esc(o[1])+'</option>';}).join('')+'</select>';
+}
+function mhSecondaryFilterLabel(tabKey,value){
+  if(!value) return '';
+  var map={
+    checkinout:{'7':'Last 7 Days','30':'Last 30 Days','90':'Last 90 Days'},
+    qc:{'7':'Last 7 Days','30':'Last 30 Days','90':'Last 90 Days'},
+    openissues:{unresolved:'Needs Action (Open + In Progress)',open:'Open',in_progress:'In Progress',resolved:'Resolved',dismissed:'Dismissed'},
+    supply:{'Needs Shopping':'Needs Shopping',Purchased:'Purchased',Dismissed:'Dismissed'},
+    seasonal:{spring:'Spring',fall:'Fall',kitchen_inv:'Kitchen Inventory',linen_inv:'Linen Inventory'},
+    complaints:{open:'Open',resolved:'Resolved'}
+  };
+  return (map[tabKey]||{})[value]||value;
+}
+function mhActiveFilterChipsHtml(tabKey,secondaryValue){
+  var chips='';
+  if(_myHousesSearch.trim()){
+    chips+='<span class="mh-filter-chip">House contains "'+esc(_myHousesSearch.trim())+'" <button onclick="clearMyHousesSearch()" aria-label="Clear search">&times;</button></span>';
+  }
+  if(secondaryValue){
+    chips+='<span class="mh-filter-chip">'+esc(mhSecondaryFilterLabel(tabKey,secondaryValue))+' <button onclick="clearMyHousesSecondary(\''+tabKey+'\')" aria-label="Clear filter">&times;</button></span>';
+  }
+  return chips;
+}
+// My Houses' own editable Issues tab -- full parity with the main Open Issues
+// tab's row+detail markup (category, location, priority, notes, photos,
+// assigned Operations Contact, status dropdown with a confirm-with-note
+// panel, updates log). Uses its own 'mhoi'-prefixed safeId scheme so it never
+// collides with the same issue's row on the main Open Issues tab, and shares
+// the generic toggleInspDetail()/reopenPreservedDetails() Details-expand
+// machinery (already keyed by whatever safeId is passed in, so no change
+// needed there).
+function myHousesIssuesSectionHtml(issues){
+  if(!issues.length) return '<div class="mh-empty">No issues match these filters.</div>';
+  var sorted=issues.slice().sort(function(a,b){return (b.reportedAt||'').localeCompare(a.reportedAt||'');});
+  var inner='<div class="tbl-wrap"><table class="mh-table"><thead><tr><th>House</th><th>Reported</th><th>Section / Location</th><th>Issue</th><th>Reported By</th><th>Status</th><th>Photos</th><th></th></tr></thead><tbody>';
+  sorted.forEach(function(x){
+    var safeId='mhoi'+x.id.replace(/[^a-zA-Z0-9]/g,'');
+    var xPhotos=normalizePhotoUrls(x.photos,'myHouses:'+x.id);
+    inner+='<tr>';
+    inner+='<td data-label="House" class="mh-house-cell">'+esc(x.property||'')+'</td>';
+    inner+='<td data-label="Reported" style="white-space:nowrap">'+esc(x.reportedAt?fmtDateTime(x.reportedAt):'')+'</td>';
+    inner+='<td data-label="Section / Location">'+esc(x.section||x.location||'')+'</td>';
+    inner+='<td data-label="Issue" style="min-width:180px">'+esc(x.text||'')+'</td>';
+    inner+='<td data-label="Reported By">'+esc(x.reportedByName||'')+'</td>';
+    inner+='<td data-label="Status">'+issueStatusBadgeHtml(x)+'</td>';
+    inner+='<td data-label="Photos">'+(xPhotos.length?'<span class="badge b-ok">&#128247; '+xPhotos.length+'</span>':'<span class="no-photo">&mdash;</span>')+'</td>';
+    inner+='<td data-label=""><button class="details-btn" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
+    inner+='</tr>';
+    inner+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="8">';
+    if((x.notes||'').trim()){
+      inner+='<div class="insp-detail-heading">&#128221; Inspector\'s Note</div><div class="insp-notes-block">'+esc(x.notes).replace(/\n/g,'<br>')+'</div>';
+    }
+    if(x.priority||x.category||x.assignedManagerName){
+      inner+='<div class="insp-detail-heading">&#128295; Details</div><div class="insp-notes-block">'+
+        (x.category?'<strong>Category:</strong> '+esc(x.category)+'<br>':'')+
+        (x.location?'<strong>Location:</strong> '+esc(x.location)+'<br>':'')+
+        (x.priority?'<strong>Priority:</strong> '+esc(x.priority)+'<br>':'')+
+        (x.assignedManagerName?'<strong>Assigned Operations Contact:</strong> '+esc(x.assignedManagerName):'')+
+        '</div>';
+    }
+    if(xPhotos.length){
+      inner+='<div class="insp-detail-heading">&#128247; Photos</div><div class="insp-issue-photos">';
+      xPhotos.forEach(function(url){inner+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
+      inner+='</div>';
+    }
+    inner+='<div class="insp-detail-heading">&#128295; Status &amp; Follow-Up History</div>';
+    inner+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap"><span style="font-size:12px;font-weight:700;color:var(--dark-gray)">Status:</span>'+issueStatusBadgeHtml(x)+
+      '<select id="mh-sel-'+safeId+'" style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px" onchange="stageMyHousesIssueStatusChange(\''+safeId+'\',this.value)">'+
+      '<option value="open"'+(x.status==='open'||!x.status?' selected':'')+'>Open</option>'+
+      '<option value="in_progress"'+(x.status==='in_progress'?' selected':'')+'>In Progress</option>'+
+      '<option value="resolved"'+(x.status==='resolved'?' selected':'')+'>Resolved</option>'+
+      '<option value="dismissed"'+(x.status==='dismissed'?' selected':'')+'>Dismissed / Not an Issue</option>'+
+      '</select></div>';
+    inner+='<div class="status-confirm-panel" id="mh-confirm-'+safeId+'" style="display:none">'+
+      '<div style="font-size:12px;color:var(--dark-gray)">Changing status to <strong id="mh-confirm-label-'+safeId+'"></strong>. Add an optional note (e.g. why it was dismissed, or what was done to resolve it) — it will be saved to this issue\'s history:</div>'+
+      '<textarea id="mh-confirm-note-'+safeId+'" placeholder="Optional note…"></textarea>'+
+      '<div class="sc-btns"><button class="sc-confirm" onclick="confirmMyHousesIssueStatusChange(\''+x.id+'\',\''+safeId+'\')">Confirm</button><button class="sc-cancel" onclick="cancelMyHousesIssueStatusChange(\''+safeId+'\',\''+(x.status||'open')+'\')">Cancel</button></div>'+
+      '</div>';
+    var updates=x.updates||[];
+    var updHtml='';
+    updates.forEach(function(u){updHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
+    inner+='<div class="updates-log">'+(updHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
+    inner+='<div class="add-update-row"><input type="text" id="mh-note-'+safeId+'" placeholder="Add an update&hellip; (e.g. hangers ordered, arriving Friday)"><button onclick="addMyHousesIssueUpdate(\''+x.id+'\',\''+safeId+'\')">+ Add</button></div>';
+    inner+='</td></tr>';
+  });
+  inner+='</tbody></table></div>';
+  return inner;
 }
 // Mirrors stageIssueStatusChange/cancelIssueStatusChange/confirmIssueStatusChange
 // (Open Issues tab) exactly, just against 'mh-' prefixed element ids so both can
@@ -1196,6 +1622,431 @@ function addMyHousesIssueUpdate(docId,safeId){
     showToast('Update added');
     renderMyHouses();
     renderOpenIssues();
+  }).catch(function(){showToast('Error adding update');});
+}
+
+// ══════ My Houses: full detail + edit/resolve parity for Supplies, QC,
+// Seasonal, and Complaints (2026-10-01) ══════
+// Issues already had this (myHousesIssuesSectionHtml above); Operations
+// Contacts asked for the same thing on these four tabs too -- see the real
+// record's Details, and change its status/add a note/mark it resolved,
+// without leaving My Houses. Every write below goes through the exact same
+// shared function the record's own main tab already uses (setSupplyRequestStatus(),
+// setPropertyIssueStatus(), toggleResolved()/saveVerified()), so there's still
+// only one place any record's status/history actually lives -- these are just
+// additional 'mh'-prefixed element ids so a record can be expanded/edited from
+// both its main tab and My Houses at the same time without ever colliding.
+
+// ── Supplies: full parity with the Supply Inventory Log's own Details/status UI ──
+function myHousesSupplySectionHtml(list){
+  if(!list.length) return '<div class="mh-empty">No supply requests match these filters.</div>';
+  var sorted=list.slice().sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');});
+  var inner='<div class="tbl-wrap"><table class="mh-table"><thead><tr><th>House</th><th>Submitted</th><th>Supplies Needed</th><th>Status</th><th>Last Updated</th><th></th></tr></thead><tbody>';
+  sorted.forEach(function(x){
+    var safeId='mhsup'+x.id.replace(/[^a-zA-Z0-9]/g,'');
+    var xPhotos=normalizePhotoUrls(x.photoUrls,'myHousesSupply:'+x.id);
+    var itemsText=x.noneNeeded?'<em style="color:var(--dark-gray)">No restocking needed</em>':supplyItemsSummaryText(x.items);
+    inner+='<tr>';
+    inner+='<td data-label="House" class="mh-house-cell">'+esc(x.property||'')+'</td>';
+    inner+='<td data-label="Submitted" style="white-space:nowrap">'+esc(x.submittedAt?fmtDateTime(x.submittedAt):'')+'</td>';
+    inner+='<td data-label="Supplies Needed" style="min-width:180px">'+itemsText+'</td>';
+    inner+='<td data-label="Status">'+supplyStatusBadgeHtml(x.status)+'</td>';
+    inner+='<td data-label="Last Updated" style="white-space:nowrap">'+esc(x.lastUpdatedAt?fmtDateTime(x.lastUpdatedAt):'')+'</td>';
+    inner+='<td data-label=""><button class="details-btn" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
+    inner+='</tr>';
+    inner+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="6">';
+    if(!x.noneNeeded && x.items && x.items.length){
+      inner+='<div class="insp-detail-heading">&#128230; Supplies &amp; Quantities</div><div class="insp-notes-block">';
+      x.items.forEach(function(it){ inner+=esc(it.name)+(it.qty?' — Qty needed: '+esc(String(it.qty)):' — Qty not specified')+(it.isOther?' <em>(other / unlisted)</em>':'')+'<br>'; });
+      inner+='</div>';
+    }
+    if((x.notes||'').trim()) inner+='<div class="insp-detail-heading">&#128221; Notes</div><div class="insp-notes-block">'+esc(x.notes).replace(/\n/g,'<br>')+'</div>';
+    if(xPhotos.length){
+      inner+='<div class="insp-detail-heading">&#128247; Photos</div><div class="insp-issue-photos">';
+      xPhotos.forEach(function(url){inner+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
+      inner+='</div>';
+    }
+    inner+='<div class="insp-detail-heading">&#128295; Status &amp; Follow-Up History</div>';
+    inner+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap"><span style="font-size:12px;font-weight:700;color:var(--dark-gray)">Status:</span>'+supplyStatusBadgeHtml(x.status)+
+      '<select id="mhsup-sel-'+safeId+'" style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px" onchange="stageMyHousesSupplyStatusChange(\''+safeId+'\',this.value)">'+
+      ['Needs Shopping','Purchased','Dismissed'].map(function(s){return '<option value="'+s+'"'+(normalizeSupplyStatus(x.status)===s?' selected':'')+'>'+s+'</option>';}).join('')+
+      '</select></div>';
+    inner+='<div class="status-confirm-panel" id="mhsup-confirm-'+safeId+'" style="display:none">'+
+      '<div style="font-size:12px;color:var(--dark-gray)">Changing status to <strong id="mhsup-confirm-label-'+safeId+'"></strong>. Add an optional note — it will be saved to this request\'s history:</div>'+
+      '<textarea id="mhsup-confirm-note-'+safeId+'" placeholder="Optional note…"></textarea>'+
+      '<div class="sc-btns"><button class="sc-confirm" onclick="confirmMyHousesSupplyStatusChange(\''+x.id+'\',\''+safeId+'\')">Confirm</button><button class="sc-cancel" onclick="cancelMyHousesSupplyStatusChange(\''+safeId+'\',\''+normalizeSupplyStatus(x.status)+'\')">Cancel</button></div>'+
+      '</div>';
+    var updates=x.updates||[];
+    var updHtml='';
+    updates.forEach(function(u){updHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
+    inner+='<div class="updates-log">'+(updHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
+    inner+='<div class="add-update-row"><input type="text" id="mhsup-note-'+safeId+'" placeholder="Add an update&hellip;"><button onclick="addMyHousesSupplyUpdate(\''+x.id+'\',\''+safeId+'\')">+ Add</button></div>';
+    inner+='</td></tr>';
+  });
+  inner+='</tbody></table></div>';
+  return inner;
+}
+function stageMyHousesSupplyStatusChange(safeId,newStatus){
+  var panel=document.getElementById('mhsup-confirm-'+safeId);
+  var label=document.getElementById('mhsup-confirm-label-'+safeId);
+  if(!panel)return;
+  panel.setAttribute('data-pending-status',newStatus);
+  if(label)label.textContent=SUPPLY_STATUS_DISPLAY_NAMES[newStatus]||newStatus;
+  panel.style.display='flex';
+}
+function cancelMyHousesSupplyStatusChange(safeId,prevStatus){
+  var sel=document.getElementById('mhsup-sel-'+safeId);
+  var panel=document.getElementById('mhsup-confirm-'+safeId);
+  if(sel)sel.value=prevStatus;
+  if(panel)panel.style.display='none';
+}
+function confirmMyHousesSupplyStatusChange(docId,safeId){
+  var panel=document.getElementById('mhsup-confirm-'+safeId);
+  var newStatus=panel?panel.getAttribute('data-pending-status'):null;
+  if(!newStatus)return;
+  var noteInput=document.getElementById('mhsup-confirm-note-'+safeId);
+  var note=(noteInput&&noteInput.value||'').trim();
+  setSupplyRequestStatus(docId,newStatus,note);
+}
+function addMyHousesSupplyUpdate(docId,safeId){
+  var input=document.getElementById('mhsup-note-'+safeId);
+  var text=(input&&input.value||'').trim();
+  if(!text) return;
+  var req=_supplyReqs.find(function(x){return x.id===docId;});
+  var byName=currentUser?currentUser.name:'';
+  var nowIso=new Date().toISOString();
+  var entry={text:text,by:byName,date:new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
+  db.collection('supply_requests').doc(docId).update({
+    updates:firebase.firestore.FieldValue.arrayUnion(entry),
+    lastUpdatedAt:nowIso, lastUpdatedBy:byName
+  }).then(function(){
+    if(req){ if(!req.updates)req.updates=[]; req.updates.push(entry); req.lastUpdatedAt=nowIso; req.lastUpdatedBy=byName; }
+    showToast('Update added');
+    renderMyHouses();
+    renderSupplyReqs();
+  }).catch(function(){showToast('Error adding update');});
+}
+
+// ── QC: full Details parity with the QC Log (issue status itself is still
+// edited from the Issues tab -- same as the main QC Log's own "View issues in
+// Open Issues" link -- since a QC-found issue is a regular property_issues
+// record that already has its own editable row there). ──
+function myHousesQCSectionHtml(list){
+  if(!list.length) return '<div class="mh-empty">No QC inspections match these filters.</div>';
+  var sorted=list.slice().sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');});
+  var inner='<div class="tbl-wrap"><table class="mh-table"><thead><tr><th>House</th><th>Checked By</th><th>Date</th><th>Status</th><th></th></tr></thead><tbody>';
+  sorted.forEach(function(i){
+    var hasIssues=(i.issuesFound||0)>0;
+    var issueList=i.issues||[];
+    var mgrNotes=(i.managerNotes||'').trim();
+    var maintNotes=(i.maintenanceNotes||'').trim();
+    var opsNotes=(i.opsMaintenanceNotes||'').trim();
+    var qcUpdates=i.updates||[];
+    var qcIsResolved=!!i.resolved;
+    var hasQuantities=(i.quantityItems||[]).length>0;
+    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||qcIsResolved||qcUpdates.length>0||hasQuantities;
+    var photos=normalizePhotoUrls(i.photoUrls,'myHousesQC:'+i.id);
+    var safeId='mhqc'+i.id.replace(/[^a-zA-Z0-9]/g,'');
+    inner+='<tr>';
+    inner+='<td data-label="House" class="mh-house-cell">'+esc(i.property||'')+'</td>';
+    inner+='<td data-label="Checked By">'+esc(i.inspector||'')+'</td>';
+    inner+='<td data-label="Date" style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td>';
+    inner+='<td data-label="Status">'+(hasIssues?'<span class="badge b-issue">'+i.issuesFound+' Issue'+(i.issuesFound!==1?'s':'')+'</span>':'<span class="badge b-clear">All Clear</span>')+'</td>';
+    if(hasDetails){
+      inner+='<td data-label=""><button class="details-btn'+(hasIssues?'':' no-issues')+'" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
+    } else {
+      inner+='<td data-label=""><span class="no-photo">&mdash;</span></td>';
+    }
+    inner+='</tr>';
+    if(hasDetails){
+      inner+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="5">';
+      if(photos.length){
+        inner+='<div class="insp-detail-heading">&#128247; Photos</div><div class="insp-issue-photos">';
+        photos.forEach(function(url){inner+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
+        inner+='</div>';
+      }
+      if(hasIssues){
+        inner+='<div class="insp-detail-heading">&#128295; '+buildIssueStatusSummary(issueList,i.id)+'</div>';
+        issueList.forEach(function(x,xi){
+          var xPhotos=normalizePhotoUrls(x.photos,'myHousesQC:'+i.id+':issue');
+          var xKey=x.key||('legacyidx_'+xi);
+          var tiedIssue=findTiedIssue(i.id,xKey);
+          inner+='<div class="insp-issue-item"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div></div>'+issueStatusBadgeHtml(tiedIssue)+'</div>';
+          if(x.notes)inner+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
+          if(xPhotos.length){
+            inner+='<div class="insp-issue-photos">';
+            xPhotos.forEach(function(url){inner+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
+            inner+='</div>';
+          }
+          inner+='</div>';
+        });
+        inner+='<button class="view-in-openissues-btn" onclick="setMyHousesActivityTab(\'openissues\')">Resolve in the Issues tab &rarr;</button>';
+      }
+      if(mgrNotes) inner+='<div class="insp-detail-heading">&#128221; Manager Notes</div><div class="insp-notes-block">'+esc(mgrNotes).replace(/\n/g,'<br>')+'</div>';
+      if(maintNotes) inner+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
+      inner+=maintNotesPhotosHtml(i);
+      inner+=opsMaintenanceBlockHtml(i);
+      inner+=quantityItemsBlockHtml(i);
+      if(hasIssues||qcIsResolved||qcUpdates.length){
+        inner+='<div class="insp-detail-heading">&#128295; Overall Resolution</div>';
+        if(qcIsResolved){
+          inner+='<div class="insp-resolved-banner">&#9989; Resolved &mdash; every issue on this inspection is Resolved or Dismissed</div>';
+        } else if(hasIssues){
+          inner+='<div class="insp-unresolved-banner">&#9888;&#65039; Not yet resolved &mdash; one or more issues are still Open or In Progress.</div>';
+        }
+        var qcUpdHtml='';
+        qcUpdates.forEach(function(u){qcUpdHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
+        inner+='<div class="updates-log">'+(qcUpdHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
+        inner+='<div class="add-update-row"><input type="text" id="insp-note-'+safeId+'" placeholder="Add an inspection-level note&hellip;"><button onclick="addMyHousesQCInspUpdate(\''+i.id+'\',\''+safeId+'\')">+ Add</button></div>';
+      }
+      inner+='</td></tr>';
+    }
+  });
+  inner+='</tbody></table></div>';
+  return inner;
+}
+// Mirrors addQCInspUpdate (QC Log) -- identical write against the same
+// inspections doc, just via 'mhqc' prefixed input ids.
+function addMyHousesQCInspUpdate(docId,safeId){
+  var input=document.getElementById('insp-note-'+safeId);
+  var text=(input&&input.value||'').trim();
+  if(!text)return;
+  var now=new Date();
+  var entry={text:text,by:currentUser.name,date:now.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
+  db.collection('inspections').doc(docId).update({updates:firebase.firestore.FieldValue.arrayUnion(entry)}).then(function(){
+    var insp=_insp.find(function(x){return x.id===docId;});
+    if(insp){ if(!insp.updates)insp.updates=[]; insp.updates.push(entry); }
+    showToast('Update added');
+    renderMyHouses();
+    renderQCLog();
+  }).catch(function(){showToast('Error adding update');});
+}
+
+// ── Seasonal: full parity with Seasonal Inspections' own per-issue status
+// controls (Spring/Fall/Kitchen Inv/Linen Inv issues are excluded from Open
+// Issues and have always been edited here, not in the Issues tab -- see
+// isOpenIssuesEligible()). ──
+function myHousesSeasonalSectionHtml(list){
+  if(!list.length) return '<div class="mh-empty">No seasonal inspections match these filters.</div>';
+  var sorted=list.slice().sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');});
+  var inner='<div class="tbl-wrap"><table class="mh-table"><thead><tr><th>House</th><th>Type</th><th>Date</th><th>Inspector</th><th>Status</th><th></th></tr></thead><tbody>';
+  sorted.forEach(function(i){
+    var issueList=i.issues||[];
+    var hasIssues=i.issuesFound>0;
+    var mgrNotes=(i.managerNotes||'').trim();
+    var maintNotes=(i.maintenanceNotes||'').trim();
+    var opsNotes=(i.opsMaintenanceNotes||'').trim();
+    var updates=i.updates||[];
+    var isResolved=!!i.resolved;
+    var hasQuantities=(i.quantityItems||[]).length>0;
+    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||isResolved||updates.length>0||hasQuantities;
+    var photos=normalizePhotoUrls(i.photoUrls,'myHousesSeasonal:'+i.id);
+    var safeId='mhsea'+i.id.replace(/[^a-zA-Z0-9]/g,'');
+    inner+='<tr>';
+    inner+='<td data-label="House" class="mh-house-cell">'+esc(i.property||'')+'</td>';
+    inner+='<td data-label="Type"><span class="badge b-ok">'+esc(TYPE_LABELS[i.formType]||i.formType||'')+'</span></td>';
+    inner+='<td data-label="Date" style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td>';
+    inner+='<td data-label="Inspector">'+esc(i.inspector||'')+'</td>';
+    inner+='<td data-label="Status">'+(hasIssues?'<span class="badge b-issue">'+i.issuesFound+' Issue'+(i.issuesFound!==1?'s':'')+'</span>':'<span class="badge b-clear">All Clear</span>')+'</td>';
+    if(hasDetails){
+      inner+='<td data-label=""><button class="details-btn'+(hasIssues?'':' no-issues')+'" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
+    } else {
+      inner+='<td data-label=""><span class="no-photo">&mdash;</span></td>';
+    }
+    inner+='</tr>';
+    if(hasDetails){
+      inner+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="6">';
+      if(photos.length){
+        inner+='<div class="insp-detail-heading">&#128247; Photos</div><div class="insp-issue-photos">';
+        photos.forEach(function(url){inner+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
+        inner+='</div>';
+      }
+      if(hasIssues){
+        inner+='<div class="insp-detail-heading">&#128295; '+buildIssueStatusSummary(issueList,i.id)+'</div>';
+        inner+='<div style="font-size:11.5px;color:var(--dark-gray);margin:-4px 0 8px">Seasonal issues are tracked here, not in Open Issues — update each item\'s status and add a resolution note directly below.</div>';
+        issueList.forEach(function(x,xi){
+          var xPhotos=normalizePhotoUrls(x.photos,'myHousesSeasonal:'+i.id+':issue');
+          var xKey=x.key||('legacyidx_'+xi);
+          var isSupplyIssue=(x.section==='Supply Check'||x.section==='Supply Inventory');
+          var issSafeId=safeId+'_'+xi;
+          inner+='<div class="insp-issue-item"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div></div>';
+          if(isSupplyIssue){
+            inner+='<span class="badge b-ok" title="Supply needs are tracked in the Supply Inventory tab, not here.">&#128230; In Supply Inventory Log</span></div>';
+            if(x.notes)inner+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
+            if(xPhotos.length){
+              inner+='<div class="insp-issue-photos">';
+              xPhotos.forEach(function(url){inner+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
+              inner+='</div>';
+            }
+            inner+='</div>';
+            return;
+          }
+          var tied=findTiedIssue(i.id,xKey);
+          inner+=issueStatusBadgeHtml(tied)+'</div>';
+          if(x.notes)inner+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
+          if(x.charge>0)inner+='<div class="insp-issue-charge">Charge: $'+Number(x.charge).toFixed(2)+'</div>';
+          if(xPhotos.length){
+            inner+='<div class="insp-issue-photos">';
+            xPhotos.forEach(function(url){inner+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
+            inner+='</div>';
+          }
+          if(tied){
+            inner+='<div style="display:flex;align-items:center;gap:8px;margin:8px 0 4px;flex-wrap:wrap"><span style="font-size:11.5px;font-weight:700;color:var(--dark-gray)">Status:</span>'+
+              '<select id="mhsea-sel-'+issSafeId+'" style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:4px 8px;font-size:12px" onchange="stageMyHousesSeasonalIssueStatusChange(\''+issSafeId+'\',this.value)">'+
+              '<option value="open"'+(tied.status==='open'||!tied.status?' selected':'')+'>Open</option>'+
+              '<option value="in_progress"'+(tied.status==='in_progress'?' selected':'')+'>In Progress</option>'+
+              '<option value="resolved"'+(tied.status==='resolved'?' selected':'')+'>Resolved</option>'+
+              '<option value="dismissed"'+(tied.status==='dismissed'?' selected':'')+'>Dismissed / Not an Issue</option>'+
+              '</select></div>';
+            inner+='<div class="status-confirm-panel" id="mhsea-confirm-'+issSafeId+'" style="display:none">'+
+              '<div style="font-size:12px;color:var(--dark-gray)">Changing status to <strong id="mhsea-confirm-label-'+issSafeId+'"></strong>. Add an optional resolution note:</div>'+
+              '<textarea id="mhsea-confirm-note-'+issSafeId+'" placeholder="Optional note…"></textarea>'+
+              '<div class="sc-btns"><button class="sc-confirm" onclick="confirmMyHousesSeasonalIssueStatusChange(\''+tied.id+'\',\''+issSafeId+'\')">Confirm</button><button class="sc-cancel" onclick="cancelMyHousesSeasonalIssueStatusChange(\''+issSafeId+'\',\''+(tied.status||'open')+'\')">Cancel</button></div>'+
+              '</div>';
+            var seaUpdates=tied.updates||[];
+            var seaUpdHtml='';
+            seaUpdates.forEach(function(u){seaUpdHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
+            inner+='<div class="updates-log">'+(seaUpdHtml||'<div style="font-size:11.5px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
+            inner+='<div class="add-update-row"><input type="text" id="mhsea-note-'+issSafeId+'" placeholder="Add an update&hellip;"><button onclick="addMyHousesSeasonalIssueUpdate(\''+tied.id+'\',\''+issSafeId+'\')">+ Add</button></div>';
+          }
+          inner+='</div>';
+        });
+      }
+      if(mgrNotes) inner+='<div class="insp-detail-heading">&#128221; Manager Notes</div><div class="insp-notes-block">'+esc(mgrNotes).replace(/\n/g,'<br>')+'</div>';
+      if(maintNotes) inner+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
+      inner+=maintNotesPhotosHtml(i);
+      inner+=opsMaintenanceBlockHtml(i);
+      inner+=quantityItemsBlockHtml(i);
+      if(isResolved||updates.length){
+        inner+='<div class="insp-detail-heading">&#128295; Overall Resolution</div>';
+        if(isResolved){
+          inner+='<div class="insp-resolved-banner">&#9989; Resolved &mdash; every issue on this inspection is Resolved or Dismissed</div>';
+        } else if(hasIssues){
+          inner+='<div class="insp-unresolved-banner">&#9888;&#65039; Not yet resolved &mdash; one or more issues are still Open or In Progress.</div>';
+        }
+        var updHtml='';
+        updates.forEach(function(u){updHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
+        inner+='<div class="updates-log">'+(updHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
+        inner+='<div class="add-update-row"><input type="text" id="insp-note-'+safeId+'" placeholder="Add an inspection-level note&hellip;"><button onclick="addMyHousesSeasonalInspUpdate(\''+i.id+'\',\''+safeId+'\')">+ Add</button></div>';
+      }
+      inner+='</td></tr>';
+    }
+  });
+  inner+='</tbody></table></div>';
+  return inner;
+}
+// Mirrors stageSeasonalIssueStatusChange/cancelSeasonalIssueStatusChange/
+// confirmSeasonalIssueStatusChange (Seasonal Inspections tab) exactly, just
+// against 'mhsea-' prefixed element ids so both can coexist in the DOM at
+// once. The write still goes through the one shared setPropertyIssueStatus().
+function stageMyHousesSeasonalIssueStatusChange(issSafeId,newStatus){
+  var panel=document.getElementById('mhsea-confirm-'+issSafeId);
+  var label=document.getElementById('mhsea-confirm-label-'+issSafeId);
+  if(!panel)return;
+  panel.setAttribute('data-pending-status',newStatus);
+  if(label)label.textContent=STATUS_DISPLAY_NAMES[newStatus]||newStatus;
+  panel.style.display='flex';
+}
+function cancelMyHousesSeasonalIssueStatusChange(issSafeId,prevStatus){
+  var sel=document.getElementById('mhsea-sel-'+issSafeId);
+  var panel=document.getElementById('mhsea-confirm-'+issSafeId);
+  if(sel)sel.value=prevStatus;
+  if(panel)panel.style.display='none';
+}
+function confirmMyHousesSeasonalIssueStatusChange(docId,issSafeId){
+  var panel=document.getElementById('mhsea-confirm-'+issSafeId);
+  var newStatus=panel?panel.getAttribute('data-pending-status'):null;
+  if(!newStatus)return;
+  var noteInput=document.getElementById('mhsea-confirm-note-'+issSafeId);
+  var note=(noteInput&&noteInput.value||'').trim();
+  setPropertyIssueStatus(docId,newStatus,note);
+}
+function addMyHousesSeasonalIssueUpdate(docId,issSafeId){
+  var input=document.getElementById('mhsea-note-'+issSafeId);
+  var text=(input&&input.value||'').trim();
+  if(!text)return;
+  var now=new Date();
+  var entry={text:text,by:currentUser.name,date:now.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
+  db.collection('property_issues').doc(docId).update({updates:firebase.firestore.FieldValue.arrayUnion(entry)}).then(function(){
+    var iss=_propIssues.find(function(x){return x.id===docId;});
+    if(iss){ if(!iss.updates)iss.updates=[]; iss.updates.push(entry); }
+    showToast('Update added');
+    renderMyHouses();
+    renderSeasonal();
+  }).catch(function(){showToast('Error adding update');});
+}
+// Mirrors addInspUpdate/addQCInspUpdate (inspection-level "Overall Resolution"
+// note) -- identical write against the same inspections doc, just via
+// 'mhsea'-prefixed input ids so it never collides with the Seasonal
+// Inspections tab's own copy of the same inspection row.
+function addMyHousesSeasonalInspUpdate(docId,safeId){
+  var input=document.getElementById('insp-note-'+safeId);
+  var text=(input&&input.value||'').trim();
+  if(!text)return;
+  var now=new Date();
+  var entry={text:text,by:currentUser.name,date:now.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
+  db.collection('inspections').doc(docId).update({updates:firebase.firestore.FieldValue.arrayUnion(entry)}).then(function(){
+    var insp=_insp.find(function(x){return x.id===docId;});
+    if(insp){ if(!insp.updates)insp.updates=[]; insp.updates.push(entry); }
+    showToast('Update added');
+    renderMyHouses();
+    renderSeasonal();
+  }).catch(function(){showToast('Error adding update');});
+}
+
+// ── Complaints: full parity with the Complaints tab's own resolve/verify/
+// update UI. Mark Resolved and Verified By write directly through the exact
+// same toggleResolved()/saveVerified() functions the main Complaints tab
+// uses (neither one is keyed by array position, so they're safe to call
+// as-is from here) -- only the Updates log/add-update needs its own
+// 'mhcp'-prefixed copy, since the main tab's addUpdate() is keyed by a
+// dropdown-position index that doesn't carry over to this scoped list. ──
+function myHousesComplaintsSectionHtml(list){
+  if(!list.length) return '<div class="mh-empty">No complaints match these filters.</div>';
+  var sorted=list.slice().sort(function(a,b){return (b.submittedAt||b.date||'').localeCompare(a.submittedAt||a.date||'');});
+  var inner='';
+  sorted.forEach(function(c){
+    var safeId='mhcp'+String(c.id).replace(/[^a-zA-Z0-9]/g,'');
+    var resolvedBadge=c.resolved?'<span class="badge b-clear" style="margin-left:8px">Resolved ✓</span>':'<span class="badge b-issue" style="margin-left:8px">Open</span>';
+    var notifiedBadge=c.notified?'<span class="notified-badge" style="margin-left:6px">Operations Contact Notified 📧</span>':'';
+    var vbOpts='<option value="">— Select —</option>';
+    (typeof VERIFIED_BY!=='undefined'?VERIFIED_BY:[]).forEach(function(v){vbOpts+='<option value="'+esc(v)+'"'+(c.verifiedBy===v?' selected':'')+'>'+esc(v)+'</option>';});
+    var updates=c.updates||[];
+    var updHtml='';
+    updates.forEach(function(u){updHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' · '+esc(u.date)+'</div></div>';});
+    inner+='<div class="complaint-row">';
+    inner+='<div class="complaint-row-hdr" onclick="toggleCRow(\'mhcp-body-'+safeId+'\')">';
+    inner+='<div style="flex:1"><div class="c-prop">'+esc(c.property)+'</div><div class="c-meta">'+esc(c.date||'')+' · '+esc(c.category||'')+' · Submitted by '+esc(c.submittedBy||'')+'</div></div>';
+    inner+=resolvedBadge+notifiedBadge;
+    inner+='<span style="margin-left:10px;color:var(--dark-gray);font-size:18px">›</span>';
+    inner+='</div>';
+    inner+='<div class="c-body" id="mhcp-body-'+safeId+'">';
+    inner+='<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--dark-gray);margin-bottom:6px;letter-spacing:.5px">Operations Contact: '+esc(c.manager||'')+'</div>';
+    inner+='<div class="c-complaint-text">'+esc(c.complaint||'')+'</div>';
+    inner+='<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">Updates</div>';
+    inner+='<div class="updates-log" id="mhcp-ul-'+safeId+'">'+(updHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
+    inner+='<div class="add-update-row"><input type="text" id="mhcp-ui-'+safeId+'" placeholder="Add an update…"><button onclick="addMyHousesComplaintUpdate(\''+c.id+'\',\''+safeId+'\')">+ Add</button></div>';
+    inner+='<div class="resolved-row">';
+    inner+='<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer"><input type="checkbox" class="res-check" '+(c.resolved?'checked':'')+' onchange="toggleResolved(\''+c.id+'\',this.checked)"> Mark Resolved</label>';
+    inner+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:700;color:var(--dark-gray)">Verified by:</span><select style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px" onchange="saveVerified(\''+c.id+'\',this.value)">'+vbOpts+'</select></div>';
+    inner+='</div>';
+    inner+='</div></div>';
+  });
+  return inner;
+}
+// Mirrors addUpdate() (Complaints tab) -- identical write against the same
+// complaints doc, just via 'mhcp'-prefixed input/log ids so a complaint open
+// in both the Complaints tab and My Houses at once never collides.
+function addMyHousesComplaintUpdate(docId,safeId){
+  var input=document.getElementById('mhcp-ui-'+safeId);
+  var text=(input&&input.value||'').trim();
+  if(!text)return;
+  var now=new Date();
+  var entry={text:text,by:currentUser.name,date:now.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
+  db.collection('complaints').doc(docId).update({updates:firebase.firestore.FieldValue.arrayUnion(entry)}).then(function(){
+    input.value='';
+    showToast('Update added');
+    loadComplaints();
   }).catch(function(){showToast('Error adding update');});
 }
 
@@ -1284,6 +2135,72 @@ function renderProductivity(){
   document.getElementById('pr-issues').textContent=totalIssues;
   document.getElementById('pr-avgelapsed').textContent=avgElapsed===null?'—':fmtElapsed(avgElapsed);
   document.getElementById('pr-props').textContent=propsCovered;
+
+  // Per-Operations-Contact summary cards -- one per currently-active contact
+  // (ACTIVE_OPERATIONS_CONTACTS, trimmed down from the full historical
+  // MANAGERS list so this row doesn't get crowded with contacts no longer
+  // actively assigned new work -- see that array's own comment). Same date/
+  // property filters as the detail table below, but deliberately NOT the
+  // Operations Contact filter itself, so every active contact's card stays
+  // visible (and clickable) even once one is selected -- clicking a card
+  // drives the very same #pr-mgr filter a manager could type/select by hand.
+  // Every active contact always gets a card, even with zero matching
+  // inspections, so a manager can spot a contact with no recent activity at a
+  // glance instead of that gap being invisible. Pure read/grouping of data
+  // already loaded for the rest of this tab (and, for Resolved, the same
+  // property_issues data Open Issues/My Houses already read) -- nothing new
+  // is collected and nothing is written.
+  var inspListForCards=(_insp||[]).filter(function(i){
+    if(dateFrom && (i.submittedAt||'').slice(0,10) < dateFrom) return false;
+    if(dateTo && (i.submittedAt||'').slice(0,10) > dateTo) return false;
+    if(prop && !(i.property||'').toLowerCase().includes(prop)) return false;
+    return true;
+  });
+  // Resolved counts every issue type (QC, Spot Check, Check-In/Out, B2B, AND
+  // Spring/Fall/Kitchen/Linen Inventory) -- a fuller picture of a contact's
+  // resolved work than the Open Issues tab alone, which deliberately excludes
+  // the seasonal types since those have their own tracking elsewhere.
+  var propIssuesForCards=(_propIssues||[]).filter(function(x){
+    if(dateFrom && (x.reportedAt||'').slice(0,10) < dateFrom) return false;
+    if(dateTo && (x.reportedAt||'').slice(0,10) > dateTo) return false;
+    if(prop && !(x.property||'').toLowerCase().includes(prop)) return false;
+    return true;
+  });
+  var contactArr=ACTIVE_OPERATIONS_CONTACTS.map(function(name){
+    var propNames={}; propertiesForContact(name).forEach(function(p){propNames[p.name]=1;});
+    var theirInsp=inspListForCards.filter(function(i){return propNames[i.property];});
+    var theirIssueDocs=propIssuesForCards.filter(function(x){return propNames[x.property];});
+    var issuesTotal=theirInsp.reduce(function(s,i){return s+(i.issuesFound||0);},0);
+    var resolvedTotal=theirIssueDocs.filter(function(x){return x.status==='resolved';}).length;
+    var elapsed=theirInsp.map(function(i){return elapsedMinutes(i.startTime,i.endTime);}).filter(function(m){return m!==null;});
+    var avg=elapsed.length?Math.round(elapsed.reduce(function(a,b){return a+b;},0)/elapsed.length):null;
+    return {name:name,count:theirInsp.length,issues:issuesTotal,resolved:resolvedTotal,avgElapsed:avg};
+  });
+  contactArr.sort(function(a,b){return b.count-a.count || a.name.localeCompare(b.name);});
+  var maxCount=contactArr.length?contactArr[0].count:0;
+  var cardsEl=document.getElementById('productivityContactCards');
+  if(!contactArr.length){
+    cardsEl.innerHTML='<div class="empty">No active Operations Contacts configured</div>';
+  } else {
+    var cardsHtml='';
+    contactArr.forEach(function(c,idx){
+      var isActive=mgrF && mgrF===c.name;
+      var pct=maxCount?Math.round((c.count/maxCount)*100):0;
+      var crown=(idx===0 && c.count>0)?'🏆 ':'';
+      cardsHtml+='<div class="staff-card'+(isActive?' active':'')+'" data-name="'+esc(c.name)+'" onclick="setProductivityContactFilter(this.getAttribute(\'data-name\'))" title="Click to filter the log below to '+esc(c.name)+(isActive?' — click again to clear':'')+'">'
+        +'<div class="sc-name">'+crown+esc(c.name)+'</div>'
+        +'<div class="sc-stats">'
+          +'<div class="sc-stat"><b>'+c.count+'</b>Inspections</div>'
+          +'<div class="sc-stat"><b style="color:'+(c.issues>0?'var(--red)':'inherit')+'">'+c.issues+'</b>Issues</div>'
+          +'<div class="sc-stat"><b>'+c.resolved+'</b>Resolved</div>'
+          +'<div class="sc-stat"><b>'+(c.avgElapsed===null?'—':fmtElapsed(c.avgElapsed))+'</b>Avg Time</div>'
+        +'</div>'
+        +'<div class="sc-bar"><div class="sc-bar-fill" style="width:'+pct+'%"></div></div>'
+      +'</div>';
+    });
+    cardsEl.innerHTML=cardsHtml;
+  }
+
   if(!list.length){document.getElementById('productivityTable').innerHTML='<div class="empty">No inspections match these filters</div>';return;}
   var html='<table><thead><tr><th>Date</th><th>Performed By</th><th>Type</th><th>Property</th><th>Operations Contact</th><th>Elapsed Time (Start&rarr;End)</th><th>Issues Found</th></tr></thead><tbody>';
   list.slice().sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');}).forEach(function(i){
@@ -1305,6 +2222,16 @@ function renderProductivity(){
   });
   html+='</tbody></table>';
   document.getElementById('productivityTable').innerHTML=html;
+}
+// Clicking a per-Operations-Contact summary card filters the detail table
+// below to that contact's properties by driving the existing #pr-mgr <select>
+// (the same Operations Contact filter already on this tab) -- clicking the
+// already-active card clears it.
+function setProductivityContactFilter(name){
+  var sel=document.getElementById('pr-mgr');
+  if(!sel) return;
+  sel.value=(sel.value===name)?'':name;
+  renderProductivity();
 }
 
 function renderInspLog(){
@@ -2145,7 +3072,7 @@ function backfillSpotCheckPropertyIssues(){
     if(idx>=workItems.length){
       showToast(created+' issue'+(created!==1?'s':'')+' backfilled'+(failed?', '+failed+' failed':'')+'.');
       loadData().then(function(){
-        document.getElementById('lastSyncedText').textContent='Last synced: '+fmtDateTime(new Date().toISOString());
+        updateLastSyncedDisplays();
       }).catch(function(){});
       return;
     }
@@ -2404,6 +3331,10 @@ function setSupplyRequestStatus(docId,newStatus,note){
     }
     showToast('Supply request marked '+(SUPPLY_STATUS_DISPLAY_NAMES[newStatus]||newStatus));
     renderSupplyReqs();
+    // My Houses has its own editable copy of this same request's row (see
+    // myHousesSupplySectionHtml()) -- re-render so a change made from either
+    // screen is reflected in both immediately.
+    renderMyHouses();
   }).catch(function(){showToast('Error updating supply request');});
 }
 function addSupplyRequestUpdate(docId,safeId){
@@ -2421,6 +3352,7 @@ function addSupplyRequestUpdate(docId,safeId){
     if(req){ if(!req.updates)req.updates=[]; req.updates.push(entry); req.lastUpdatedAt=nowIso; req.lastUpdatedBy=byName; }
     showToast('Update added');
     renderSupplyReqs();
+    renderMyHouses();
   }).catch(function(){showToast('Error adding update');});
 }
 
@@ -2594,7 +3526,7 @@ var EJS_KEY='Tzh2b9SuxvmSJIcNj';
 emailjs.init(EJS_KEY);
 
 // ── COMPLAINTS ────────────────────────────────────────────────────────────────
-var VERIFIED_BY=['Pat Hall','Trevor Simons','Tina Geilenfeldt','Kelly Dietz','Jennifer Suter','Christina Cifelli'];
+var VERIFIED_BY=['Pat Hall','Trevor Dimino-Simons','Tina Geilenfeldt','Kelly Dietz','Jennifer Suter','Christina Cifelli'];
 var _complaints=[];
 var _cFilter='all';
 
@@ -2758,6 +3690,12 @@ function addInspUpdate(docId,safeId){
     if(insp){ if(!insp.updates)insp.updates=[]; insp.updates.push(entry); }
     showToast('Update added');
     renderInspLog();
+    // This same function is also called from Seasonal Inspections' and My
+    // Houses' own "Overall Resolution" blocks (both show the identical
+    // inspection-level updates log) -- re-render those too so a note added
+    // from any of the three screens shows up on all of them immediately.
+    renderSeasonal();
+    renderMyHouses();
   }).catch(function(){showToast('Error adding update');});
 }
 
@@ -2782,6 +3720,7 @@ function addQCInspUpdate(docId,safeId){
     if(insp){ if(!insp.updates)insp.updates=[]; insp.updates.push(entry); }
     showToast('Update added');
     renderQCLog();
+    renderMyHouses();
   }).catch(function(){showToast('Error adding update');});
 }
 
