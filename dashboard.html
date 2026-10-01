@@ -345,9 +345,6 @@ tr:hover td{background:#fafbfe}
             <select id="pr-mgr" onchange="renderProductivity()"><option value="">All Operations Contacts</option></select>
           </div>
         </div>
-        <div style="margin:0 18px 14px;padding:12px 14px;background:#FFF8E1;border:1px solid #F0D98C;border-radius:8px;font-size:12px;color:#6b5900;line-height:1.5">
-          ⚠️ <strong>Client-side restriction only.</strong> This tab is hidden from accounts that aren't Manager or Admin within the app's UI, but there are no Firestore Security Rules anywhere in this project enforcing that restriction at the database level — a technical user could still query Firestore directly from a browser console. Adding real Security Rules to actually enforce this server-side is recommended as separate follow-up work.
-        </div>
         <div class="stats-row stats-row-compact">
           <div class="stat-card"><div class="stat-num" id="pr-total">—</div><div class="stat-lbl">Inspections in Range</div></div>
           <div class="stat-card"><div class="stat-num" id="pr-issues">—</div><div class="stat-lbl">Issues Found</div></div>
