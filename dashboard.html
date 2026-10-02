@@ -2141,12 +2141,22 @@ function renderProductivity(){
   // MANAGERS list so this row doesn't get crowded with contacts no longer
   // actively assigned new work -- see that array's own comment). Same date/
   // property filters as the detail table below, but deliberately NOT the
-  // Operations Contact filter itself, so every active contact's card stays
-  // visible (and clickable) even once one is selected -- clicking a card
-  // drives the very same #pr-mgr filter a manager could type/select by hand.
-  // Every active contact always gets a card, even with zero matching
-  // inspections, so a manager can spot a contact with no recent activity at a
-  // glance instead of that gap being invisible. Pure read/grouping of data
+  // Staff filter itself, so every active contact's card stays visible (and
+  // clickable) even once one is selected -- clicking a card drives the
+  // existing #pr-staff filter a manager could type/select by hand. Every
+  // active contact always gets a card, even with zero matching inspections,
+  // so a manager can spot a contact with no recent activity at a glance
+  // instead of that gap being invisible.
+  //
+  // Per explicit user feedback (2026-10-02): Inspections and Avg Time are
+  // PERFORMER numbers -- every inspection this person actually carried out
+  // that day (matched on i.inspector), at ANY property, including ones that
+  // aren't their own assigned homes (e.g. covering someone else's route) --
+  // so a manager can see where someone actually was and how much ground they
+  // covered. Issues and Resolved stay PROPERTY-OWNERSHIP numbers, scoped only
+  // to the homes assigned to this contact (propertiesForContact), regardless
+  // of who personally performed the inspection that found or resolved the
+  // issue -- unchanged from before this feedback. Pure read/grouping of data
   // already loaded for the rest of this tab (and, for Resolved, the same
   // property_issues data Open Issues/My Houses already read) -- nothing new
   // is collected and nothing is written.
@@ -2168,13 +2178,19 @@ function renderProductivity(){
   });
   var contactArr=ACTIVE_OPERATIONS_CONTACTS.map(function(name){
     var propNames={}; propertiesForContact(name).forEach(function(p){propNames[p.name]=1;});
-    var theirInsp=inspListForCards.filter(function(i){return propNames[i.property];});
+    // Performed: this person was the inspector, wherever that inspection
+    // happened to be -- drives Inspections + Avg Time.
+    var performedInsp=inspListForCards.filter(function(i){return i.inspector===name;});
+    // Assigned: the inspection happened at one of THIS contact's own homes,
+    // regardless of who performed it -- drives Issues (and, via
+    // propIssuesForCards below, Resolved).
+    var assignedInsp=inspListForCards.filter(function(i){return propNames[i.property];});
     var theirIssueDocs=propIssuesForCards.filter(function(x){return propNames[x.property];});
-    var issuesTotal=theirInsp.reduce(function(s,i){return s+(i.issuesFound||0);},0);
+    var issuesTotal=assignedInsp.reduce(function(s,i){return s+(i.issuesFound||0);},0);
     var resolvedTotal=theirIssueDocs.filter(function(x){return x.status==='resolved';}).length;
-    var elapsed=theirInsp.map(function(i){return elapsedMinutes(i.startTime,i.endTime);}).filter(function(m){return m!==null;});
+    var elapsed=performedInsp.map(function(i){return elapsedMinutes(i.startTime,i.endTime);}).filter(function(m){return m!==null;});
     var avg=elapsed.length?Math.round(elapsed.reduce(function(a,b){return a+b;},0)/elapsed.length):null;
-    return {name:name,count:theirInsp.length,issues:issuesTotal,resolved:resolvedTotal,avgElapsed:avg};
+    return {name:name,count:performedInsp.length,issues:issuesTotal,resolved:resolvedTotal,avgElapsed:avg};
   });
   contactArr.sort(function(a,b){return b.count-a.count || a.name.localeCompare(b.name);});
   var maxCount=contactArr.length?contactArr[0].count:0;
@@ -2184,10 +2200,10 @@ function renderProductivity(){
   } else {
     var cardsHtml='';
     contactArr.forEach(function(c,idx){
-      var isActive=mgrF && mgrF===c.name;
+      var isActive=staff && staff===c.name;
       var pct=maxCount?Math.round((c.count/maxCount)*100):0;
       var crown=(idx===0 && c.count>0)?'🏆 ':'';
-      cardsHtml+='<div class="staff-card'+(isActive?' active':'')+'" data-name="'+esc(c.name)+'" onclick="setProductivityContactFilter(this.getAttribute(\'data-name\'))" title="Click to filter the log below to '+esc(c.name)+(isActive?' — click again to clear':'')+'">'
+      cardsHtml+='<div class="staff-card'+(isActive?' active':'')+'" data-name="'+esc(c.name)+'" onclick="setProductivityContactFilter(this.getAttribute(\'data-name\'))" title="Click to see everything '+esc(c.name)+' performed today'+(isActive?' — click again to clear':'')+'">'
         +'<div class="sc-name">'+crown+esc(c.name)+'</div>'
         +'<div class="sc-stats">'
           +'<div class="sc-stat"><b>'+c.count+'</b>Inspections</div>'
@@ -2224,11 +2240,17 @@ function renderProductivity(){
   document.getElementById('productivityTable').innerHTML=html;
 }
 // Clicking a per-Operations-Contact summary card filters the detail table
-// below to that contact's properties by driving the existing #pr-mgr <select>
-// (the same Operations Contact filter already on this tab) -- clicking the
+// below to everything THAT PERSON performed that day, by driving the
+// existing #pr-staff <select> (the same Staff filter already on this tab) --
+// not #pr-mgr (Operations Contact / property-ownership), which stays a
+// separate, independent filter a manager can still use on its own. Per
+// explicit user feedback (2026-10-02): the goal here is for management to
+// see where the operations team actually was and what they completed that
+// day, at any property -- not just the homes assigned to them -- matching
+// the same performer-based numbers the card itself now shows. Clicking the
 // already-active card clears it.
 function setProductivityContactFilter(name){
-  var sel=document.getElementById('pr-mgr');
+  var sel=document.getElementById('pr-staff');
   if(!sel) return;
   sel.value=(sel.value===name)?'':name;
   renderProductivity();
