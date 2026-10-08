@@ -2294,7 +2294,7 @@ function renderInspLog(){
     var isResolved=!!i.resolved;
     var needsResolution=(i.overallStatus==='not-ready'||i.overallStatus==='conditional');
     var hasQuantities=(i.quantityItems||[]).length>0;
-    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||needsResolution||isResolved||updates.length>0||hasQuantities;
+    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||needsResolution||isResolved||updates.length>0||hasQuantities||readyEmailShouldShow(i);
     var photos=normalizePhotoUrls(i.photoUrls,'inspLog:'+i.id);
     var photoCount=photos.length;
     var photoFailCount=i.photoUploadFailCount||0;
@@ -2359,6 +2359,7 @@ function renderInspLog(){
       }
       html+=maintNotesPhotosHtml(i);
       html+=opsMaintenanceBlockHtml(i);
+      html+=readyEmailStatusHtml(i);
       html+=quantityItemsBlockHtml(i);
       if(needsResolution||isResolved||updates.length){
         html+='<div class="insp-detail-heading">&#128295; Overall Resolution</div>';
@@ -3057,12 +3058,226 @@ function syncInspectionResolution(iss){
   if(!tied.length)return;
   var allClosed=tied.every(function(p){return p.status==='resolved'||p.status==='dismissed';});
   if(!!insp.resolved===allClosed)return;
-  db.collection('inspections').doc(insp.id).update({resolved:allClosed}).then(function(){
-    insp.resolved=allClosed;
+  // readyFlipFields(): a Not Ready Check-In/Back-to-Back whose last issue just closed
+  // becomes Ready — record when/by whom, then send the "House is ready" email once
+  // the flip is saved (no-op for every other case, incl. Check-Out/QC/Spot Check).
+  var flip=readyFlipFields(insp,allClosed);
+  db.collection('inspections').doc(insp.id).update(Object.assign({resolved:allClosed},flip)).then(function(){
+    insp.resolved=allClosed; Object.assign(insp,flip);
     renderQCLog();
     renderInspLog();
+    if(allClosed) sendReadyEmailIfNeeded(insp.id);
   }).catch(function(){});
 }
+// "House is ready" email — per-file settings for the shared block below. Same
+// Make.com webhook the inspector app (index.html HTTP_ENDPOINT) already uses.
+var READY_EMAIL_WEBHOOK = 'https://hook.us2.make.com/e84hk918jv76ces27d5eqrmqkq2875gu';
+var READY_RETRY_HINT = 'You can retry it from that inspection\'s Details in the Check-Ins/Check-Outs Log.';
+function afterReadyEmailChange(inspId, result) {
+  if (!db) return;
+  db.collection('inspections').doc(inspId).get().then(function(snap){
+    if (!snap.exists) return;
+    var insp = _insp.find(function(x){ return x.id === inspId; });
+    if (insp) { Object.assign(insp, snap.data()); renderInspLog(); }
+  }).catch(function(){});
+}
+// ── "HOUSE IS READY FOR GUESTS" EMAIL (2026-10-08) ──────────────────────────────
+// This whole block is kept IDENTICAL in index.html and dashboard.html — edit both.
+// Per-file settings live just above it: READY_EMAIL_WEBHOOK, READY_RETRY_HINT,
+// afterReadyEmailChange(inspId).
+//
+// Emails READY_EMAIL once per inspection when a Check-In or Back-to-Back
+// (Summer/Winter) becomes Ready, either:
+//   (a) submitted with Overall Status = Ready (index.html saveInspectionToFirebase), or
+//   (b) submitted Not Ready and later flipped to Ready because every tracked issue on it
+//       was Resolved/Dismissed (resolved:true — syncInspectionResolution() in the
+//       dashboard, syncMyInspectionResolution() in the app's My Inspections).
+// Called only after the Ready state is confirmed saved. Eligibility and the email
+// content are read back from the SAVED Firestore record, so a retry sends exactly
+// what the original would have.
+//
+// Duplicate prevention: a Firestore transaction claims the send (readyEmailStatus ->
+// 'sending') before the POST; only the caller that wins the claim sends.
+//   (absent)  never attempted        -> claim + send
+//   'sending' send in flight         -> skip, unless older than READY_EMAIL_STALE_MS
+//                                       (page closed mid-send) -> re-claim
+//   'sent'    delivered              -> never again (also not after reopen/re-resolve)
+//   'failed'  last attempt failed    -> retry allowed
+// Could not claim (offline etc.) -> nothing sent; shows as "not yet sent" with Retry.
+var READY_EMAIL = 'info@tluxp.com';
+var READY_EMAIL_STALE_MS = 3 * 60 * 1000;
+var READY_EMAIL_LAUNCH = '2026-10-08';
+var READY_EMAIL_TYPES = { checkin_summer: 'Check In — Summer', checkin_winter: 'Check In — Winter', b2b_summer: 'Back-to-Back — Summer', b2b_winter: 'Back-to-Back — Winter' };
+function readyWasFlipped(d) {
+  return !!d && (d.overallStatus === 'not-ready' || d.overallStatus === 'conditional') && d.resolved === true;
+}
+function isReadyEmailEligible(d) {
+  return !!d && !!READY_EMAIL_TYPES[d.formType] && (d.overallStatus === 'ready' || readyWasFlipped(d));
+}
+// Whether to show the sent / not-yet-sent line for a record. Hides it for Ready
+// inspections from before this feature existed (they were never meant to email).
+function readyEmailShouldShow(d) {
+  if (!isReadyEmailEligible(d)) return false;
+  return !!d.readyEmailStatus || !!d.readyMarkedAt || String(d.submittedAt || '') >= READY_EMAIL_LAUNCH;
+}
+function readyEmailIsSending(d) {
+  return d.readyEmailStatus === 'sending' && (Date.now() - new Date(d.readyEmailClaimedAt || 0).getTime()) < READY_EMAIL_STALE_MS;
+}
+function _readyFmtDate(d) { if (!d) return ''; var p = String(d).split('-'); return p.length === 3 ? p[1] + '/' + p[2] + '/' + p[0] : d; }
+// Same layout as the regular inspection report email (index.html emailReport()):
+// header + ==== divider, details block, Overall Status, SUMMARY line, issues grouped
+// by section with notes, notes sections, standard footer. `tracked` maps an issue's
+// key -> its property_issues record, so each issue shows its current status.
+function buildReadyEmail(d, tracked) {
+  tracked = tracked || {};
+  var div = '==================================================';
+  var formName = READY_EMAIL_TYPES[d.formType] || d.formType || '';
+  var prop = PROPERTIES.find(function(p){ return p.name === d.property; }) || null;
+  var contact = prop ? (prop.contact || prop.manager || '') : '';
+  var house = d.property || '';
+  var flipped = readyWasFlipped(d);
+  var ok = d.itemsOk || 0, issues = d.issuesFound || 0, na = d.naCount || 0;
+  var body = 'TAHOE LUXURY PROPERTIES - ' + formName.toUpperCase() + '\n' + div + '\n';
+  body += 'HOUSE IS READY FOR GUESTS\n\n';
+  body += 'Property: ' + house + '\nAddress: ' + (d.address || '') + '\n';
+  body += 'Date/Time: ' + _readyFmtDate(d.date) + (d.time ? ' at ' + d.time : '') + '\n';
+  body += 'Inspector: ' + (d.inspector || '') + '\n';
+  if (contact) body += 'Operations Contact: ' + contact + '\n';
+  if (d.startTime) body += 'Started: ' + d.startTime + '\n';
+  if (d.endTime) body += 'Completed: ' + d.endTime + '\n';
+  body += 'Overall Status: READY FOR CHECK-IN\n';
+  if (flipped) {
+    body += 'Originally Submitted: ' + (d.overallStatus === 'conditional' ? 'CONDITIONAL - NEEDS ATTENTION' : 'NOT READY FOR CHECK-IN') + '\n';
+    var when = d.readyMarkedAt ? new Date(d.readyMarkedAt).toLocaleString('en-US') : '';
+    body += 'Marked Ready: all reported issues resolved' + (when ? ' on ' + when : '') + (d.readyMarkedBy ? ' by ' + d.readyMarkedBy : '') + '\n';
+  }
+  var summary = '\nSUMMARY: ' + ok + ' OK | ' + issues + ' ISSUE' + (issues !== 1 ? 'S' : '') + ' | ' + na + ' N/A';
+  if (d.itemsTotal) summary += ' | ' + Math.max(0, d.itemsTotal - ok - issues - na) + ' not checked';
+  body += summary + '\n' + div + '\n';
+  var list = d.issues || [];
+  if (!list.length) {
+    body += '\nNo issues found. All checked items passed.\n';
+  } else {
+    var labels = { open: 'Open', in_progress: 'In Progress', resolved: 'Resolved', dismissed: 'Dismissed / Not an Issue' };
+    var bySec = {}, order = [];
+    list.forEach(function(it) {
+      var sec = it.section || 'Other';
+      var line = '  - ' + (it.text || '');
+      if (it.notes) line += '\n    Note: ' + it.notes;
+      var t = it.key ? tracked[it.key] : null;
+      if (t) {
+        line += '\n    Status: ' + (labels[t.status] || 'Open');
+        var ups = t.updates || [];
+        var lastNote = (t.status === 'dismissed' && t.dismissalNote) ? t.dismissalNote : (ups.length ? ups[ups.length - 1].text : '');
+        if (lastNote) line += '\n    Update: ' + lastNote;
+      } else if (it.isSupply) {
+        line += '\n    Status: Tracked in Supply Inventory';
+      }
+      if (!bySec[sec]) { bySec[sec] = []; order.push(sec); }
+      bySec[sec].push(line);
+    });
+    body += '\nREPORTED ISSUES\n';
+    order.forEach(function(sec){ body += '\n' + sec.toUpperCase() + '\n' + bySec[sec].join('\n') + '\n'; });
+  }
+  if ((d.maintenanceNotes || '').trim()) body += '\nMAINTENANCE NOTES\n' + d.maintenanceNotes + '\n';
+  if ((d.managerNotes || '').trim()) body += '\nMANAGER NOTES\n' + d.managerNotes + '\n';
+  if ((d.opsMaintenanceNotes || '').trim()) body += '\nMAINTENANCE ITEMS FOR OPERATIONS\n' + d.opsMaintenanceNotes + '\n';
+  body += '\n--\nSent from TLUX Inspections';
+  return { subject: house + ' — House is ready for guests', body: body };
+}
+function sendReadyEmailIfNeeded(inspectionId, onDone) {
+  function done(r) {
+    if (onDone) onDone(r);
+    if (typeof afterReadyEmailChange === 'function' && r !== 'not-eligible') afterReadyEmailChange(inspectionId, r);
+  }
+  if (!db || !inspectionId) { done('no-db'); return; }
+  var ref = db.collection('inspections').doc(inspectionId);
+  var claimId = 'c' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  var saved = null;
+  db.runTransaction(function(tx) {
+    return tx.get(ref).then(function(snap) {
+      if (!snap.exists) return 'not-saved';
+      var d = snap.data();
+      if (!isReadyEmailEligible(d)) return 'not-eligible';
+      if (d.readyEmailStatus === 'sent') return 'already-sent';
+      if (readyEmailIsSending(d)) return 'in-progress';
+      tx.update(ref, { readyEmailStatus: 'sending', readyEmailClaimedAt: new Date().toISOString(), readyEmailClaimId: claimId, readyEmailTo: READY_EMAIL });
+      saved = d;
+      return 'claimed';
+    });
+  }).then(function(result) {
+    if (result !== 'claimed') { done(result); return; }
+    function fail(msg) {
+      ref.update({ readyEmailStatus: 'failed', readyEmailError: msg }).catch(function(){});
+      showToast('⚠️ The "House is ready" email to ' + READY_EMAIL + ' failed to send (the inspection itself is saved). ' + READY_RETRY_HINT, 7000);
+      done('failed');
+    }
+    // Current status of each tracked issue (best effort — the email still goes out
+    // without per-issue status if this lookup fails).
+    db.collection('property_issues').where('sourceInspectionId', '==', inspectionId).get()
+      .then(function(s){ var m = {}; s.docs.forEach(function(x){ var v = x.data(); if (v.sourceIssueKey) m[v.sourceIssueKey] = v; }); return m; })
+      .catch(function(){ return {}; })
+      .then(function(tracked) {
+        var mail = buildReadyEmail(saved, tracked);
+        var htmlBody = String(mail.body).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g, '<br>');
+        return fetch(READY_EMAIL_WEBHOOK, {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            formType: saved.formType, emailType: 'house_ready',
+            subject: mail.subject, body: htmlBody, to: READY_EMAIL, cc: '',
+            property: saved.property || '', inspector: saved.inspector || '',
+            date: saved.date || '', overallStatus: 'ready', photos: []
+          })
+        });
+      }).then(function(r) {
+        if (r.ok || r.status === 202) {
+          ref.update({ readyEmailStatus: 'sent', readyEmailSentAt: new Date().toISOString(), readyEmailError: null })
+            .catch(function(){}).then(function(){ done('sent'); });
+        } else {
+          fail('"House is ready" email failed (HTTP ' + r.status + ').');
+        }
+      }).catch(function(e) {
+        fail('"House is ready" email failed: ' + (e && e.message ? e.message : 'network error'));
+      });
+  }).catch(function(e) {
+    console.warn('[READY-EMAIL] Could not claim send — skipping this attempt to avoid a possible duplicate.', e);
+    done('skipped-error');
+  });
+}
+// When a Not Ready / Conditional Check-In or Back-to-Back flips to resolved:true,
+// the resolution sync writes these alongside `resolved` so the email can say when
+// and by whom it became Ready.
+function readyFlipFields(insp, allClosed) {
+  if (!allClosed || !insp || !READY_EMAIL_TYPES[insp.formType] || !(insp.overallStatus === 'not-ready' || insp.overallStatus === 'conditional')) return {};
+  return { readyMarkedAt: new Date().toISOString(), readyMarkedBy: (typeof currentUser !== 'undefined' && currentUser && currentUser.name) || '' };
+}
+function retryReadyEmail(inspId, btnEl) {
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Sending…'; }
+  showToast('Retrying "House is ready" email…');
+  sendReadyEmailIfNeeded(inspId, function(result) {
+    if (result === 'sent') showToast('Sent to ' + READY_EMAIL + '!');
+    else if (result === 'already-sent') showToast('Already sent to ' + READY_EMAIL + '.');
+    else if (result === 'in-progress') showToast('A send is already in progress — check back in a few minutes.', 5000);
+    else if (result !== 'failed') showToast('Still could not send — please try again in a moment.', 5000);
+  });
+}
+// Status line + Retry button (same look in both apps' inspection details).
+function readyEmailStatusHtml(d) {
+  if (!readyEmailShouldShow(d)) return '';
+  var esc2 = function(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
+  var h = '<div class="ready-email-status" style="margin-top:8px;padding-top:8px;border-top:1px solid #e2e6ea;font-size:12px">';
+  if (d.readyEmailStatus === 'sent') {
+    h += '<div style="color:#1e7e34;font-weight:600">&#9989; &ldquo;House is ready&rdquo; emailed to ' + esc2(READY_EMAIL) + (d.readyEmailSentAt ? ' &middot; ' + esc2(new Date(d.readyEmailSentAt).toLocaleString('en-US')) : '') + '</div>';
+  } else if (readyEmailIsSending(d)) {
+    h += '<div style="color:#555;font-weight:600">&#8987; Sending &ldquo;House is ready&rdquo; email to ' + esc2(READY_EMAIL) + '&hellip;</div>';
+  } else {
+    h += '<div style="color:#c0392b;font-weight:600">&#9888; &ldquo;House is ready&rdquo; email not yet sent to ' + esc2(READY_EMAIL) + (d.readyEmailError ? ' &mdash; ' + esc2(d.readyEmailError) : '') + '</div>';
+    h += '<button onclick="retryReadyEmail(\'' + esc2(d.id) + '\',this)" style="margin-top:6px;background:#1e7e34;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Retry &ldquo;House is Ready&rdquo; Email</button>';
+  }
+  return h + '</div>';
+}
+// ── end "HOUSE IS READY" shared block ──
+
 // ── Backfill: creates tracked property_issues records for any Spot Checks missing one —
 // either an old, single-issue Spot Check submitted before the property_issues bridge
 // existed at all, or a new-format multi-issue Spot Check where one of its issues
