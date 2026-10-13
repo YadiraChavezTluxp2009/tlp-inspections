@@ -6,6 +6,7 @@
 <title>Mothership | Operations Dashboard</title>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
 :root{--navy:#063461;--blue:#2E75B6;--light-blue:#D6E4F0;--red:#CC0000;--red-light:#FDECEA;--orange:#CC6600;--orange-light:#FFF3E0;--gray:#F0F4F8;--mid-gray:#E0E0E0;--dark-gray:#555;--text:#1A1A2E;--shadow:0 2px 12px rgba(6,52,97,.10);--shadow-md:0 4px 24px rgba(6,52,97,.15);--radius:10px}
@@ -245,6 +246,90 @@ tr:hover td{background:#fafbfe}
 .insp-resolved-banner{background:#E3F5E9;color:#1E7B45;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;font-weight:700}
 .insp-unresolved-banner{background:var(--red-light);color:var(--red);border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;font-weight:700}
 .b-resolved{background:#E3F5E9;color:#1E7B45}
+/* ══ INVENTORY REPORT DETAIL VIEW (2026-10-13) — Kitchen/Linen Inventory Details panel only ══ */
+.invd{position:sticky;left:0;max-width:100%;box-sizing:border-box}
+.invd-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.invd-tabs{display:flex;gap:4px;background:var(--gray);border-radius:9px;padding:3px}
+.invd-tab{border:none;background:none;padding:6px 12px;border-radius:7px;font-size:12.5px;font-weight:700;color:var(--dark-gray);cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.invd-tab.on{background:white;color:var(--navy);box-shadow:0 1px 4px rgba(6,52,97,.15)}
+.invd-tab-n{background:var(--mid-gray);color:var(--dark-gray);border-radius:10px;padding:1px 7px;font-size:10.5px}
+.invd-tab-n.red{background:var(--red-light);color:var(--red)}
+.invd-tools{display:flex;gap:6px;flex-wrap:wrap;flex:1;justify-content:flex-end;min-width:0}
+.invd-tools input,.invd-tools select{border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px;background:white;outline:none;min-width:0}
+.invd-q{width:200px}.invd-cat{max-width:200px}
+.invd-sub{font-size:11.5px;color:var(--dark-gray);margin:0 0 6px}
+.invd-note{background:white;border-radius:6px;padding:9px 12px;font-size:12.5px;box-shadow:var(--shadow);color:var(--dark-gray)}
+.invd-note.warn{background:#FFF8E6;color:#7A4B00;border-left:3px solid var(--orange)}
+.invd-note.ok{border-left:3px solid #1E7B45}
+.invd-muted{color:#999;font-weight:400}
+.invd-table{table-layout:fixed;width:100%;background:white;border-radius:8px;box-shadow:var(--shadow);overflow:hidden;font-size:12.5px}
+.invd-table col.w-item{width:26%}.invd-table col.w-cat{width:15%}.invd-table col.w-qty{width:11%}.invd-table col.w-st{width:14%}.invd-table col.w-notes{width:26%}.invd-table col.w-ph{width:8%}
+.invd-table thead th{position:static;padding:6px 10px;font-size:10px;background:#F6F8FB}
+.invd-table th,.invd-table td{text-align:left}
+.invd-table td{padding:5px 10px;border-bottom:1px solid #f1f1f1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.invd-grp td{background:#EEF3F9!important;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--navy);cursor:pointer;padding:5px 10px;user-select:none}
+.invd-grp .chev{display:inline-block;transition:transform .15s;margin-right:4px}
+.invd-grp.closed .chev{transform:rotate(-90deg)}
+.invd-grp-n{font-weight:600;color:var(--dark-gray);text-transform:none;letter-spacing:0;margin-left:6px}
+.invd-grp-n .red,.invd-tab-n .red{color:var(--red)}
+.invd-row{cursor:pointer}
+.invd-row:focus{outline:2px solid var(--blue);outline-offset:-2px}
+.invd-row .chev{display:inline-block;color:#aaa;margin-right:5px;transition:transform .15s;font-size:10px}
+.invd-row.open .chev{transform:rotate(90deg);color:var(--navy)}
+.invd-row.open td{background:#F2F7FC}
+.invd-row.flagged td{background:#FFF6F5}
+.invd-row.flagged td.c-item{box-shadow:inset 3px 0 0 var(--red);font-weight:700}
+.invd-row.flagged.open td{background:#FDECEA}
+.invd-row .c-item{font-weight:600;color:var(--text)}
+.invd-row .c-cat,.invd-row .c-notes{color:var(--dark-gray)}
+.invd-row .c-ph{color:var(--navy);font-weight:700}
+.invd-exp td{white-space:normal;background:#FBFCFE;padding:10px 14px 12px;border-bottom:2px solid var(--mid-gray)}
+.invd-x-facts{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:12.5px}
+.invd-x-facts span{display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--dark-gray)}
+.invd-x-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--dark-gray);margin:10px 0 4px}
+.invd-x-comment{background:white;border-radius:6px;padding:7px 10px;font-size:12.5px;box-shadow:var(--shadow);white-space:pre-wrap}
+.invd-x-photos{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.invd-x-photos img{width:64px;height:64px;object-fit:cover;border-radius:6px;border:1.5px solid var(--mid-gray);cursor:zoom-in}
+.invd-x-photos img.photo-broken{display:none}
+.invd-add-ph{display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border:1.5px dashed var(--blue);border-radius:6px;color:var(--blue);font-size:11px;font-weight:700;cursor:pointer;text-align:center;background:white}
+.invd-add-ph.busy{opacity:.5;pointer-events:none}
+.invd-close{background:white;border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--dark-gray);cursor:pointer}
+.invd-addl{margin-top:10px;background:white;border-radius:6px;padding:8px 12px;font-size:12.5px;box-shadow:var(--shadow)}
+.invd-addl-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--dark-gray);margin-right:4px}
+.invd-pv{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:1100;display:none;align-items:center;justify-content:center;padding:12px}
+.invd-pv.open{display:flex}
+.invd-pv-box{background:white;border-radius:12px;width:900px;max-width:100%;max-height:100%;display:flex;flex-direction:column;overflow:hidden}
+.invd-pv-hdr{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--mid-gray)}
+.invd-pv-title{font-weight:800;color:var(--navy);font-size:14px}
+.invd-pv-n{font-size:11.5px;color:var(--dark-gray)}
+.invd-pv-link{font-size:12px;font-weight:700;color:var(--blue);text-decoration:none}
+.invd-pv-stage{position:relative;background:#111;display:flex;align-items:center;justify-content:center;min-height:200px;flex:1}
+.invd-pv-stage img{max-width:100%;max-height:calc(100vh - 110px);display:block;object-fit:contain}
+.invd-pv-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.85);border:none;border-radius:50%;width:38px;height:38px;font-size:24px;line-height:1;cursor:pointer;color:var(--navy)}
+.invd-pv-nav.prev{left:8px}.invd-pv-nav.next{right:8px}
+@media (max-width:700px){
+  .insp-detail-row td.invd-cell{padding:10px 12px}
+  .invd-tabs{width:100%}.invd-tab{flex:1;justify-content:center;padding:7px 6px}
+  .invd-tools{justify-content:stretch}.invd-q{flex:1;width:auto}.invd-cat{flex:1;max-width:none}
+  .invd-table,.invd-table tbody{display:block}
+  .invd-table thead,.invd-table colgroup{display:none}
+  .invd-table tr{display:block}
+  .invd-grp td{display:block}
+  .invd-table tr.invd-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;column-gap:8px;row-gap:1px;padding:7px 10px;border-bottom:1px solid #f1f1f1;align-items:center}
+  .invd-table tr.invd-row td{padding:0;border:none;background:none!important}
+  .invd-row.flagged{background:#FFF6F5;box-shadow:inset 3px 0 0 var(--red)}
+  .invd-row.flagged td.c-item{box-shadow:none}
+  .invd-row.open{background:#F2F7FC}
+  .invd-row .c-item{grid-column:1;white-space:normal;overflow:visible;line-height:1.25}
+  .invd-row .c-cat{display:none!important}
+  .invd-row .c-qty{grid-column:2;text-align:right}
+  .invd-row .c-st{grid-column:3;text-align:right}
+  .invd-row .c-notes{grid-column:1 / 3;grid-row:2;font-size:11.5px;padding-left:15px!important}
+  .invd-row .c-ph{grid-column:3;grid-row:2;text-align:right;font-size:11.5px}
+  .invd-row td.empty{display:none!important}
+  .invd-exp td{display:block}
+  .invd-pv-nav{width:34px;height:34px}
+}
 /* FILTERS */
 .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .filters select,.filters input{border:1.5px solid var(--mid-gray);border-radius:7px;padding:6px 10px;font-size:12px;background:white;outline:none}
@@ -1120,6 +1205,7 @@ function fmtDateTime(iso){
   return y+'-'+mo+'-'+da+' '+time;
 }
 function switchTab(name,btn){
+  setTimeout(function(){if(typeof invdFit==='function')invdFit();},0);
   // Belt-and-suspenders gate (the Productivity tab button is only ever inserted
   // into the DOM for a manager or admin in the first place — see showApp() —
   // but this blocks a forged direct call to switchTab('productivity', ...) too).
@@ -2391,6 +2477,7 @@ function toggleInspDetail(id){
   row.style.display=open?'table-row':'none';
   if(btn)btn.classList.toggle('open',open);
   if(open) _openDetailIds[id]=true; else delete _openDetailIds[id];
+  if(open&&typeof invdFit==='function')invdFit();
 }
 function reopenPreservedDetails(){
   Object.keys(_openDetailIds).forEach(function(id){
@@ -2430,7 +2517,8 @@ function renderSeasonal(){
     var updates=i.updates||[];
     var isResolved=!!i.resolved;
     var hasQuantities=(i.quantityItems||[]).length>0;
-    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||isResolved||updates.length>0||hasQuantities;
+    var isInvReport=invdIsInventory(i);
+    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||isResolved||updates.length>0||hasQuantities||isInvReport;
     var photos=normalizePhotoUrls(i.photoUrls,'seasonal:'+i.id);
     var photoCount=photos.length;
     var photoFailCount=i.photoUploadFailCount||0;
@@ -2458,8 +2546,15 @@ function renderSeasonal(){
     html+='<td style="max-width:200px;font-size:12px">'+esc((i.issues||[]).slice(0,2).map(function(x){return x.item;}).join('; '))+'</td>';
     html+='</tr>';
     if(hasDetails){
-      html+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="12">';
-      if(hasIssues){
+      html+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="12"'+(isInvReport?' class="invd-cell"':'')+'>';
+      if(isInvReport){
+        // Kitchen/Linen Inventory: compact tabbed Flagged/Full Inventory view
+        // (invdPanelHtml) in place of the stacked per-issue cards below. The
+        // per-issue status controls live inside each expanded item instead.
+        if(hasIssues)html+='<div class="insp-detail-heading">&#128295; '+buildIssueStatusSummary(issueList,i.id)+'</div>';
+        html+='<div class="invd-host">'+invdPanelHtml(i,safeId)+'</div>';
+      }
+      if(hasIssues&&!isInvReport){
         html+='<div class="insp-detail-heading">&#128295; '+buildIssueStatusSummary(issueList,i.id)+'</div>';
         html+='<div style="font-size:11.5px;color:var(--dark-gray);margin:-4px 0 8px">Seasonal issues are tracked here, not in Open Issues — update each item\'s status and add a resolution note directly below.</div>';
         issueList.forEach(function(x,xi){
@@ -2537,6 +2632,407 @@ function renderSeasonal(){
   html+='</tbody></table>';
   document.getElementById('seasonalTable').innerHTML=html;
   reopenPreservedDetails();
+  invdFit();
+}
+
+// ── INVENTORY REPORT DETAIL VIEW (2026-10-13) ────────────────────────────────
+// Compact replacement for the long stacked issue list inside a Kitchen/Linen
+// Inventory record's Details panel (Seasonal Inspections tab only — Spring/Fall
+// and every other tab keep their existing detail markup). Everything is read
+// from the SAME inspection record the row already shows:
+//   - insp.issues[]            -> the flagged items (unchanged data, unchanged
+//                                 property_issues status workflow; the status
+//                                 controls below reuse the existing sea-* ids and
+//                                 stage/confirm/addSeasonalIssueUpdate functions)
+//   - insp.inventoryItems[]    -> the full Current/Needed snapshot (saved since
+//                                 2026-09-29; key/comment/photos/flagged added
+//                                 2026-10-13). Absent/empty on older records, which
+//                                 are labeled "Full inventory unavailable" rather
+//                                 than treating missing items as inspected.
+//   - insp.itemPhotos{key}     -> inspector photos per item (positional key)
+//   - insp.inventoryItemPhotos{rowKey:[{url,by,at}]} -> photos added from the
+//                                 Mothership (new, additive field on the record)
+// UI state (tab / search / category / open item / collapsed groups) lives in
+// _invdUi keyed by inspection id so it survives renderSeasonal() re-renders
+// (e.g. after an issue status change or a data refresh).
+var INVD_TYPES=['kitchen_inv','linen_inv'];
+var _invdUi={};
+function invdIsInventory(insp){return !!insp&&INVD_TYPES.indexOf(insp.formType)!==-1;}
+function invdUi(inspId){
+  if(!_invdUi[inspId])_invdUi[inspId]={tab:'flagged',q:'',cat:'',open:null,collapsed:{}};
+  return _invdUi[inspId];
+}
+function invdSlug(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60);}
+// Stable per-item key: the positional state.items key ("2_5") when the record has
+// it, otherwise one derived from section + item text (older records) — used for
+// expand state AND as the inventoryItemPhotos map key, so a photo added here stays
+// attached to the same item on every reopen.
+function invdRowKey(key,section,item){
+  if(key&&/^[A-Za-z0-9_]+$/.test(key))return key;
+  return 'n_'+invdSlug(section)+'__'+invdSlug(item);
+}
+function invdHasVal(v){return v!==undefined&&v!==null&&v!=='';}
+function invdModel(insp){
+  var issues=insp.issues||[];
+  var inv=insp.inventoryItems||[];
+  var added=insp.inventoryItemPhotos||{};
+  var itemPhotos=insp.itemPhotos||{};
+  var rows=[], byRk={};
+  function photosFor(rk,key,extra){
+    var out=[];
+    function push(u){if(u&&out.indexOf(u)===-1)out.push(u);}
+    normalizePhotoUrls(extra||[],'invd').forEach(push);
+    if(key&&itemPhotos[key])normalizePhotoUrls(itemPhotos[key],'invd').forEach(push);
+    (added[rk]||[]).forEach(function(p){push(p&&p.url?p.url:p);});
+    return out;
+  }
+  inv.forEach(function(it){
+    var rk=invdRowKey(it.key,it.section,it.item);
+    if(byRk[rk])rk=rk+'_'+rows.length;
+    var row={rk:rk,key:it.key||'',section:it.section||'',item:it.item||'',current:it.current,needed:it.needed,
+      comment:(it.comment||'').trim(),notes:'',flagged:it.flagged===true,flagKnown:it.flagged!==undefined,
+      issue:null,xi:-1,recorded:true,photoSrc:it.photos||[]};
+    rows.push(row); byRk[rk]=row;
+  });
+  issues.forEach(function(x,xi){
+    var match=null;
+    if(x.key)match=rows.find(function(r){return r.key&&r.key===x.key&&!r.issue;});
+    if(!match)match=rows.find(function(r){return !r.issue&&r.section===(x.section||'')&&r.item===(x.text||'');});
+    if(match){
+      match.issue=x; match.xi=xi; match.flagged=true; match.notes=x.notes||'';
+      if(!match.comment&&x.comment)match.comment=String(x.comment).trim();
+      match.photoSrc=(match.photoSrc||[]).concat(x.photos||[]);
+    } else {
+      var rk=invdRowKey(x.key,x.section,x.text);
+      if(byRk[rk])rk=rk+'_x'+xi;
+      var r={rk:rk,key:x.key||'',section:x.section||'',item:x.text||'',current:undefined,needed:undefined,
+        comment:(x.comment||'').trim(),notes:x.notes||'',flagged:true,flagKnown:true,issue:x,xi:xi,recorded:false,photoSrc:x.photos||[]};
+      rows.push(r); byRk[rk]=r;
+    }
+  });
+  rows.forEach(function(r){
+    // Records saved between 2026-09-29 and this update have no per-item `flagged`
+    // field; fall back to the same Current-vs-Needed shortfall rule the app uses.
+    if(!r.flagKnown&&!r.issue&&invdHasVal(r.needed)){
+      var n=parseFloat(r.needed)||0,c=parseFloat(r.current)||0;
+      if(n>0&&c<n)r.flagged=true;
+    }
+    r.photos=photosFor(r.rk,r.key,r.photoSrc);
+    r.counted=invdHasVal(r.current)||invdHasVal(r.needed);
+  });
+  var sections=[];
+  rows.forEach(function(r){if(sections.indexOf(r.section)===-1)sections.push(r.section);});
+  return {rows:rows,hasFull:inv.length>0,sections:sections,
+    flaggedRows:rows.filter(function(r){return r.flagged||r.issue;})};
+}
+function invdQtyText(r){
+  if(!r.counted)return r.recorded?'<span class="invd-muted">Not counted</span>':'<span class="invd-muted">—</span>';
+  var c=invdHasVal(r.current)?esc(String(r.current)):'—';
+  if(invdHasVal(r.needed))return '<strong>'+c+'</strong><span class="invd-muted"> / '+esc(String(r.needed))+'</span>';
+  return '<strong>'+c+'</strong>';
+}
+function invdStatusBadge(r,inspId){
+  if(r.issue){
+    var isSupply=(r.issue.section==='Supply Check'||r.issue.section==='Supply Inventory');
+    if(isSupply)return '<span class="badge b-ok">&#128230; Supply Log</span>';
+    var tied=findTiedIssue(inspId,r.issue.key||('legacyidx_'+r.xi));
+    if(!tied)return '<span class="badge b-issue">&#9873; Flagged</span>';
+    var st=ISSUE_STATUS_LABELS[tied.status]||ISSUE_STATUS_LABELS.open;
+    return '<span class="badge '+st.cls+'">&#9873; '+st.txt+'</span>';
+  }
+  if(r.flagged)return '<span class="badge b-issue">&#9873; Flagged</span>';
+  if(!r.counted)return '<span class="badge b-never">No count</span>';
+  return '<span class="badge b-clear">OK</span>';
+}
+function invdPanelHtml(insp,safeId){
+  var ui=invdUi(insp.id);
+  var m=invdModel(insp);
+  var h='<div class="invd" id="invd-'+safeId+'" data-insp="'+esc(insp.id)+'">';
+  h+='<div class="invd-bar">';
+  h+='<div class="invd-tabs" role="tablist">';
+  h+='<button type="button" role="tab" class="invd-tab'+(ui.tab==='flagged'?' on':'')+'" onclick="invdSetTab(\''+safeId+'\',\'flagged\')">Flagged Items <span class="invd-tab-n'+(m.flaggedRows.length?' red':'')+'">'+m.flaggedRows.length+'</span></button>';
+  h+='<button type="button" role="tab" class="invd-tab'+(ui.tab==='full'?' on':'')+'" onclick="invdSetTab(\''+safeId+'\',\'full\')">Full Inventory <span class="invd-tab-n">'+(m.hasFull?m.rows.length:'n/a')+'</span></button>';
+  h+='</div>';
+  h+='<div class="invd-tools"><input type="search" class="invd-q" id="invd-q-'+safeId+'" placeholder="&#128269; Search items&hellip;" value="'+esc(ui.q)+'" oninput="invdSetQ(\''+safeId+'\',this.value)">';
+  h+='<select class="invd-cat" id="invd-cat-'+safeId+'" onchange="invdSetCat(\''+safeId+'\',this.value)"><option value="">All categories</option>';
+  m.sections.forEach(function(s){h+='<option value="'+esc(s)+'"'+(ui.cat===s?' selected':'')+'>'+esc(s)+'</option>';});
+  h+='</select></div></div>';
+  h+='<div class="invd-body" id="invd-body-'+safeId+'">'+invdBodyHtml(insp,safeId,m)+'</div>';
+  var notes=(insp.invNotes||'').trim();
+  if(notes)h+='<div class="invd-addl"><span class="invd-addl-lbl">&#128203; Additional Notes</span> '+esc(notes).replace(/\n/g,'<br>')+'</div>';
+  h+='</div>';
+  return h;
+}
+function invdBodyHtml(insp,safeId,m){
+  m=m||invdModel(insp);
+  var ui=invdUi(insp.id);
+  var h='';
+  var src;
+  if(ui.tab==='full'){
+    if(!m.hasFull){
+      return '<div class="invd-note warn">&#9888;&#65039; <strong>Full inventory unavailable.</strong> This report was submitted before complete inventory snapshots were saved, so only its flagged items were recorded. Items not listed were not captured &mdash; they should not be read as inspected or OK.'+(m.flaggedRows.length?' See the <a href="#" onclick="invdSetTab(\''+safeId+'\',\'flagged\');return false">Flagged Items</a> tab.':'')+'</div>';
+    }
+    src=m.rows;
+  } else {
+    src=m.flaggedRows;
+    if(!src.length)return '<div class="invd-note ok">&#9989; No items were flagged on this report.'+(m.hasFull?' Open <a href="#" onclick="invdSetTab(\''+safeId+'\',\'full\');return false">Full Inventory</a> to review every counted item.':'')+'</div>';
+  }
+  var q=(ui.q||'').trim().toLowerCase();
+  var list=src.filter(function(r){
+    if(ui.cat&&r.section!==ui.cat)return false;
+    if(q&&(r.item+' '+r.section+' '+r.comment+' '+r.notes).toLowerCase().indexOf(q)===-1)return false;
+    return true;
+  });
+  if(ui.tab==='full'){
+    var blank=m.rows.filter(function(r){return r.recorded&&!r.counted;}).length;
+    h+='<div class="invd-sub">'+m.rows.length+' item'+(m.rows.length!==1?'s':'')+' recorded &middot; '+m.flaggedRows.length+' flagged'+(blank?' &middot; '+blank+' with a comment/photo but no count':'')+'. Items the inspector left completely blank aren\'t recorded.</div>';
+  }
+  if(!list.length)return h+'<div class="invd-note">No items match your search/filter.</div>';
+  var groups=[],gmap={};
+  list.forEach(function(r){if(!gmap[r.section]){gmap[r.section]=[];groups.push(r.section);}gmap[r.section].push(r);});
+  h+='<table class="invd-table"><colgroup><col class="w-item"><col class="w-cat"><col class="w-qty"><col class="w-st"><col class="w-notes"><col class="w-ph"></colgroup>';
+  h+='<thead><tr><th>Item</th><th>Category / Room</th><th>Qty <span class="invd-muted">(have / need)</span></th><th>Status</th><th>Notes</th><th>Photos</th></tr></thead><tbody>';
+  groups.forEach(function(g){
+    var gk=invdSlug(g)||'none';
+    var collapsed=!!ui.collapsed[gk]&&!q;
+    var fl=gmap[g].filter(function(r){return r.flagged||r.issue;}).length;
+    h+='<tr class="invd-grp'+(collapsed?' closed':'')+'" onclick="invdToggleGroup(\''+safeId+'\',\''+gk+'\')"><td colspan="6"><span class="chev">&#9662;</span> '+esc(g||'Uncategorized')+' <span class="invd-grp-n">'+gmap[g].length+(fl?' &middot; <span class="red">'+fl+' flagged</span>':'')+'</span></td></tr>';
+    if(collapsed)return;
+    gmap[g].forEach(function(r){
+      var isOpen=ui.open===r.rk;
+      var cls='invd-row'+((r.flagged||r.issue)?' flagged':'')+(isOpen?' open':'');
+      var preview=r.comment||r.notes;
+      h+='<tr class="'+cls+'" data-rk="'+r.rk+'" tabindex="0" onclick="invdToggleItem(\''+safeId+'\',\''+r.rk+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();invdToggleItem(\''+safeId+'\',\''+r.rk+'\');}">';
+      h+='<td class="c-item"><span class="chev">&#9656;</span>'+esc(r.item)+'</td>';
+      h+='<td class="c-cat">'+esc(r.section)+'</td>';
+      h+='<td class="c-qty">'+invdQtyText(r)+'</td>';
+      h+='<td class="c-st">'+invdStatusBadge(r,insp.id)+'</td>';
+      h+='<td class="c-notes'+(preview?'':' empty')+'" title="'+esc(preview)+'">'+(preview?(r.comment?'&#128172; ':'')+esc(preview):'<span class="invd-muted">—</span>')+'</td>';
+      h+='<td class="c-ph'+(r.photos.length?'':' empty')+'">'+(r.photos.length?'&#128247; '+r.photos.length:'<span class="invd-muted">—</span>')+'</td>';
+      h+='</tr>';
+      if(isOpen)h+='<tr class="invd-exp"><td colspan="6">'+invdExpandedHtml(insp,safeId,r)+'</td></tr>';
+    });
+  });
+  h+='</tbody></table>';
+  return h;
+}
+function invdCanAddPhotos(){
+  return !!(currentUser&&(currentUser.role==='manager'||currentUser.role==='admin'||currentUser.role==='inspector'));
+}
+function invdExpandedHtml(insp,safeId,r){
+  var h='<div class="invd-x">';
+  h+='<div class="invd-x-facts">';
+  h+='<div><span>Category / Room</span>'+esc(r.section||'—')+'</div>';
+  h+='<div><span>Current</span>'+(invdHasVal(r.current)?esc(String(r.current)):'—')+'</div>';
+  h+='<div><span>Needed</span>'+(invdHasVal(r.needed)?esc(String(r.needed)):'—')+'</div>';
+  if(r.notes)h+='<div><span>Shortfall</span>'+esc(r.notes)+'</div>';
+  h+='</div>';
+  h+='<div class="invd-x-lbl">Inspector comment</div>';
+  h+=r.comment?'<div class="invd-x-comment">'+esc(r.comment).replace(/\n/g,'<br>')+'</div>':'<div class="invd-muted" style="font-size:12px">No comment.</div>';
+  h+='<div class="invd-x-lbl">Photos ('+r.photos.length+')</div><div class="invd-x-photos">';
+  r.photos.forEach(function(u,pi){
+    h+='<img src="'+esc(u)+'" loading="lazy" alt="Photo '+(pi+1)+'" onclick="invdPreview(\''+safeId+'\',\''+r.rk+'\','+pi+')" onerror="this.classList.add(\'photo-broken\')">';
+  });
+  if(invdCanAddPhotos()){
+    h+='<label class="invd-add-ph" id="invd-add-'+safeId+'-'+r.rk+'">+ Add photo<input type="file" accept="image/*" style="display:none" onchange="invdAddPhoto(\''+safeId+'\',\''+r.rk+'\',this)"></label>';
+  }
+  if(!r.photos.length&&!invdCanAddPhotos())h+='<span class="invd-muted" style="font-size:12px">No photos.</span>';
+  h+='</div>';
+  // Existing per-issue status workflow — same markup/ids/functions as before.
+  if(r.issue){
+    var x=r.issue, xi=r.xi;
+    var issSafeId=safeId+'_'+xi;
+    var isSupplyIssue=(x.section==='Supply Check'||x.section==='Supply Inventory');
+    h+='<div class="invd-x-lbl">Follow-up status</div>';
+    if(isSupplyIssue){
+      h+='<span class="badge b-ok" title="Supply needs are tracked in the Supply Inventory tab, not here.">&#128230; In Supply Inventory Log</span>';
+    } else {
+      var tied=findTiedIssue(insp.id,x.key||('legacyidx_'+xi));
+      if(!tied){
+        h+=issueStatusBadgeHtml(null);
+      } else {
+        h+='<div style="display:flex;align-items:center;gap:8px;margin:2px 0 4px;flex-wrap:wrap"><span style="font-size:11.5px;font-weight:700;color:var(--dark-gray)">Status:</span>'+
+          '<select id="sea-sel-'+issSafeId+'" style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:4px 8px;font-size:12px" onchange="stageSeasonalIssueStatusChange(\''+issSafeId+'\',this.value)">'+
+          '<option value="open"'+(tied.status==='open'||!tied.status?' selected':'')+'>Open</option>'+
+          '<option value="in_progress"'+(tied.status==='in_progress'?' selected':'')+'>In Progress</option>'+
+          '<option value="resolved"'+(tied.status==='resolved'?' selected':'')+'>Resolved</option>'+
+          '<option value="dismissed"'+(tied.status==='dismissed'?' selected':'')+'>Dismissed / Not an Issue</option>'+
+          '</select></div>';
+        h+='<div class="status-confirm-panel" id="sea-confirm-'+issSafeId+'" style="display:none">'+
+          '<div style="font-size:12px;color:var(--dark-gray)">Changing status to <strong id="sea-confirm-label-'+issSafeId+'"></strong>. Add an optional resolution note:</div>'+
+          '<textarea id="sea-confirm-note-'+issSafeId+'" placeholder="Optional note…"></textarea>'+
+          '<div class="sc-btns"><button class="sc-confirm" onclick="confirmSeasonalIssueStatusChange(\''+tied.id+'\',\''+issSafeId+'\')">Confirm</button><button class="sc-cancel" onclick="cancelSeasonalIssueStatusChange(\''+issSafeId+'\',\''+(tied.status||'open')+'\')">Cancel</button></div>'+
+          '</div>';
+        var updHtml='';
+        (tied.updates||[]).forEach(function(u){updHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
+        h+='<div class="updates-log">'+(updHtml||'<div style="font-size:11.5px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
+        h+='<div class="add-update-row"><input type="text" id="sea-note-'+issSafeId+'" placeholder="Add an update&hellip;"><button onclick="addSeasonalIssueUpdate(\''+tied.id+'\',\''+issSafeId+'\')">+ Add</button></div>';
+      }
+    }
+  }
+  h+='<div style="margin-top:10px"><button type="button" class="invd-close" onclick="invdToggleItem(\''+safeId+'\',\''+r.rk+'\')">Close item</button></div>';
+  h+='</div>';
+  return h;
+}
+function invdInspBySafeId(safeId){
+  var el=document.getElementById('invd-'+safeId);
+  var id=el?el.getAttribute('data-insp'):null;
+  return id?_insp.find(function(i){return i.id===id;}):null;
+}
+function invdRerender(safeId){
+  var insp=invdInspBySafeId(safeId);
+  var body=document.getElementById('invd-body-'+safeId);
+  if(!insp||!body)return;
+  body.innerHTML=invdBodyHtml(insp,safeId);
+}
+function invdRefreshTabs(safeId){
+  var insp=invdInspBySafeId(safeId); if(!insp)return;
+  var ui=invdUi(insp.id);
+  var tabs=document.querySelectorAll('#invd-'+safeId+' .invd-tab');
+  if(tabs[0])tabs[0].classList.toggle('on',ui.tab==='flagged');
+  if(tabs[1])tabs[1].classList.toggle('on',ui.tab==='full');
+}
+function invdSetTab(safeId,tab){
+  var insp=invdInspBySafeId(safeId); if(!insp)return;
+  var ui=invdUi(insp.id); ui.tab=tab; ui.open=null;
+  invdRefreshTabs(safeId); invdRerender(safeId);
+}
+function invdSetQ(safeId,v){var insp=invdInspBySafeId(safeId);if(!insp)return;invdUi(insp.id).q=v;invdRerender(safeId);}
+function invdSetCat(safeId,v){var insp=invdInspBySafeId(safeId);if(!insp)return;invdUi(insp.id).cat=v;invdRerender(safeId);}
+function invdToggleGroup(safeId,gk){
+  var insp=invdInspBySafeId(safeId); if(!insp)return;
+  var ui=invdUi(insp.id); ui.collapsed[gk]=!ui.collapsed[gk];
+  invdRerender(safeId);
+}
+function invdScrollParent(el){
+  var p=el&&el.parentElement;
+  while(p&&p!==document.body){
+    var cs=getComputedStyle(p);
+    if(/(auto|scroll)/.test(cs.overflowY)&&p.scrollHeight>p.clientHeight)return p;
+    p=p.parentElement;
+  }
+  return null;
+}
+// Opens/closes one item inline. Only one item is expanded at a time so the rest of
+// the report stays compact. The clicked row is used as a scroll anchor: whatever
+// collapses above/below it, the row stays at the same spot on screen, so closing
+// an item never throws the reviewer back to the top of the report.
+function invdToggleItem(safeId,rk){
+  var insp=invdInspBySafeId(safeId); if(!insp)return;
+  var ui=invdUi(insp.id);
+  var body=document.getElementById('invd-body-'+safeId);
+  var anchor=body?body.querySelector('tr[data-rk="'+rk+'"]'):null;
+  var before=anchor?anchor.getBoundingClientRect().top:null;
+  var sp=invdScrollParent(anchor);
+  ui.open=(ui.open===rk)?null:rk;
+  invdRerender(safeId);
+  var after=body?body.querySelector('tr[data-rk="'+rk+'"]'):null;
+  if(after&&before!==null){
+    var delta=after.getBoundingClientRect().top-before;
+    if(delta){ if(sp)sp.scrollTop+=delta; else window.scrollBy(0,delta); }
+    if(ui.open===rk){try{after.focus({preventScroll:true});}catch(e){}}
+  }
+}
+// Keeps the panel no wider than the visible table area, so on a phone the
+// inventory never needs sideways scrolling even though the outer Seasonal table
+// itself is wider than the screen (the panel is position:sticky;left:0).
+function invdFit(){
+  document.querySelectorAll('.invd').forEach(function(el){
+    var wrap=el.closest('.tbl-wrap');
+    if(!wrap)return;
+    el.style.width=Math.max(260,wrap.clientWidth-(window.innerWidth<=700?24:40))+'px';
+  });
+}
+window.addEventListener('resize',function(){clearTimeout(window._invdFitT);window._invdFitT=setTimeout(invdFit,120);});
+
+// ── Photo preview (enlarged, one at a time) ──
+var _invdPv={urls:[],idx:0,title:''};
+function invdPreview(safeId,rk,idx){
+  var insp=invdInspBySafeId(safeId); if(!insp)return;
+  var r=invdModel(insp).rows.find(function(x){return x.rk===rk;}); if(!r)return;
+  _invdPv={urls:r.photos.slice(),idx:idx||0,title:r.item};
+  var ov=document.getElementById('invdPv');
+  if(!ov){
+    ov=document.createElement('div'); ov.id='invdPv'; ov.className='invd-pv';
+    ov.innerHTML='<div class="invd-pv-box"><div class="invd-pv-hdr"><div><div class="invd-pv-title" id="invdPvTitle"></div><div class="invd-pv-n" id="invdPvN"></div></div><div style="display:flex;gap:6px;align-items:center"><a id="invdPvOpen" target="_blank" rel="noopener" class="invd-pv-link">Open original</a><button type="button" class="lb-close" onclick="invdPvClose()">&#10005;</button></div></div>'+
+      '<div class="invd-pv-stage"><button type="button" class="invd-pv-nav prev" onclick="invdPvStep(-1)">&#8249;</button><img id="invdPvImg" alt=""><button type="button" class="invd-pv-nav next" onclick="invdPvStep(1)">&#8250;</button></div></div>';
+    ov.addEventListener('click',function(e){if(e.target===ov)invdPvClose();});
+    document.addEventListener('keydown',function(e){
+      if(!ov.classList.contains('open'))return;
+      if(e.key==='Escape')invdPvClose(); else if(e.key==='ArrowLeft')invdPvStep(-1); else if(e.key==='ArrowRight')invdPvStep(1);
+    });
+    document.body.appendChild(ov);
+  }
+  invdPvShow(); ov.classList.add('open');
+}
+function invdPvShow(){
+  var u=_invdPv.urls[_invdPv.idx]||'';
+  document.getElementById('invdPvImg').src=u;
+  document.getElementById('invdPvOpen').href=u;
+  document.getElementById('invdPvTitle').textContent=_invdPv.title;
+  document.getElementById('invdPvN').textContent='Photo '+(_invdPv.idx+1)+' of '+_invdPv.urls.length;
+  var multi=_invdPv.urls.length>1;
+  document.querySelectorAll('#invdPv .invd-pv-nav').forEach(function(b){b.style.visibility=multi?'visible':'hidden';});
+}
+function invdPvStep(d){var n=_invdPv.urls.length;if(n<2)return;_invdPv.idx=(_invdPv.idx+d+n)%n;invdPvShow();}
+function invdPvClose(){var ov=document.getElementById('invdPv');if(ov)ov.classList.remove('open');}
+
+// ── Add a photo to an item from the Mothership ──
+// Uploaded to the same Storage folder as the inspection's own photos, then linked
+// on the inspection record under inventoryItemPhotos[<item key>] (arrayUnion, so
+// two people adding at once never overwrite each other). Nothing else on the
+// record is touched.
+var _invdStorage=null;
+function invdGetStorage(){
+  if(_invdStorage)return _invdStorage;
+  try{ if(firebase&&firebase.storage)_invdStorage=firebase.storage(); }catch(e){ console.warn('[INVD] Storage init failed',e); }
+  return _invdStorage;
+}
+function invdCompress(file,cb,errCb){
+  var reader=new FileReader();
+  reader.onerror=function(){errCb('read');};
+  reader.onload=function(e){
+    var img=new Image();
+    img.onerror=function(){errCb('decode');};
+    img.onload=function(){
+      var max=1600,w=img.width,h=img.height,s=Math.min(1,max/Math.max(w,h));
+      var c=document.createElement('canvas'); c.width=Math.round(w*s); c.height=Math.round(h*s);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      cb(c.toDataURL('image/jpeg',0.82));
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function invdAddPhoto(safeId,rk,input){
+  var file=input&&input.files&&input.files[0];
+  if(!file)return;
+  if(!invdCanAddPhotos()){showToast('You do not have permission to add photos');return;}
+  var insp=invdInspBySafeId(safeId); if(!insp){showToast('Report not found');return;}
+  var st=invdGetStorage();
+  if(!st||!db){showToast('Photo upload is unavailable right now');input.value='';return;}
+  var lbl=document.getElementById('invd-add-'+safeId+'-'+rk);
+  if(lbl)lbl.classList.add('busy');
+  showToast('Uploading photo…');
+  invdCompress(file,function(dataUrl){
+    var path='inspections/'+insp.id+'/mothership_'+rk+'_'+Date.now()+'.jpg';
+    var ref=st.ref(path);
+    ref.putString(dataUrl,'data_url').then(function(){return ref.getDownloadURL();}).then(function(url){
+      var entry={url:url,by:currentUser?currentUser.name:'',at:new Date().toISOString(),path:path};
+      return db.collection('inspections').doc(insp.id).update(new firebase.firestore.FieldPath('inventoryItemPhotos',rk),firebase.firestore.FieldValue.arrayUnion(entry)).then(function(){
+        if(!insp.inventoryItemPhotos)insp.inventoryItemPhotos={};
+        if(!insp.inventoryItemPhotos[rk])insp.inventoryItemPhotos[rk]=[];
+        insp.inventoryItemPhotos[rk].push(entry);
+        showToast('Photo added');
+        invdRerender(safeId);
+      });
+    }).catch(function(e){
+      console.warn('[INVD] Photo add failed',e);
+      showToast('Could not add photo — please try again');
+      if(lbl)lbl.classList.remove('busy');
+    });
+  },function(){showToast('That photo could not be read — please try another');if(lbl)lbl.classList.remove('busy');});
+  input.value='';
 }
 
 // ── SEASONAL DASHBOARD ────────────────────────────────────────────────────────
