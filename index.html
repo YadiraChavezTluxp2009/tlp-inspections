@@ -210,6 +210,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .inv-photo-btn{background:none;border:1.5px solid var(--mid-gray);border-radius:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;color:var(--dark-gray)}
 .inv-photo-btn.has-photo{border-color:var(--green);color:var(--green);background:var(--green-light)}
 .inv-thumb{margin-top:10px}
+.inv-comment-wrap{margin-top:8px}.inv-comment-toggle{background:none;border:none;color:var(--blue);font-size:12.5px;font-weight:700;padding:2px 0;cursor:pointer}.inv-comment-input{width:100%;min-height:44px;font-size:13.5px;margin-top:2px}
 .inv-thumb img{height:64px;border-radius:8px;border:1.5px solid var(--mid-gray);cursor:pointer}
 /* Login */
 #screenLogin{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(160deg,var(--navy) 0%,var(--blue) 100%);padding:32px 24px;position:fixed;inset:0;z-index:999}
@@ -697,20 +698,34 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
       (sec.items||[]).forEach(function(itemText, ii) {
         var key = si + '_' + ii;
         var itm = state.items[key] || {};
+        // key/comment/photos/flagged (2026-10-13, additive): link each snapshot
+        // row to its own uploaded photo(s) (itemPhotos is keyed by this same
+        // positional key) and carry the optional per-item comment, so the
+        // Mothership's Full Inventory view can show both for every item.
+        var invComment = (itm.comment || '').trim();
+        var invPhotos = itemPhotos[key] || [];
         var isBedSize = (state.formType === 'linen_inv' && itemText.indexOf('Bed Size') !== -1);
         if (isBedSize) {
-          if (itm.value !== undefined && itm.value !== '') { ok++; inventoryItems.push({section:sec.title, item:itemText, current:itm.value, needed:''}); }
+          if (itm.value !== undefined && itm.value !== '') { ok++; inventoryItems.push({section:sec.title, item:itemText, current:itm.value, needed:'', key:key, comment:invComment, photos:invPhotos, flagged:false}); }
+          else if (invComment || invPhotos.length) { inventoryItems.push({section:sec.title, item:itemText, current:'', needed:'', key:key, comment:invComment, photos:invPhotos, flagged:false}); }
           return;
         }
         var hasCur = itm.value !== undefined && itm.value !== '';
         var hasNeed = itm.needed !== undefined && itm.needed !== '';
-        if (!hasCur && !hasNeed) return;
+        // An item with no counts but a comment/photo is still recorded in the
+        // snapshot (so the comment/photo isn't lost), but is NOT scored — a
+        // comment never counts as OK or as an issue on its own.
+        if (!hasCur && !hasNeed) {
+          if (invComment || invPhotos.length) inventoryItems.push({section:sec.title, item:itemText, current:'', needed:'', key:key, comment:invComment, photos:invPhotos, flagged:false});
+          return;
+        }
         var curN = hasCur ? (parseFloat(itm.value) || 0) : 0;
         var needN = hasNeed ? (parseFloat(itm.needed) || 0) : 0;
-        inventoryItems.push({section:sec.title, item:itemText, current:hasCur?itm.value:'', needed:hasNeed?itm.needed:''});
-        if (needN > 0 && curN < needN) {
+        var isShort = (needN > 0 && curN < needN);
+        inventoryItems.push({section:sec.title, item:itemText, current:hasCur?itm.value:'', needed:hasNeed?itm.needed:'', key:key, comment:invComment, photos:invPhotos, flagged:isShort});
+        if (isShort) {
           issues++;
-          issueList.push({section:sec.title, text:itemText, notes:'Have '+(hasCur?itm.value:'0')+', need '+itm.needed, charge:0, photos:itemPhotos[key]||[], key:key, isSupply:false});
+          issueList.push({section:sec.title, text:itemText, notes:'Have '+(hasCur?itm.value:'0')+', need '+itm.needed, charge:0, photos:itemPhotos[key]||[], key:key, isSupply:false, comment:invComment});
         } else {
           ok++;
         }
@@ -3026,6 +3041,37 @@ function compressPhotoDataUrl(rawDataUrl, callback) {
   }
 }
 
+// Optional per-item comment for Kitchen and Linen Inventory (2026-10-13). Stored on
+// state.items[key].comment, so it rides along with every draft save/reopen
+// (state.items is already persisted whole by saveDraftSilent/loadDraft) and is
+// written to the submitted record's inventoryItems[].comment. A comment is
+// informational only — it never flags an item; flagging stays driven by the
+// existing Current-vs-Needed shortfall check in saveInspectionToFirebase().
+function makeInvCommentField(key) {
+  var saved = (state.items[key] && state.items[key].comment) || '';
+  var wrap = document.createElement('div');
+  wrap.className = 'inv-comment-wrap';
+  var toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'inv-comment-toggle';
+  toggle.innerHTML = '&#128172; Add comment';
+  var ta = document.createElement('textarea');
+  ta.className = 'note-input inv-comment-input';
+  ta.rows = 2;
+  ta.placeholder = 'Optional — condition, missing pieces, replacement needs...';
+  ta.value = saved;
+  ta.style.display = saved ? '' : 'none';
+  toggle.style.display = saved ? 'none' : '';
+  toggle.onclick = function(e) { e.stopPropagation(); toggle.style.display = 'none'; ta.style.display = ''; ta.focus(); };
+  ta.oninput = function() {
+    if (!state.items[key]) state.items[key] = {};
+    state.items[key].comment = ta.value;
+    saveDraftSilent();
+  };
+  wrap.appendChild(toggle);
+  wrap.appendChild(ta);
+  return wrap;
+}
 function makePhotoBtn(key) {
   var hasPhoto = !!(state.photos && state.photos[key]);
   var wrap = document.createElement('div');
@@ -3603,6 +3649,7 @@ function buildChecklist() {
         var kitThumb = document.createElement('div'); kitThumb.className = 'inv-thumb'; kitThumb.id = 'photo-thumb-'+key; kitThumb.style.display=(state.photos&&state.photos[key]?'':'none');
         if (state.photos&&state.photos[key]){var kt=document.createElement('img');kt.src=state.photos[key];kt.onclick=function(){window.open(state.photos[key],'_blank');};kitThumb.appendChild(kt);}
         row.appendChild(kitThumb);
+        row.appendChild(makeInvCommentField(key));
         block.appendChild(row);
         return;
       }
@@ -3639,6 +3686,7 @@ function buildChecklist() {
         var linThumb = document.createElement('div'); linThumb.className = 'inv-thumb'; linThumb.id = 'photo-thumb-'+key; linThumb.style.display=(state.photos&&state.photos[key]?'':'none');
         if (state.photos&&state.photos[key]){var lt=document.createElement('img');lt.src=state.photos[key];lt.onclick=function(){window.open(state.photos[key],'_blank');};linThumb.appendChild(lt);}
         row.appendChild(linThumb);
+        row.appendChild(makeInvCommentField(key));
         block.appendChild(row);
         return;
       }
@@ -3941,6 +3989,7 @@ function showSummary() {
           valStr = (itm.value !== undefined && itm.value !== '') ? '<span style="font-weight:600;color:var(--navy)">'+esc(String(itm.value))+'</span>' : '<span style="color:#aaa">—</span>';
         }
         html += '<tr><td style="font-size:13px;padding:3px 0;color:var(--dark-gray)">' + esc(it) + '</td><td style="font-size:13px;text-align:right">' + valStr + '</td></tr>';
+        if (itm.comment && itm.comment.trim()) html += '<tr><td colspan="2" style="font-size:12px;color:var(--dark-gray);padding:0 0 4px 10px;font-style:italic">&#128172; ' + esc(itm.comment.trim()) + '</td></tr>';
       });
       html += '</table></div>';
     });
@@ -4054,10 +4103,12 @@ function emailReport(onSuccess) {
           var cur2 = (itm2.value !== undefined && itm2.value !== '') ? itm2.value : '—';
           var ned2 = (itm2.needed !== undefined && itm2.needed !== '') ? itm2.needed : '—';
           body += '  ' + it + ': ' + cur2 + ' (current)  /  ' + ned2 + ' (needed)\n';
+          if (itm2.comment && itm2.comment.trim()) body += '      Comment: ' + itm2.comment.trim() + '\n';
           var nn2 = parseFloat(itm2.needed)||0;
           if (state.formType==='linen_inv' && nn2>0) { linNeedMap[it]=(linNeedMap[it]||0)+nn2; }
         } else {
           body += '  ' + it + ': ' + ((itm2.value !== undefined && itm2.value !== '') ? itm2.value : '—') + '\n';
+          if (itm2.comment && itm2.comment.trim()) body += '      Comment: ' + itm2.comment.trim() + '\n';
         }
       });
       body += '\n';
