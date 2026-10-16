@@ -2380,7 +2380,7 @@ function renderInspLog(){
     var isResolved=!!i.resolved;
     var needsResolution=(i.overallStatus==='not-ready'||i.overallStatus==='conditional');
     var hasQuantities=(i.quantityItems||[]).length>0;
-    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||needsResolution||isResolved||updates.length>0||hasQuantities||readyEmailShouldShow(i);
+    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||needsResolution||isResolved||updates.length>0||hasQuantities||readyEmailShouldShow(i)||!!guestFbText(i);
     var photos=normalizePhotoUrls(i.photoUrls,'inspLog:'+i.id);
     var photoCount=photos.length;
     var photoFailCount=i.photoUploadFailCount||0;
@@ -2398,7 +2398,7 @@ function renderInspLog(){
     var issueBadgeTxt=hasIssues?(i.issuesFound+' Issue'+(i.issuesFound!==1?'s':'')+(isResolved?' — Resolved':'')):'All Clear';
     html+='<tr>';
     html+='<td style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td>';
-    html+='<td style="font-weight:600;min-width:160px">'+esc(i.property||'')+'</td>';
+    html+='<td style="font-weight:600;min-width:160px">'+esc(i.property||'')+(guestFbText(i)?' <span class="badge" style="background:#F3E5F5;color:#6a1b9a" title="Guest Condition Feedback — see Details">&#128100; Guest feedback</span>':'')+'</td>';
     html+='<td>'+esc(i.inspector||'')+'</td>';
     html+='<td><span class="badge b-ok">'+esc(TYPE_LABELS[i.formType]||i.formType||'')+'</span></td>';
     html+='<td>'+(checkinSt?'<span class="badge '+checkinSt.cls+'">'+checkinSt.txt+'</span>':'<span class="no-photo">&mdash;</span>')+'</td>';
@@ -2446,6 +2446,7 @@ function renderInspLog(){
       html+=maintNotesPhotosHtml(i);
       html+=opsMaintenanceBlockHtml(i);
       html+=readyEmailStatusHtml(i);
+      html+=guestFeedbackBlockHtml(i);
       html+=quantityItemsBlockHtml(i);
       if(needsResolution||isResolved||updates.length){
         html+='<div class="insp-detail-heading">&#128295; Overall Resolution</div>';
@@ -3773,6 +3774,137 @@ function readyEmailStatusHtml(d) {
   return h + '</div>';
 }
 // ── end "HOUSE IS READY" shared block ──
+// ── GUEST CONDITION FEEDBACK EMAIL (2026-10-16) ─────────────────────────────────
+// This whole block is kept IDENTICAL in index.html and dashboard.html — edit both.
+// Reuses the per-file settings of the "House is ready" block above:
+// READY_EMAIL_WEBHOOK (same Make.com webhook), READY_RETRY_HINT and
+// afterReadyEmailChange(inspId) (re-renders My Inspections / the dashboard log).
+//
+// Check-Out inspections (Summer/Winter) have an optional "Guest Condition Feedback"
+// box. When the inspection is SUBMITTED with anything other than blank/whitespace
+// in it, this emails GUEST_FB_EMAIL once, so the reservations team can note the
+// guest's profile. Saving a draft never sends. Voided inspections never send.
+// Completely separate from the "Maintenance Items for Operations" email.
+//
+// Duplicate prevention, same as the "House is ready" email: a Firestore
+// transaction claims the send (guestFbEmailStatus -> 'sending') before POSTing, so
+// only one caller ever sends. 'sent' is permanent; 'failed' is retryable; a
+// 'sending' claim older than READY_EMAIL_STALE_MS can be re-claimed; if the claim
+// itself fails (offline), nothing is sent. Content is read from the SAVED record.
+var GUEST_FB_EMAIL = 'info@tluxp.com';
+var GUEST_FB_TYPES = { checkout_summer: 'Check Out — Summer', checkout_winter: 'Check Out — Winter' };
+function guestFbText(d) { return String((d && d.guestFeedback) || '').trim(); }
+function isGuestFbEmailEligible(d) {
+  return !!d && !!GUEST_FB_TYPES[d.formType] && !d.isVoided && guestFbText(d) !== '';
+}
+function guestFbEmailIsSending(d) {
+  return d.guestFbEmailStatus === 'sending' && (Date.now() - new Date(d.guestFbEmailClaimedAt || 0).getTime()) < READY_EMAIL_STALE_MS;
+}
+// Same plain-text layout as the other inspection emails (header + ==== divider,
+// details block, section heading, standard footer).
+function buildGuestFeedbackEmail(d, inspectionId) {
+  var div = '==================================================';
+  var formName = GUEST_FB_TYPES[d.formType] || d.formType || '';
+  var house = d.property || '';
+  var body = 'TAHOE LUXURY PROPERTIES - ' + formName.toUpperCase() + '\n' + div + '\n';
+  body += 'GUEST CONDITION FEEDBACK\n\n';
+  body += 'Property: ' + house + '\n';
+  if (d.address) body += 'Address: ' + d.address + '\n';
+  body += 'Inspector: ' + (d.inspector || '') + '\n';
+  body += 'Check-Out Date: ' + _readyFmtDate(d.date) + (d.time ? ' at ' + d.time : '') + '\n';
+  if (d.startTime) body += 'Inspection Started: ' + d.startTime + '\n';
+  body += 'Inspection Completed: ' + (d.endTime || (d.submittedAt ? new Date(d.submittedAt).toLocaleString() : '')) + '\n';
+  if (inspectionId) body += 'Inspection ID: ' + inspectionId + '\n';
+  body += div + '\n';
+  body += '\nFEEDBACK FROM INSPECTOR\n' + guestFbText(d) + '\n';
+  body += '\nThe full inspection (photos, issues, notes) is in the Mothership under Check-Ins / Check-Outs Log.\n';
+  body += '\n--\nSent from TLUX Inspections';
+  return { subject: house + ' – Check-Out Guest Condition Feedback', body: body };
+}
+function sendGuestFeedbackEmailIfNeeded(inspectionId, onDone) {
+  function done(r) {
+    if (onDone) onDone(r);
+    if (typeof afterReadyEmailChange === 'function' && r !== 'not-eligible') afterReadyEmailChange(inspectionId, r);
+  }
+  if (!db || !inspectionId) { done('no-db'); return; }
+  var ref = db.collection('inspections').doc(inspectionId);
+  var claimId = 'g' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  var saved = null;
+  db.runTransaction(function(tx) {
+    return tx.get(ref).then(function(snap) {
+      if (!snap.exists) return 'not-saved';
+      var d = snap.data();
+      if (!isGuestFbEmailEligible(d)) return 'not-eligible';
+      if (d.guestFbEmailStatus === 'sent') return 'already-sent';
+      if (guestFbEmailIsSending(d)) return 'in-progress';
+      tx.update(ref, { guestFbEmailStatus: 'sending', guestFbEmailClaimedAt: new Date().toISOString(), guestFbEmailClaimId: claimId, guestFbEmailTo: GUEST_FB_EMAIL });
+      saved = d;
+      return 'claimed';
+    });
+  }).then(function(result) {
+    if (result !== 'claimed') { done(result); return; }
+    function fail(msg) {
+      ref.update({ guestFbEmailStatus: 'failed', guestFbEmailError: msg }).catch(function(){});
+      showToast('⚠️ The Guest Condition Feedback email to ' + GUEST_FB_EMAIL + ' failed to send (the inspection itself is saved). ' + READY_RETRY_HINT, 7000);
+      done('failed');
+    }
+    var mail = buildGuestFeedbackEmail(saved, inspectionId);
+    var htmlBody = String(mail.body).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g, '<br>');
+    fetch(READY_EMAIL_WEBHOOK, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        formType: saved.formType, emailType: 'guest_condition_feedback',
+        subject: mail.subject, body: htmlBody, to: GUEST_FB_EMAIL, cc: '',
+        property: saved.property || '', inspector: saved.inspector || '',
+        date: saved.date || '', photos: []
+      })
+    }).then(function(r) {
+      if (r.ok || r.status === 202) {
+        ref.update({ guestFbEmailStatus: 'sent', guestFbEmailSentAt: new Date().toISOString(), guestFbEmailError: null })
+          .catch(function(){}).then(function(){ done('sent'); });
+      } else {
+        fail('Guest Condition Feedback email failed (HTTP ' + r.status + ').');
+      }
+    }).catch(function(e) {
+      fail('Guest Condition Feedback email failed: ' + (e && e.message ? e.message : 'network error'));
+    });
+  }).catch(function(e) {
+    console.warn('[GUEST-FB-EMAIL] Could not claim send — skipping this attempt to avoid a possible duplicate.', e);
+    done('skipped-error');
+  });
+}
+function retryGuestFeedbackEmail(inspId, btnEl) {
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Sending…'; }
+  showToast('Retrying Guest Condition Feedback email…');
+  sendGuestFeedbackEmailIfNeeded(inspId, function(result) {
+    if (result === 'sent') showToast('Sent to ' + GUEST_FB_EMAIL + '!');
+    else if (result === 'already-sent') showToast('Already sent to ' + GUEST_FB_EMAIL + '.');
+    else if (result === 'in-progress') showToast('A send is already in progress — check back in a few minutes.', 5000);
+    else if (result !== 'failed') showToast('Still could not send — please try again in a moment.', 5000);
+  });
+}
+// Feedback text + sent/not-sent line + Retry button (same look in both apps'
+// inspection details). Returns '' when the inspection has no feedback.
+function guestFeedbackBlockHtml(d) {
+  var text = guestFbText(d);
+  if (!text) return '';
+  var esc2 = function(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
+  var h = '<div class="guest-fb-block" style="margin-top:8px;padding-top:8px;border-top:1px solid #e2e6ea">';
+  h += '<div style="font-size:11px;font-weight:800;color:#6a1b9a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">&#128100; Guest Condition Feedback</div>';
+  h += '<div style="font-size:12px;color:#222;white-space:pre-wrap;background:#F3E5F5;border-left:3px solid #6a1b9a;border-radius:8px;padding:8px 10px">' + esc2(text) + '</div>';
+  if (d.isVoided || !GUEST_FB_TYPES[d.formType]) return h + '</div>';
+  h += '<div style="font-size:12px;margin-top:6px">';
+  if (d.guestFbEmailStatus === 'sent') {
+    h += '<div style="color:#1e7e34;font-weight:600">&#9989; Emailed to ' + esc2(GUEST_FB_EMAIL) + (d.guestFbEmailSentAt ? ' &middot; ' + esc2(new Date(d.guestFbEmailSentAt).toLocaleString('en-US')) : '') + '</div>';
+  } else if (guestFbEmailIsSending(d)) {
+    h += '<div style="color:#555;font-weight:600">&#8987; Sending to ' + esc2(GUEST_FB_EMAIL) + '&hellip;</div>';
+  } else {
+    h += '<div style="color:#c0392b;font-weight:600">&#9888; Not yet emailed to ' + esc2(GUEST_FB_EMAIL) + (d.guestFbEmailError ? ' &mdash; ' + esc2(d.guestFbEmailError) : '') + '</div>';
+    h += '<button onclick="retryGuestFeedbackEmail(\'' + esc2(d.id) + '\',this)" style="margin-top:6px;background:#6a1b9a;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Retry Guest Feedback Email</button>';
+  }
+  return h + '</div></div>';
+}
+// ── end GUEST CONDITION FEEDBACK shared block ──
 
 // ── Backfill: creates tracked property_issues records for any Spot Checks missing one —
 // either an old, single-issue Spot Check submitted before the property_issues bridge
