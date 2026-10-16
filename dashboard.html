@@ -330,6 +330,19 @@ tr:hover td{background:#fafbfe}
   .invd-exp td{display:block}
   .invd-pv-nav{width:34px;height:34px}
 }
+.invd-pdf{position:relative}
+.invd-pdf-btn{background:var(--navy);color:white;border:none;border-radius:7px;padding:6px 11px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.invd-pdf-btn:hover{background:var(--blue)}
+.invd-pdf-btn:disabled{opacity:.7;cursor:progress}
+.invd-pdf-btn .caret{font-size:9px;margin-left:2px}
+.invd-pdf-menu{display:none;position:absolute;right:0;top:calc(100% + 4px);background:white;border:1px solid var(--mid-gray);border-radius:9px;box-shadow:var(--shadow-md);z-index:60;min-width:230px;overflow:hidden}
+.invd-pdf-menu.open{display:block}
+.invd-pdf-menu button{display:block;width:100%;text-align:left;background:white;border:none;border-bottom:1px solid #f0f0f0;padding:9px 12px;cursor:pointer;font-size:12.5px;color:var(--text)}
+.invd-pdf-menu button:last-child{border-bottom:none}
+.invd-pdf-menu button:hover:not(:disabled){background:var(--gray)}
+.invd-pdf-menu button span{display:block;font-size:11px;color:var(--dark-gray);margin-top:1px}
+.invd-pdf-menu button:disabled{cursor:not-allowed;opacity:.55}
+@media (max-width:700px){.invd-pdf{flex-basis:100%}.invd-pdf-btn{width:100%}.invd-pdf-menu{left:0;right:0;min-width:0}}
 /* FILTERS */
 .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .filters select,.filters input{border:1.5px solid var(--mid-gray);border-radius:7px;padding:6px 10px;font-size:12px;background:white;outline:none}
@@ -2757,7 +2770,15 @@ function invdPanelHtml(insp,safeId){
   h+='<div class="invd-tools"><input type="search" class="invd-q" id="invd-q-'+safeId+'" placeholder="&#128269; Search items&hellip;" value="'+esc(ui.q)+'" oninput="invdSetQ(\''+safeId+'\',this.value)">';
   h+='<select class="invd-cat" id="invd-cat-'+safeId+'" onchange="invdSetCat(\''+safeId+'\',this.value)"><option value="">All categories</option>';
   m.sections.forEach(function(s){h+='<option value="'+esc(s)+'"'+(ui.cat===s?' selected':'')+'>'+esc(s)+'</option>';});
-  h+='</select></div></div>';
+  h+='</select>';
+  // Download PDF (2026-10-16) — see invdDownloadPdf()/invpdfBuild()
+  h+='<div class="invd-pdf"><button type="button" class="invd-pdf-btn" id="invd-pdfb-'+safeId+'" onclick="invdPdfMenu(\''+safeId+'\',event)">&#11015; Download PDF <span class="caret">&#9662;</span></button>';
+  h+='<div class="invd-pdf-menu" id="invd-pdfm-'+safeId+'">';
+  h+='<button type="button" onclick="invdDownloadPdf(\''+safeId+'\',\'flagged\')"><strong>Flagged Items Only</strong><span>'+m.flaggedRows.length+' item'+(m.flaggedRows.length!==1?'s':'')+'</span></button>';
+  if(m.hasFull) h+='<button type="button" onclick="invdDownloadPdf(\''+safeId+'\',\'full\')"><strong>Entire Inventory List</strong><span>'+m.rows.length+' items, flagged marked</span></button>';
+  else h+='<button type="button" disabled title="This report was submitted before full inventory snapshots were saved."><strong>Entire Inventory List</strong><span>Unavailable for this report</span></button>';
+  h+='</div></div>';
+  h+='</div></div>';
   h+='<div class="invd-body" id="invd-body-'+safeId+'">'+invdBodyHtml(insp,safeId,m)+'</div>';
   var notes=(insp.invNotes||'').trim();
   if(notes)h+='<div class="invd-addl"><span class="invd-addl-lbl">&#128203; Additional Notes</span> '+esc(notes).replace(/\n/g,'<br>')+'</div>';
@@ -3034,6 +3055,321 @@ function invdAddPhoto(safeId,rk,input){
     });
   },function(){showToast('That photo could not be read — please try another');if(lbl)lbl.classList.remove('busy');});
   input.value='';
+}
+
+// ── INVENTORY REPORT PDF EXPORT (2026-10-16) ─────────────────────────────────
+// "Download PDF" inside a Kitchen/Linen Inventory report's Details panel. Two
+// exports, both built from the SAME data the panel shows (invdModel(insp)):
+//   'flagged' -> only flagged items (shortfalls / items with a tracked issue)
+//   'full'    -> every recorded item, flagged ones clearly marked
+// Generated entirely in the browser with jsPDF + jsPDF-AutoTable, which are only
+// downloaded the first time someone clicks Download PDF (the dashboard's normal
+// page load is unaffected). Nothing is written to Firestore.
+// Photos: each attached photo is fetched, shrunk and embedded as a thumbnail. A
+// photo the browser isn't allowed to read (e.g. Storage CORS not configured, or a
+// deleted file) is listed as "not embedded" instead of failing the whole PDF.
+var INVPDF_LIBS=[
+  'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+  'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js'
+];
+var INVPDF_C={navy:[6,52,97],blue:[46,117,182],light:[214,228,240],red:[204,0,0],redLight:[253,236,234],gray:[85,85,85],line:[224,224,224],zebra:[247,249,252],green:[30,123,69]};
+var _invpdfLibP=null, _invpdfImgCache={};
+function invpdfLoadLibs(){
+  if(window.jspdf&&window.jspdf.jsPDF&&window.jspdf.jsPDF.API&&window.jspdf.jsPDF.API.autoTable)return Promise.resolve();
+  if(_invpdfLibP)return _invpdfLibP;
+  function load(src){return new Promise(function(res,rej){var s=document.createElement('script');s.src=src;s.onload=res;s.onerror=function(){rej(new Error('Could not load '+src));};document.head.appendChild(s);});}
+  _invpdfLibP=load(INVPDF_LIBS[0]).then(function(){return load(INVPDF_LIBS[1]);}).catch(function(e){_invpdfLibP=null;throw e;});
+  return _invpdfLibP;
+}
+// The PDF's built-in fonts only cover Western characters (Windows-1252). Keep
+// accents/curly quotes/dashes, drop anything else (e.g. emoji) so text never
+// renders as garbage.
+var INVPDF_CP1252_EXTRA='€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ';
+function invpdfTxt(s){
+  s=String(s==null?'':s).replace(/\r\n?/g,'\n');
+  var out='';
+  for(var i=0;i<s.length;i++){
+    var ch=s[i],c=s.charCodeAt(i);
+    if(ch==='\n'||(c>=32&&c<=126)||(c>=160&&c<=255)||INVPDF_CP1252_EXTRA.indexOf(ch)!==-1)out+=ch;
+    else if(c>=0xD800&&c<=0xDBFF)i++; // skip surrogate pair (emoji)
+  }
+  return out.replace(/[ \t]{2,}/g,' ').trim();
+}
+function invpdfFileSafe(s){return invpdfTxt(s).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'Report';}
+function invpdfInspDate(insp){
+  // Prefer the inspection's own date field (YYYY-MM-DD from the app), then submittedAt.
+  var d=insp.date&&/^\d{4}-\d{2}-\d{2}/.test(insp.date)?insp.date.slice(0,10):(insp.submittedAt?String(insp.submittedAt).slice(0,10):'');
+  return d;
+}
+function invpdfPrettyDate(iso){
+  if(!iso)return '';
+  var p=iso.split('-'); if(p.length<3)return iso;
+  var dt=new Date(+p[0],+p[1]-1,+p[2]);
+  return dt.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+}
+// Loads one photo and returns a small JPEG data URL (max 700px) plus its size,
+// or null if it can't be read. Cached per URL so both exports reuse the work.
+function invpdfLoadImage(url){
+  if(_invpdfImgCache[url])return _invpdfImgCache[url];
+  function fromSrc(src,revoke){
+    return new Promise(function(res){
+      var img=new Image(); var done=false;
+      var t=setTimeout(function(){if(!done){done=true;res(null);}},20000);
+      img.onload=function(){
+        if(done)return; done=true; clearTimeout(t);
+        try{
+          var max=700,s=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));
+          var c=document.createElement('canvas'); c.width=Math.max(1,Math.round(img.naturalWidth*s)); c.height=Math.max(1,Math.round(img.naturalHeight*s));
+          var g=c.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,c.width,c.height); g.drawImage(img,0,0,c.width,c.height);
+          res({data:c.toDataURL('image/jpeg',0.78),w:c.width,h:c.height});
+        }catch(e){res(null);}
+        if(revoke)URL.revokeObjectURL(src);
+      };
+      img.onerror=function(){if(done)return;done=true;clearTimeout(t);res(null);if(revoke)URL.revokeObjectURL(src);};
+      img.src=src;
+    });
+  }
+  var p;
+  if(/^data:image\//.test(url)) p=fromSrc(url,false);
+  else p=fetch(url,{mode:'cors',cache:'force-cache'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.blob();})
+        .then(function(b){return fromSrc(URL.createObjectURL(b),true);})
+        .catch(function(e){console.warn('[INVPDF] Photo could not be embedded',{url:url,error:e&&e.message});return null;});
+  _invpdfImgCache[url]=p;
+  return p;
+}
+function invpdfLoadAll(urls,onProgress){
+  var i=0,done=0,out={},list=urls.slice();
+  return new Promise(function(resolve){
+    if(!list.length)return resolve(out);
+    function next(){
+      if(i>=list.length)return;
+      var u=list[i++];
+      invpdfLoadImage(u).then(function(r){out[u]=r;done++;if(onProgress)onProgress(done,list.length);if(done===list.length)resolve(out);else next();});
+    }
+    for(var k=0;k<Math.min(4,list.length);k++)next();
+  });
+}
+function invpdfStatusText(r,inspId){
+  if(r.issue){
+    var isSupply=(r.issue.section==='Supply Check'||r.issue.section==='Supply Inventory');
+    if(isSupply)return 'FLAGGED - Supply Log';
+    var tied=findTiedIssue(inspId,r.issue.key||('legacyidx_'+r.xi));
+    if(!tied)return 'FLAGGED';
+    var st=(ISSUE_STATUS_LABELS[tied.status]||ISSUE_STATUS_LABELS.open).txt;
+    return 'FLAGGED - '+st;
+  }
+  if(r.flagged)return 'FLAGGED';
+  if(!r.counted)return 'No count';
+  return 'OK';
+}
+function invdPdfMenu(safeId,ev){
+  if(ev)ev.stopPropagation();
+  var m=document.getElementById('invd-pdfm-'+safeId); if(!m)return;
+  var open=!m.classList.contains('open');
+  document.querySelectorAll('.invd-pdf-menu.open').forEach(function(x){x.classList.remove('open');});
+  if(open)m.classList.add('open');
+}
+document.addEventListener('click',function(e){
+  if(e.target.closest&&e.target.closest('.invd-pdf'))return;
+  document.querySelectorAll('.invd-pdf-menu.open').forEach(function(x){x.classList.remove('open');});
+});
+function invdDownloadPdf(safeId,mode){
+  var insp=invdInspBySafeId(safeId); if(!insp){showToast('Report not found');return;}
+  var m=invdModel(insp);
+  if(mode==='full'&&!m.hasFull){showToast('Full inventory is unavailable for this report');return;}
+  var menu=document.getElementById('invd-pdfm-'+safeId); if(menu)menu.classList.remove('open');
+  var btn=document.getElementById('invd-pdfb-'+safeId);
+  var label=btn?btn.innerHTML:'';
+  function busy(t){if(btn){btn.disabled=true;btn.textContent=t;}}
+  function idle(){if(btn){btn.disabled=false;btn.innerHTML=label;}}
+  busy('Preparing PDF…');
+  invpdfLoadLibs().then(function(){
+    var rows=mode==='full'?m.rows:m.flaggedRows;
+    var urls=[];
+    rows.forEach(function(r){r.photos.forEach(function(u){if(urls.indexOf(u)===-1)urls.push(u);});});
+    return invpdfLoadAll(urls,function(d,n){busy('Loading photos '+d+'/'+n+'…');}).then(function(imgs){
+      busy('Building PDF…');
+      var res=invpdfBuild(insp,m,mode,imgs);
+      res.doc.save(res.filename);
+      idle();
+      showToast(res.missing?('PDF downloaded — '+res.missing+' photo'+(res.missing!==1?'s':'')+' could not be embedded'):'PDF downloaded');
+    });
+  }).catch(function(e){
+    console.warn('[INVPDF] PDF export failed',e);
+    idle();
+    showToast('Could not create the PDF — please check your connection and try again');
+  });
+}
+function invpdfBuild(insp,m,mode,imgs){
+  var jsPDF=window.jspdf.jsPDF;
+  var doc=new jsPDF({unit:'mm',format:'letter',orientation:'portrait',compress:true});
+  var C=INVPDF_C, PW=doc.internal.pageSize.getWidth(), PH=doc.internal.pageSize.getHeight(), M=12, CW=PW-2*M;
+  var house=invpdfTxt(insp.property||'Unknown house');
+  var listName=invpdfTxt(TYPE_LABELS[insp.formType]||insp.formType||'Inventory');
+  var isFlag=mode==='flagged';
+  var modeLabel=isFlag?'FLAGGED ITEMS ONLY':'FULL INVENTORY';
+  var dateIso=invpdfInspDate(insp);
+  var rows=isFlag?m.flaggedRows:m.rows;
+  var missing=0;
+  // ── Page-1 header ──
+  doc.setFillColor.apply(doc,C.navy); doc.rect(0,0,PW,4,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor.apply(doc,C.blue);
+  doc.text('TAHOE LUXURY PROPERTIES',M,12,{charSpace:0.6});
+  doc.setFontSize(19); doc.setTextColor.apply(doc,C.navy);
+  var houseLines=doc.splitTextToSize(house,CW-48);
+  doc.text(houseLines,M,20);
+  var y=20+(houseLines.length-1)*7.5;
+  doc.setFont('helvetica','normal'); doc.setFontSize(12.5); doc.setTextColor(30,30,46);
+  doc.text(listName,M,y+7.5);
+  // mode badge (top right)
+  doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
+  var bw=doc.getTextWidth(modeLabel)+8;
+  if(isFlag){doc.setFillColor.apply(doc,C.redLight);doc.setDrawColor.apply(doc,C.red);doc.setTextColor.apply(doc,C.red);}
+  else{doc.setFillColor.apply(doc,C.light);doc.setDrawColor.apply(doc,C.navy);doc.setTextColor.apply(doc,C.navy);}
+  doc.setLineWidth(0.3); doc.roundedRect(PW-M-bw,8.5,bw,7,1.5,1.5,'FD');
+  doc.text(modeLabel,PW-M-bw/2,13.2,{align:'center'});
+  // meta line
+  y+=14;
+  var meta=[];
+  meta.push('Inspection date: '+(dateIso?invpdfPrettyDate(dateIso):'Not recorded'));
+  meta.push('Inspector: '+(insp.inspector?invpdfTxt(insp.inspector):'Not recorded'));
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor.apply(doc,C.gray);
+  doc.text(meta.join('     |     '),M,y);
+  y+=5;
+  var flaggedN=m.flaggedRows.length;
+  var summary=isFlag
+    ? (flaggedN+' flagged item'+(flaggedN!==1?'s':'')+(m.hasFull?' out of '+m.rows.length+' items recorded':''))
+    : (m.rows.length+' items recorded  |  '+flaggedN+' flagged (marked in red)');
+  doc.text(summary,M,y);
+  y+=3.5;
+  doc.setDrawColor.apply(doc,C.blue); doc.setLineWidth(0.6); doc.line(M,y,PW-M,y);
+  y+=4;
+  // ── Table ──
+  var head=[['Item','Have','Need','Status','Comment / Notes','Photos']];
+  var body=[], meta2=[];
+  if(!rows.length){
+    body.push([{content:isFlag?'No items were flagged on this report.':'No inventory items were recorded.',colSpan:6,styles:{halign:'center',textColor:C.gray,fontStyle:'italic',cellPadding:4}}]);
+    meta2.push(null);
+  }
+  var groups=[],gmap={};
+  rows.forEach(function(r){if(!gmap[r.section]){gmap[r.section]=[];groups.push(r.section);}gmap[r.section].push(r);});
+  var PH_THUMB=13, PH_GAP=1.5, PH_COLW=CW-(48+13+13+27+58), PH_PER_LINE=Math.max(1,Math.floor((PH_COLW-3+PH_GAP)/(PH_THUMB+PH_GAP))), PH_MAX=PH_PER_LINE*2;
+  groups.forEach(function(g){
+    var fl=gmap[g].filter(function(r){return r.flagged||r.issue;}).length;
+    var gTxt=invpdfTxt(g||'Uncategorized').toUpperCase()+'   ('+gmap[g].length+' item'+(gmap[g].length!==1?'s':'')+(fl&&!isFlag?', '+fl+' flagged':'')+')';
+    body.push([{content:gTxt,colSpan:6,styles:{fillColor:C.light,textColor:C.navy,fontStyle:'bold',fontSize:8.5,cellPadding:{top:1.8,bottom:1.8,left:2.5,right:2}}}]);
+    meta2.push({group:true});
+    gmap[g].forEach(function(r){
+      var isF=!!(r.flagged||r.issue);
+      var notes=[];
+      if(r.comment)notes.push('Comment: '+invpdfTxt(r.comment));
+      if(r.notes&&r.notes!==r.comment)notes.push((isF?'Shortfall: ':'Note: ')+invpdfTxt(r.notes));
+      var ok=[],bad=0;
+      r.photos.forEach(function(u){var im=imgs[u];if(im)ok.push(im);else bad++;});
+      missing+=bad;
+      var shown=ok.slice(0,PH_MAX);
+      var phText='';
+      if(!r.photos.length)phText='-';
+      var extra=[];
+      if(ok.length>shown.length)extra.push('+'+(ok.length-shown.length)+' more');
+      if(bad)extra.push(bad+' not embedded');
+      var lines=shown.length?Math.ceil(shown.length/PH_PER_LINE):0;
+      var minH=lines?(lines*(PH_THUMB+PH_GAP)+2.2+(extra.length?3.6:0)):0;
+      if(!shown.length&&extra.length)phText=r.photos.length+' photo'+(r.photos.length!==1?'s':'')+' (view in Mothership)';
+      body.push([
+        {content:invpdfTxt(r.item),styles:isF?{fontStyle:'bold',textColor:[26,26,46]}:{}},
+        {content:invdHasVal(r.current)?invpdfTxt(r.current):'-',styles:{halign:'center',fontStyle:'bold'}},
+        {content:invdHasVal(r.needed)?invpdfTxt(r.needed):'-',styles:{halign:'center'}},
+        {content:invpdfStatusText(r,insp.id),styles:isF?{textColor:C.red,fontStyle:'bold'}:(r.counted?{textColor:C.green}:{textColor:C.gray})},
+        {content:notes.length?notes.join('\n'):'-',styles:notes.length?{}:{textColor:C.gray}},
+        {content:phText,styles:{minCellHeight:minH,fontSize:7,textColor:C.gray}}
+      ]);
+      meta2.push({row:r,flag:isF,thumbs:shown,extra:extra.join(', ')});
+    });
+  });
+  var startY=y;
+  doc.autoTable({
+    head:head, body:body, startY:startY, theme:'grid',
+    margin:{top:22,left:M,right:M,bottom:16},
+    showHead:'everyPage', rowPageBreak:'avoid',
+    styles:{font:'helvetica',fontSize:8.2,cellPadding:{top:1.6,bottom:1.6,left:2,right:2},lineColor:C.line,lineWidth:0.15,textColor:[26,26,46],overflow:'linebreak',valign:'middle'},
+    headStyles:{fillColor:C.navy,textColor:255,fontStyle:'bold',fontSize:8,halign:'left',cellPadding:{top:2.2,bottom:2.2,left:2,right:2}},
+    columnStyles:{0:{cellWidth:48},1:{cellWidth:13,halign:'center'},2:{cellWidth:13,halign:'center'},3:{cellWidth:27},4:{cellWidth:58},5:{cellWidth:PH_COLW}},
+    didParseCell:function(d){
+      if(d.section==='head'&&(d.column.index===1||d.column.index===2))d.cell.styles.halign='center';
+      if(d.section!=='body')return;
+      var mt=meta2[d.row.index];
+      if(mt&&mt.flag)d.cell.styles.fillColor=C.redLight;
+      else if(mt&&!mt.group)d.cell.styles.fillColor=(d.row.index%2)?C.zebra:[255,255,255];
+    },
+    willDrawCell:function(d){
+      if(d.section==='head'&&(d.column.index===1||d.column.index===2))d.cell.styles.halign='center';
+    },
+    didDrawCell:function(d){
+      if(d.section!=='body')return;
+      var mt=meta2[d.row.index]; if(!mt||mt.group)return;
+      if(d.column.index===0&&mt.flag){doc.setFillColor.apply(doc,C.red);doc.rect(d.cell.x,d.cell.y,1.1,d.cell.height,'F');}
+      if(d.column.index===5&&mt.thumbs&&mt.thumbs.length){
+        var x0=d.cell.x+1.5,yy=d.cell.y+1.1;
+        mt.thumbs.forEach(function(im,ix){
+          var col=ix%PH_PER_LINE,row=Math.floor(ix/PH_PER_LINE);
+          var s=Math.min(PH_THUMB/im.w,PH_THUMB/im.h),w=im.w*s,h=im.h*s;
+          var bx=x0+col*(PH_THUMB+PH_GAP),by=yy+row*(PH_THUMB+PH_GAP);
+          try{doc.addImage(im.data,'JPEG',bx+(PH_THUMB-w)/2,by+(PH_THUMB-h)/2,w,h,undefined,'FAST');}catch(e){}
+          doc.setDrawColor.apply(doc,C.line);doc.setLineWidth(0.2);doc.rect(bx,by,PH_THUMB,PH_THUMB);
+        });
+        if(mt.extra){
+          var lines=Math.ceil(mt.thumbs.length/PH_PER_LINE);
+          doc.setFont('helvetica','normal');doc.setFontSize(6.8);doc.setTextColor.apply(doc,C.gray);
+          doc.text(mt.extra,x0,yy+lines*(PH_THUMB+PH_GAP)+2);
+        }
+      }
+    }
+  });
+  // ── Additional notes + photo note ──
+  var fy=doc.lastAutoTable.finalY+6;
+  function ensure(h){if(fy+h>PH-18){doc.addPage();fy=24;}}
+  var addl=invpdfTxt(insp.invNotes||'');
+  if(addl){
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);
+    var al=doc.splitTextToSize(addl,CW-6);
+    ensure(10+al.length*3.8);
+    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor.apply(doc,C.navy);
+    doc.text('ADDITIONAL NOTES',M,fy); fy+=2;
+    doc.setFillColor.apply(doc,C.zebra);doc.setDrawColor.apply(doc,C.line);doc.setLineWidth(0.2);
+    doc.rect(M,fy,CW,al.length*3.8+4,'FD');
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(26,26,46);
+    doc.text(al,M+3,fy+4.6); fy+=al.length*3.8+8;
+  }
+  if(missing){
+    ensure(8);
+    doc.setFont('helvetica','italic');doc.setFontSize(7.5);doc.setTextColor.apply(doc,C.gray);
+    doc.text(doc.splitTextToSize(missing+' photo'+(missing!==1?'s':'')+' could not be embedded in this PDF and can be viewed in the Mothership report.',CW),M,fy);
+  }
+  // ── Footer on every page ──
+  var total=doc.getNumberOfPages();
+  var gen='Generated '+new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  for(var p=1;p<=total;p++){
+    doc.setPage(p);
+    if(p>1){
+      // Slim continuation header (house, list, export type, date/inspector)
+      doc.setFillColor.apply(doc,C.navy); doc.rect(0,0,PW,2.5,'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor.apply(doc,C.navy);
+      doc.text(doc.splitTextToSize(house+'  -  '+listName,CW-50)[0],M,11);
+      doc.setFontSize(7.5); doc.setTextColor.apply(doc,isFlag?C.red:C.navy);
+      doc.text(modeLabel,PW-M,11,{align:'right'});
+      doc.setFont('helvetica','normal'); doc.setTextColor.apply(doc,C.gray);
+      doc.text((dateIso?invpdfPrettyDate(dateIso):'')+(insp.inspector?'  |  Inspector: '+invpdfTxt(insp.inspector):''),M,15.5);
+    }
+    doc.setDrawColor.apply(doc,C.line);doc.setLineWidth(0.3);doc.line(M,PH-11,PW-M,PH-11);
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor.apply(doc,C.gray);
+    doc.text('Tahoe Luxury Properties  |  '+doc.splitTextToSize(house,70)[0]+'  |  '+gen,M,PH-7);
+    doc.setFont('helvetica','bold');doc.setTextColor.apply(doc,C.navy);
+    doc.text('Page '+p+' of '+total,PW-M,PH-7,{align:'right'});
+  }
+  doc.setProperties({title:house+' - '+listName+' - '+(isFlag?'Flagged Items':'Full Inventory'),subject:'Inventory report',author:'Tahoe Luxury Properties',creator:'Mothership'});
+  var filename=invpdfFileSafe(house)+'_'+invpdfFileSafe(listName)+'_'+(isFlag?'FlaggedItems':'FullInventory')+'_'+(dateIso||'undated')+'.pdf';
+  return {doc:doc,filename:filename,missing:missing};
 }
 
 // ── SEASONAL DASHBOARD ────────────────────────────────────────────────────────
