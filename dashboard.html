@@ -3780,7 +3780,7 @@ function readyEmailStatusHtml(d) {
 // READY_EMAIL_WEBHOOK (same Make.com webhook), READY_RETRY_HINT and
 // afterReadyEmailChange(inspId) (re-renders My Inspections / the dashboard log).
 //
-// Check-Out inspections (Summer/Winter) have an optional "Guest Condition Feedback"
+// Check-Out and Back-to-Back inspections (Summer/Winter) have an optional "Guest Condition Feedback"
 // box. When the inspection is SUBMITTED with anything other than blank/whitespace
 // in it, this emails GUEST_FB_EMAIL once, so the reservations team can note the
 // guest's profile. Saving a draft never sends. Voided inspections never send.
@@ -3792,7 +3792,7 @@ function readyEmailStatusHtml(d) {
 // 'sending' claim older than READY_EMAIL_STALE_MS can be re-claimed; if the claim
 // itself fails (offline), nothing is sent. Content is read from the SAVED record.
 var GUEST_FB_EMAIL = 'info@tluxp.com';
-var GUEST_FB_TYPES = { checkout_summer: 'Check Out — Summer', checkout_winter: 'Check Out — Winter' };
+var GUEST_FB_TYPES = { checkout_summer: 'Check Out — Summer', checkout_winter: 'Check Out — Winter', b2b_summer: 'Back-to-Back — Summer', b2b_winter: 'Back-to-Back — Winter' };
 function guestFbText(d) { return String((d && d.guestFeedback) || '').trim(); }
 function isGuestFbEmailEligible(d) {
   return !!d && !!GUEST_FB_TYPES[d.formType] && !d.isVoided && guestFbText(d) !== '';
