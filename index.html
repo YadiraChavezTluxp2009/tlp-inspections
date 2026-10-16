@@ -3790,7 +3790,7 @@ function buildChecklist() {
     opsBlock.appendChild(opsWrap);
     wrap.appendChild(opsBlock);
   }
-  // "Guest Condition Feedback" (2026-10-16) — Check-Out only, optional. Separate
+  // "Guest Condition Feedback" (2026-10-16) — Check-Out + Back-to-Back, optional. Separate
   // from the Operations box above: emailed to the reservations team
   // (GUEST_FB_EMAIL) on final submit when non-blank; never on draft save.
   if (GUEST_FB_TYPES[state.formType]) {
@@ -3805,7 +3805,7 @@ function buildChecklist() {
     gfWrap.style.cssText = 'padding:10px 14px 14px';
     var gfHint = document.createElement('div');
     gfHint.style.cssText = 'font-size:11.5px;color:var(--dark-gray);margin-bottom:8px';
-    gfHint.textContent = 'Report excessive cleaning, damage, or other guest-related concerns for the reservations team. Leave blank if there are no concerns.';
+    gfHint.textContent = 'Report excessive cleaning, damage, or other guest-related concerns for the reservations team. Anything entered here is emailed to ' + GUEST_FB_EMAIL + ' when you submit this inspection. Leave blank if there are no concerns.';
     gfWrap.appendChild(gfHint);
     var gfArea = document.createElement('textarea');
     gfArea.id = 'guestFeedbackInput';
@@ -5301,7 +5301,7 @@ function readyEmailStatusHtml(d) {
 // READY_EMAIL_WEBHOOK (same Make.com webhook), READY_RETRY_HINT and
 // afterReadyEmailChange(inspId) (re-renders My Inspections / the dashboard log).
 //
-// Check-Out inspections (Summer/Winter) have an optional "Guest Condition Feedback"
+// Check-Out and Back-to-Back inspections (Summer/Winter) have an optional "Guest Condition Feedback"
 // box. When the inspection is SUBMITTED with anything other than blank/whitespace
 // in it, this emails GUEST_FB_EMAIL once, so the reservations team can note the
 // guest's profile. Saving a draft never sends. Voided inspections never send.
@@ -5313,7 +5313,7 @@ function readyEmailStatusHtml(d) {
 // 'sending' claim older than READY_EMAIL_STALE_MS can be re-claimed; if the claim
 // itself fails (offline), nothing is sent. Content is read from the SAVED record.
 var GUEST_FB_EMAIL = 'info@tluxp.com';
-var GUEST_FB_TYPES = { checkout_summer: 'Check Out — Summer', checkout_winter: 'Check Out — Winter' };
+var GUEST_FB_TYPES = { checkout_summer: 'Check Out — Summer', checkout_winter: 'Check Out — Winter', b2b_summer: 'Back-to-Back — Summer', b2b_winter: 'Back-to-Back — Winter' };
 function guestFbText(d) { return String((d && d.guestFeedback) || '').trim(); }
 function isGuestFbEmailEligible(d) {
   return !!d && !!GUEST_FB_TYPES[d.formType] && !d.isVoided && guestFbText(d) !== '';
