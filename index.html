@@ -1618,18 +1618,20 @@ var SPRING_BEDROOM_ITEMS = [
   'Luggage racks present (if applicable)',
   'At least 20 hangers in closet'
 ];
+// 2026-10-18: Fall-only edits per Yadira (Spring unchanged): Fall bedroom item 1
+// fan -> space heater, item 6 ("Check under each bed") removed, hangers item now
+// "matching hangers". FALL_BEDROOM_ITEMS and SPRING_BEDROOM_ITEMS now differ.
 var FALL_BEDROOM_ITEMS = [
-  'Fan in bedroom closet with neatly wrapped cord',
+  'Space heater in bedroom closet with neatly wrapped cord',
   'Pillows: 2 per sleeper on bed + 1 per sleeper in closet (with pillow case) check the condition/yellowing, odor etc',
   'Mattress comfortable (lay on it!)',
   'Duvets / shams — no stains, in good condition',
   'Sheets and bedding in good condition- do any decor pillows/blankets need to be replaced?',
-  'Check under each bed- clean/no debris',
   'Furniture in good condition, dresser present in each bedroom? Check handles, trash, scratches',
   'Nightstand and lamp on each side of every bed',
   'Art, d\xe9cor, and updates assessed',
   'Luggage racks present (if applicable)',
-  'At least 20 hangers in closet'
+  'At least 20 matching hangers in closet'
 ];
 var SPRING_BATHROOM_ITEMS = [
   'All drains flowing freely (sink, tub, shower) + faucets functioning (no leaks, easy to operate)',
@@ -1927,8 +1929,7 @@ function getSections(type, prop) {
       'Seasonal deep clean scheduled',
       'Patio furniture scheduled',
       'Window cleaning scheduled',
-      'Yard clean-up scheduled',
-      'Large appliance annual check-up scheduled',
+      'Has the landscaping and exterior been winterized (landscaping wrapped, irrigation off, etc.)?',
       'Buoy lines removed (if applicable)',
       'Wood ordered for wood burning fireplaces'
     ]},
@@ -1948,7 +1949,6 @@ function getSections(type, prop) {
       'Is the Bear Bin in good condtion, does it need to be cleaned, new cans needed?',
       'All game / rec equipment in good working order and placed away',
       'Patio furniture & umbrella placed away for season',
-      'Patio Furniture + dining table capacity noted in Track',
       'BBQ in good condition (no rust, all burners work) + Cover + 2 propane tanks present, or natural gas confirmed working (as applicable to this property)'
     ]},
     {title:'Interior Items', items:[
@@ -1961,22 +1961,20 @@ function getSections(type, prop) {
       'All blinds in good working order',
       'Gas fireplace functional + hatch dust build up removed — remotes present and working',
       'Wood burning fireplace — stock wood + fire starter present',
-      'Carbon monoxide alarms present and functioning throughout house',
       'Furnace filters checked (replaced / cleaned as needed)',
       'All lights, lamps, outlets tested- replace or order bulbs as needed',
       'Picture frames straight',
-      'Photo book present for cleaners',
+      'Photo book present for cleaners. Does it need updating?',
       'Stereo equipment present with printed instructions',
-      'Music playback working in all appropriate rooms',
-      'All TVs working /streaming devicess working + remotes present',
       'Confirm the location and inventory of the emergency kit- try to keep in master bedroom closet',
       'Garage clean and organized',
-      'Guest bikes, SUPs, watercraft, beach chairs documented in Track (if applicable) and put away'
+      'Guest bikes, SUPs, watercraft, beach chairs documented in Track (if applicable) and put away',
+      'All drains cleaned (bathtubs, sinks, etc.)'
     ]},
     {title:'Kitchen', items:[
       'Drawers and cabinets organized (photos taken)',
       'Salt and pepper refilled',
-      'Make and model of all large appliances recorded',
+      'Make and model of all large appliances recorded. Add appliance serial and model information to ‘Warranty Items’ in Track: Unit Profiles > HSK & Maintenance.',
       'All cabinet doors and drawers open / close properly',
       'Garbage disposal working',
       'All burners working properly',
@@ -1989,8 +1987,7 @@ function getSections(type, prop) {
       'Pots and pans in good shape',
       'Dishtowels — at least 8 matching, good condition',
       'Potholders — at least 2 glove + 2 flat, good condition',
-      'Dishwasher drain cleaned',
-      'All drains cleaned (bathtubs, sinks, etc.)'
+      'Dishwasher drain cleaned'
     ], kitchenExtra:true},
     {title:'Bedrooms', items: FALL_BEDROOM_ITEMS, dynamic:'bedroom'},
     {title:'Bathrooms', items: FALL_BATHROOM_ITEMS, dynamic:'bathroom'},
@@ -2006,6 +2003,7 @@ function getSections(type, prop) {
       'Supply inventory form complete and filed',
       'Kitchen inventory form complete and filed',
       'Post Walk through email sent to owners',
+      'Walkthrough Punch List Completed/Updated?',
       'House is ready for winter'
     ]}
   ];
