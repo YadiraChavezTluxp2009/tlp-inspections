@@ -417,6 +417,17 @@ tr:hover td{background:#fafbfe}
 .notified-badge{background:#D6E4F0;color:var(--navy);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700}
 .btn-email{background:#E8F5EE;color:#1A7A3F;border:1.5px solid #A5D6A7;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer}
 .btn-email:hover{background:#C8E6C9}
+/* Open Issues — Send Notification (2026-10-18) */
+.oi-notify{border-top:1px solid var(--mid-gray);margin-top:4px;padding-top:12px}
+.oi-notify-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.oi-notify .btn-email[disabled]{opacity:.6;cursor:default}
+.oi-notify-to{font-size:12px;color:var(--dark-gray)}
+.oi-notify-to.missing{color:#B3261E;font-weight:700}
+.oi-notify-last{font-size:12px;color:var(--dark-gray);margin-top:6px}
+.oi-notify-hint{font-size:11px;color:var(--dark-gray);margin-top:4px;font-style:italic}
+.oi-notify-msg{font-size:12px;font-weight:600;border-radius:7px;padding:7px 10px;margin-top:8px}
+.oi-notify-msg.ok{background:#E8F5EE;color:#1A7A3F;border:1px solid #A5D6A7}
+.oi-notify-msg.err{background:#FDECEA;color:#B3261E;border:1px solid #F5B7B1}
 .btn-delete{background:#FDECEA;color:var(--red);border:1.5px solid #F5C6CB;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer}
 .btn-delete:hover{background:#F9D4D0}
 .open-complaint-btn{background:linear-gradient(135deg,var(--navy),var(--blue));color:white;border:none;border-radius:10px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:16px}
@@ -3702,6 +3713,7 @@ function renderOpenIssues(){
     updates.forEach(function(u){updHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
     html+='<div class="updates-log">'+(updHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
     html+='<div class="add-update-row"><input type="text" id="oi-note-'+safeId+'" placeholder="Add an update&hellip; (e.g. hangers ordered, arriving Friday)"><button onclick="addPropertyIssueUpdate(\''+x.id+'\',\''+safeId+'\')">+ Add</button></div>';
+    html+=oiNotifyBlockHtml(x,safeId);
     html+='</td></tr>';
   });
   html+='</tbody></table>';
@@ -3799,6 +3811,161 @@ function addPropertyIssueUpdate(docId,safeId){
     renderOpenIssues();
     renderMyHouses();
   }).catch(function(){showToast('Error adding update');});
+}
+// ── OPEN ISSUES: "SEND NOTIFICATION" (2026-10-18) ────────────────────────────
+// Manual-only email of an issue's latest saved details to the property's house
+// email (PROPERTY_EMAILS — the same mapping the Complaints form uses), sent through
+// the same EmailJS service/template as Complaints (see EJS_ISSUE_TEMPLATE next to
+// the EmailJS config). Nothing here runs on save: adding an update or changing a
+// status never sends; only the button does. Sending never touches status,
+// resolvedAt/dismissedAt, statusHistory or updates[] — it only records
+// lastNotifiedAt/By/To and appends to notificationLog[] on the property_issues doc.
+var _oiNotifySending={};   // docId -> true while a send is in flight (blocks double clicks)
+var _oiNotifyResult={};    // docId -> {ok:bool,msg:string}, last result this session
+function oiHouseEmail(prop){
+  if(!prop)return '';
+  if(PROPERTY_EMAILS[prop])return String(PROPERTY_EMAILS[prop]).trim();
+  var want=String(prop).trim().toLowerCase().replace(/\s+/g,' ');
+  var key=Object.keys(PROPERTY_EMAILS).find(function(k){return k.trim().toLowerCase().replace(/\s+/g,' ')===want;});
+  return key?String(PROPERTY_EMAILS[key]).trim():'';
+}
+function oiFmtStamp(iso){
+  var d=new Date(iso); if(isNaN(d.getTime()))return '';
+  return d.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})+', '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+// Anything typed or staged in this issue's detail row that hasn't been written yet.
+function oiUnsavedChanges(x,safeId){
+  var out=[];
+  var note=document.getElementById('oi-note-'+safeId);
+  if(note&&(note.value||'').trim()) out.push('the update you typed hasn’t been added yet (click “+ Add”)');
+  var panel=document.getElementById('oi-confirm-'+safeId);
+  var sel=document.getElementById('oi-sel-'+safeId);
+  var pending=panel&&panel.style.display!=='none'?panel.getAttribute('data-pending-status'):null;
+  if(!pending&&sel&&sel.value!==(x.status||'open')) pending=sel.value;
+  if(pending&&pending!==(x.status||'open')) out.push('the status change to “'+(STATUS_DISPLAY_NAMES[pending]||pending)+'” hasn’t been confirmed (click Confirm or Cancel)');
+  return out;
+}
+function buildIssueNotification(x){
+  var house=x.property||'';
+  var title=(x.text||'').replace(/\s+/g,' ').trim()||'(untitled issue)';
+  var subjTitle=title.length>90?title.slice(0,87).trim()+'…':title;
+  var st=x.status||'open';
+  var statusName=STATUS_DISPLAY_NAMES[st]||st;
+  var now=new Date();
+  var L=[];
+  L.push('ISSUE UPDATE — '+house);
+  L.push('');
+  L.push('Issue: '+title);
+  L.push('Current Status: '+statusName);
+  if(st==='resolved'&&x.resolvedAt) L.push('Resolved: '+oiFmtStamp(x.resolvedAt)+(x.resolvedBy?' by '+x.resolvedBy:''));
+  if(st==='dismissed'){
+    if(x.dismissedAt) L.push('Dismissed: '+oiFmtStamp(x.dismissedAt)+(x.dismissedBy?' by '+x.dismissedBy:''));
+    if((x.dismissalNote||'').trim()) L.push('Dismissal Note: '+x.dismissalNote.trim());
+  }
+  L.push('Reported: '+(x.reportedAt?oiFmtStamp(x.reportedAt):'—')+(x.reportedByName?' by '+x.reportedByName:'')+(x.formType?' ('+sourceLabel(x.formType)+')':''));
+  if(x.section) L.push('Section: '+x.section);
+  if(x.location) L.push('Location: '+x.location);
+  if(x.category) L.push('Category: '+x.category);
+  if(x.priority) L.push('Priority: '+x.priority);
+  L.push('');
+  L.push('DESCRIPTION');
+  L.push((x.notes||'').trim()||title);
+  L.push('');
+  var ups=(x.updates||[]).slice().reverse();
+  L.push('LATEST UPDATES');
+  if(!ups.length) L.push('No updates have been added yet.');
+  ups.slice(0,5).forEach(function(u){ L.push('• '+(u.text||'')+' — '+(u.by||'')+(u.date?', '+u.date:'')); });
+  if(ups.length>5) L.push('(+ '+(ups.length-5)+' earlier update'+(ups.length-5===1?'':'s')+' in the Mothership’s Open Issues tab)');
+  var photos=normalizePhotoUrls(x.photos,'notify:'+x.id);
+  if(photos.length){ L.push(''); L.push('PHOTOS'); photos.forEach(function(u){L.push(u);}); }
+  L.push('');
+  L.push('Sent from the TLP Manager Dashboard'+(currentUser&&currentUser.name?' by '+currentUser.name:'')+' on '+oiFmtStamp(now.toISOString())+'.');
+  return {
+    subject: house+' – '+subjTitle,
+    title: title, statusName: statusName,
+    dateStr: now.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}),
+    body: L.join('\n')
+  };
+}
+function oiNotifyInnerHtml(x,safeId){
+  var to=oiHouseEmail(x.property);
+  var sending=!!_oiNotifySending[x.id];
+  var h='<div class="insp-detail-heading">&#128231; Notify House</div>';
+  h+='<div class="oi-notify-row"><button type="button" class="btn-email" id="oi-notify-btn-'+safeId+'"'+(sending?' disabled':'')+' onclick="sendIssueNotification(\''+x.id+'\',\''+safeId+'\')">'+(sending?'&#8987; Sending&hellip;':'&#128231; Send Notification')+'</button>';
+  h+=to?'<span class="oi-notify-to">To: <strong>'+esc(to)+'</strong> (house email on file)</span>'
+       :'<span class="oi-notify-to missing">&#9888; No house email on file for this property</span>';
+  h+='</div>';
+  h+='<div class="oi-notify-last">'+(x.lastNotifiedAt
+      ?'Last notification sent: <strong>'+esc(oiFmtStamp(x.lastNotifiedAt))+'</strong>'+(x.lastNotifiedBy?' by '+esc(x.lastNotifiedBy):'')+(x.lastNotifiedTo?' to '+esc(x.lastNotifiedTo):'')
+      :'No notification sent yet.')+'</div>';
+  var r=_oiNotifyResult[x.id];
+  if(r) h+='<div class="oi-notify-msg '+(r.ok?'ok':'err')+'">'+esc(r.msg)+'</div>';
+  h+='<div class="oi-notify-hint">Saving an update or status never emails anyone — the house is only notified when you click Send Notification.</div>';
+  return h;
+}
+function oiNotifyBlockHtml(x,safeId){ return '<div class="oi-notify" id="oi-notify-'+safeId+'">'+oiNotifyInnerHtml(x,safeId)+'</div>'; }
+function oiRefreshNotifyBlock(docId,safeId){
+  var x=_propIssues.find(function(i){return i.id===docId;});
+  var el=document.getElementById('oi-notify-'+safeId);
+  if(x&&el) el.innerHTML=oiNotifyInnerHtml(x,safeId);
+}
+function oiSetNotifyResult(docId,safeId,ok,msg){
+  _oiNotifyResult[docId]={ok:ok,msg:msg};
+  oiRefreshNotifyBlock(docId,safeId);
+  showToast(msg.length>80?(ok?'Notification sent ✓':'Notification not sent'):msg);
+}
+function sendIssueNotification(docId,safeId){
+  if(_oiNotifySending[docId])return;
+  var x=_propIssues.find(function(i){return i.id===docId;});
+  if(!x){ oiSetNotifyResult(docId,safeId,false,'This issue could not be found — reload the page and try again.'); return; }
+  var unsaved=oiUnsavedChanges(x,safeId);
+  if(unsaved.length){ oiSetNotifyResult(docId,safeId,false,'Nothing was sent. Save your changes first: '+unsaved.join('; ')+'.'); return; }
+  var to=oiHouseEmail(x.property);
+  if(!to){ oiSetNotifyResult(docId,safeId,false,'Nothing was sent — there is no house email on file for '+(x.property||'this property')+'. Add one to the property email list, then try again.'); return; }
+  _oiNotifySending[docId]=true;
+  delete _oiNotifyResult[docId];
+  oiRefreshNotifyBlock(docId,safeId);
+  // Re-read the saved record first so the email always carries the latest SAVED
+  // status/updates (including anything another user saved since this page loaded).
+  db.collection('property_issues').doc(docId).get().then(function(snap){
+    if(!snap.exists) throw {stage:'read',msg:'This issue no longer exists.'};
+    var fresh=snap.data()||{};
+    var changed=(fresh.status||'open')!==(x.status||'open')||(fresh.updates||[]).length!==(x.updates||[]).length;
+    Object.keys(fresh).forEach(function(k){ x[k]=fresh[k]; });
+    var mail=buildIssueNotification(x);
+    var mgrRec=PROPERTIES.find(function(p){return p.name===x.property;});
+    return emailjs.send(EJS_SERVICE,EJS_ISSUE_TEMPLATE,{
+      to_email:to, property_name:x.property||'', date:mail.dateStr,
+      manager:mgrRec?mgrRec.manager:(x.assignedManagerName||''),
+      complaint:mail.body,
+      subject:mail.subject, issue_title:mail.title, issue_status:mail.statusName,
+      notification_type:'Issue Update'
+    }).then(function(){ return {mail:mail,changed:changed}; },function(err){ throw {stage:'send',err:err}; });
+  }).then(function(res){
+    var nowIso=new Date().toISOString();
+    var by=currentUser?currentUser.name:'';
+    var entry={at:nowIso,by:by,to:to,status:x.status||'open',subject:res.mail.subject};
+    x.lastNotifiedAt=nowIso; x.lastNotifiedBy=by; x.lastNotifiedTo=to;
+    if(!x.notificationLog)x.notificationLog=[]; x.notificationLog.push(entry);
+    var okMsg='Notification sent to '+to+' at '+oiFmtStamp(nowIso)+'.';
+    return db.collection('property_issues').doc(docId).update({
+      lastNotifiedAt:nowIso, lastNotifiedBy:by, lastNotifiedTo:to,
+      notificationLog:firebase.firestore.FieldValue.arrayUnion(entry)
+    }).then(function(){ return {msg:okMsg,changed:res.changed}; },
+      function(){ return {msg:okMsg+' (The email went out, but the send time couldn’t be saved to the issue record, so it will only show until you reload.)',changed:res.changed}; });
+  }).then(function(done){
+    _oiNotifySending[docId]=false;
+    _oiNotifyResult[docId]={ok:true,msg:done.msg};
+    if(done.changed){ renderOpenIssues(); } else { oiRefreshNotifyBlock(docId,safeId); }
+    showToast('Notification sent ✓');
+  }).catch(function(e){
+    _oiNotifySending[docId]=false;
+    var detail=e&&e.err&&(e.err.text||e.err.message)?' ('+(e.err.text||e.err.message)+')':'';
+    var msg=e&&e.stage==='send'
+      ?'Email failed — nothing was sent'+detail+'. Check EmailJS settings and try again.'
+      :'Nothing was sent — couldn’t load the latest saved version of this issue'+(e&&e.msg?': '+e.msg:'')+'. Check your connection and try again.';
+    oiSetNotifyResult(docId,safeId,false,msg);
+  });
 }
 // ── Seasonal Inspections' own per-issue status controls (2026-09-28 routing update) ──
 // Spring/Fall issues are excluded from Open Issues (see isOpenIssuesEligible()), so
@@ -4725,6 +4892,13 @@ var EJS_SERVICE='service_6y0iagt';
 var EJS_TEMPLATE='template_yltx3ce';
 var EJS_KEY='Tzh2b9SuxvmSJIcNj';
 emailjs.init(EJS_KEY);
+// Open Issues "Send Notification" (2026-10-18) uses the same EmailJS service and,
+// by default, the same template as Complaints. It passes the Complaints params
+// (to_email, property_name, date, manager, complaint — the issue body goes in
+// `complaint`) plus `subject`, `issue_title`, `issue_status`, `notification_type`.
+// To get "<House> – <Issue title>" as the subject line, duplicate the Complaints
+// template in EmailJS, set its Subject to {{subject}}, and put the new template ID here.
+var EJS_ISSUE_TEMPLATE=EJS_TEMPLATE;
 
 // ── COMPLAINTS ────────────────────────────────────────────────────────────────
 var VERIFIED_BY=['Pat Hall','Trevor Dimino','Tina Geilenfeldt','Kelly Dietz','Jennifer Suter','Christina Cifelli'];
