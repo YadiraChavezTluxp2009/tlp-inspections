@@ -431,10 +431,10 @@ tr:hover td{background:#fafbfe}
 .oi-row.open .chev{transform:rotate(90deg);color:var(--navy)}
 .oi-row.open td{background:#F2F7FC}
 .oi-row td.c-item{font-weight:600;color:var(--text)}
-.oi-row.st-open td.c-item{box-shadow:inset 3px 0 0 var(--red)}
-.oi-row.st-in_progress td.c-item{box-shadow:inset 3px 0 0 var(--orange)}
-.oi-row.st-resolved td.c-item{box-shadow:inset 3px 0 0 #1E7B45}
-.oi-row.st-dismissed td.c-item{box-shadow:inset 3px 0 0 #90A4AE}
+.oi-row.st-open td:first-child{box-shadow:inset 3px 0 0 var(--red)}
+.oi-row.st-in_progress td:first-child{box-shadow:inset 3px 0 0 var(--orange)}
+.oi-row.st-resolved td:first-child{box-shadow:inset 3px 0 0 #1E7B45}
+.oi-row.st-dismissed td:first-child{box-shadow:inset 3px 0 0 #90A4AE}
 .oi-row.st-resolved td.c-item,.oi-row.st-dismissed td.c-item{color:var(--dark-gray);font-weight:500}
 .oi-row .c-sub{display:block;font-size:10.5px;font-weight:600;color:var(--dark-gray);overflow:hidden;text-overflow:ellipsis;padding-left:15px}
 .oi-row .c-house{font-weight:700;color:var(--navy)}
@@ -467,6 +467,7 @@ tr:hover td{background:#fafbfe}
   .oi-row.st-in_progress{box-shadow:inset 3px 0 0 var(--orange)}
   .oi-row.st-resolved{box-shadow:inset 3px 0 0 #1E7B45}
   .oi-row.st-dismissed{box-shadow:inset 3px 0 0 #90A4AE}
+  .oi-row td:first-child{box-shadow:none!important}
   .oi-row td.c-item{box-shadow:none!important;grid-column:1;grid-row:1 / 3;white-space:normal;line-height:1.3}
   .oi-row.open{background:#F2F7FC}
   .oi-row .c-house,.oi-row .c-date,.oi-row .c-insp,.oi-row .c-src{display:none}
@@ -484,9 +485,10 @@ tr:hover td{background:#fafbfe}
 .cx-wrap{margin:0 0 8px}
 .cx-nested{background:white;border-radius:8px;box-shadow:var(--shadow);overflow:hidden}
 .cx-nested thead th{position:static}
-.oi-row.st-supply td.c-item{box-shadow:inset 3px 0 0 var(--blue)}
-.oi-row.st-historical td.c-item{box-shadow:inset 3px 0 0 #B0BEC5}
+.oi-row.st-supply td:first-child{box-shadow:inset 3px 0 0 var(--blue)}
+.oi-row.st-historical td:first-child{box-shadow:inset 3px 0 0 #B0BEC5}
 .oi-row .c-x{color:var(--dark-gray)}
+.oi-row .chev-m{display:none}
 .sup-x-items{background:white;border-radius:6px;box-shadow:var(--shadow);padding:4px 10px}
 .sup-x-item{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid #f1f1f1;font-size:12.5px}
 .sup-x-item:last-of-type{border-bottom:none}
@@ -494,6 +496,7 @@ tr:hover td{background:#fafbfe}
 .sup-x-inote{font-size:11.5px;color:var(--dark-gray);font-style:italic;padding:0 0 5px}
 @media (max-width:700px){
   .oi-row .c-x{display:none}
+  .oi-row .chev-m{display:inline-block}
   .oi-row.st-supply{box-shadow:inset 3px 0 0 var(--blue)}
   .oi-row.st-historical{box-shadow:inset 3px 0 0 #B0BEC5}
 }
@@ -4003,8 +4006,8 @@ function renderOpenIssues(){
   // inside keeps its previous element id (oi-sel-/oi-confirm-/oi-note-/oi-notify-)
   // so the existing status, update and notification functions are unchanged.
   var html='<div class="oi-count">Showing '+list.length+' of '+eligible.length+' issue'+(eligible.length!==1?'s':'')+' &middot; click a row to see notes, photos, history and actions</div>';
-  html+='<table class="oi-table"><colgroup><col class="w-item"><col class="w-house"><col class="w-date"><col class="w-insp"><col class="w-src"><col class="w-st"><col class="w-act"></colgroup>';
-  html+='<thead><tr><th>Issue</th><th>House</th><th>Reported</th><th>Inspector</th><th>Source</th><th>Status</th><th>Activity</th></tr></thead><tbody>';
+  html+='<table class="oi-table"><colgroup><col style="width:9%"><col style="width:17%"><col style="width:12%"><col style="width:11%"><col style="width:31%"><col style="width:11%"><col style="width:9%"></colgroup>';
+  html+='<thead><tr><th>Reported</th><th>House</th><th>Inspector</th><th>Source</th><th>Issue</th><th>Status</th><th>Activity</th></tr></thead><tbody>';
   var anyOpen=false;
   list.forEach(function(x){
     var safeId='oi'+x.id.replace(/[^a-zA-Z0-9]/g,'');
@@ -4022,14 +4025,14 @@ function renderOpenIssues(){
     if(x.lastNotifiedAt)act+='<span title="House notified '+esc(oiFmtStamp(x.lastNotifiedAt))+'">&#9993;</span>';
     // Row
     html+='<tr class="oi-row st-'+esc(st)+(isOpen?' open':'')+'" id="oi-row-'+safeId+'" tabindex="0" aria-expanded="'+(isOpen?'true':'false')+'" onclick="oiToggleRow(\''+safeId+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();oiToggleRow(\''+safeId+'\');}">';
-    html+='<td class="c-item" title="'+esc(x.text||'')+'"><span class="chev">&#9656;</span>'+esc(x.text||'(no description)');
+    html+='<td class="c-date" title="'+esc(dateFull)+'"><span class="chev">&#9656;</span>'+esc(dateShort)+'</td>';
+    html+='<td class="c-house" title="'+esc(x.property||'')+'">'+esc(x.property||'')+'</td>';
+    html+='<td class="c-insp" title="'+esc(x.reportedByName||'')+'">'+esc(x.reportedByName||'—')+'</td>';
+    html+='<td class="c-src"><span class="badge source-badge">'+esc(sourceLabel(x.formType))+'</span></td>';
+    html+='<td class="c-item" title="'+esc(x.text||'')+'"><span class="chev chev-m">&#9656;</span>'+esc(x.text||'(no description)');
     if(where)html+='<span class="c-sub">'+esc(where)+'</span>';
     html+='<span class="oi-m-meta"><b>'+esc(x.property||'')+'</b> &middot; '+esc(dateShort)+(x.reportedByName?' &middot; '+esc(x.reportedByName):'')+' &middot; '+esc(sourceLabel(x.formType))+'</span>';
     html+='</td>';
-    html+='<td class="c-house" title="'+esc(x.property||'')+'">'+esc(x.property||'')+'</td>';
-    html+='<td class="c-date" title="'+esc(dateFull)+'">'+esc(dateShort)+'</td>';
-    html+='<td class="c-insp" title="'+esc(x.reportedByName||'')+'">'+esc(x.reportedByName||'—')+'</td>';
-    html+='<td class="c-src"><span class="badge source-badge">'+esc(sourceLabel(x.formType))+'</span></td>';
     html+='<td class="c-st">'+issueStatusBadgeHtml(x)+'</td>';
     html+='<td class="c-act'+(act?'':' empty')+'">'+(act||'<span class="no-photo">&mdash;</span>')+'</td>';
     html+='</tr>';
@@ -5065,8 +5068,8 @@ function renderSupplyReqs(){
   // Compact expandable rows (2026-10-19), same pattern as Open Issues. Status,
   // update and Track-note controls keep their sup-* ids and functions.
   var html='<div class="oi-count">Showing '+list.length+' of '+_supplyReqs.length+' request'+(_supplyReqs.length!==1?'s':'')+' &middot; click a row to see supplies, notes, photos, history and actions</div>';
-  html+='<table class="oi-table"><colgroup><col style="width:31%"><col style="width:18%"><col style="width:10%"><col style="width:12%"><col style="width:11%"><col style="width:11%"><col style="width:7%"></colgroup>';
-  html+='<thead><tr><th>Supplies Needed</th><th>House</th><th>Submitted</th><th>Inspector</th><th>Source</th><th>Status</th><th>Activity</th></tr></thead><tbody>';
+  html+='<table class="oi-table"><colgroup><col style="width:9%"><col style="width:17%"><col style="width:12%"><col style="width:11%"><col style="width:31%"><col style="width:11%"><col style="width:9%"></colgroup>';
+  html+='<thead><tr><th>Submitted</th><th>House</th><th>Inspector</th><th>Source</th><th>Supplies Needed</th><th>Status</th><th>Activity</th></tr></thead><tbody>';
   var stCls={'Needs Shopping':'open','Purchased':'resolved','Dismissed':'dismissed'};
   list.forEach(function(x){
     var safeId='si'+x.id.replace(/[^a-zA-Z0-9]/g,'');
@@ -5082,13 +5085,13 @@ function renderSupplyReqs(){
     if(xPhotos.length)act+='<span title="'+xPhotos.length+' photo'+(xPhotos.length!==1?'s':'')+'">&#128247; '+xPhotos.length+'</span>';
     if(updates.length)act+='<span title="'+updates.length+' update'+(updates.length!==1?'s':'')+'">&#128172; '+updates.length+'</span>';
     html+='<tr class="oi-row st-'+(x.noneNeeded?'resolved':(stCls[nst]||'open'))+(isOpen?' open':'')+'"'+cxRowAttrs('sup',safeId,isOpen)+'>';
-    html+='<td class="c-item" title="'+esc(itemsText)+'"><span class="chev">&#9656;</span>'+(x.noneNeeded?'<em>'+esc(itemsText)+'</em>':esc(itemsText));
-    html+='<span class="c-sub">'+(x.noneNeeded?'Inventory completed':items.length+' item'+(items.length!==1?'s':''))+(note?' &middot; &#128172; '+esc(note):'')+'</span>';
-    html+='<span class="oi-m-meta"><b>'+esc(x.property||'')+'</b> &middot; '+esc(dateShort)+(x.inspector?' &middot; '+esc(x.inspector):'')+' &middot; '+esc(supplyReqSourceLabel(x))+'</span></td>';
+    html+='<td class="c-date" title="'+esc(dateFull)+'"><span class="chev">&#9656;</span>'+esc(dateShort)+'</td>';
     html+='<td class="c-house" title="'+esc(x.property||'')+'">'+esc(x.property||'')+'</td>';
-    html+='<td class="c-date" title="'+esc(dateFull)+'">'+esc(dateShort)+'</td>';
     html+='<td class="c-insp" title="'+esc(x.inspector||'')+'">'+esc(x.inspector||'—')+'</td>';
     html+='<td class="c-src"><span class="badge source-badge">'+esc(supplyReqSourceLabel(x))+'</span></td>';
+    html+='<td class="c-item" title="'+esc(itemsText)+'"><span class="chev chev-m">&#9656;</span>'+(x.noneNeeded?'<em>'+esc(itemsText)+'</em>':esc(itemsText));
+    html+='<span class="c-sub">'+(x.noneNeeded?'Inventory completed':items.length+' item'+(items.length!==1?'s':''))+(note?' &middot; &#128172; '+esc(note):'')+'</span>';
+    html+='<span class="oi-m-meta"><b>'+esc(x.property||'')+'</b> &middot; '+esc(dateShort)+(x.inspector?' &middot; '+esc(x.inspector):'')+' &middot; '+esc(supplyReqSourceLabel(x))+'</span></td>';
     html+='<td class="c-st">'+supplyStatusBadgeHtml(x.status)+'</td>';
     html+='<td class="c-act'+(act?'':' empty')+'">'+(act||'<span class="no-photo">&mdash;</span>')+'</td>';
     html+='</tr>';
