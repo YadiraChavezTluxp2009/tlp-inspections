@@ -677,6 +677,7 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
   // always be looked up and, if ever needed, corrected from the database instead
   // of having to dig up the original email.
   var inventoryItems = [];
+  var checklistItems = [];
   if (state.formType === 'kitchen_inv' || state.formType === 'linen_inv') {
     // Kitchen/Linen Inventory items record a Current count vs. a Needed count —
     // there's no OK/Issue/N-A status field on them at all, so running them through
@@ -734,6 +735,17 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
   } else {
     var _answerable = collectAllAnswerableItems();
     itemsTotal = _answerable.length;
+    // Full checklist snapshot for Spring/Fall (2026-10-19, additive): every item with
+    // its response, note, quantity and photo URLs, so the Mothership can produce the
+    // "Full Inspection" PDF. Nothing else reads or changes because of this field.
+    if (state.formType === 'spring' || state.formType === 'fall') {
+      _answerable.forEach(function(x){
+        var it = x.item || {};
+        checklistItems.push({ key: x.key, section: x.section, item: x.text, status: it.status || '',
+          notes: it.notes || '', qty: (it.qty !== undefined && it.qty !== '') ? it.qty : '',
+          photos: itemPhotos[x.key] || [] });
+      });
+    }
     _answerable.forEach(function(x){
       var it = x.item || {};
       if (it.status==='ok') ok++;
@@ -772,6 +784,8 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
     // other inspection type, same convention as bedroomInstances/kitchenExtraItems
     // below.
     inventoryItems: inventoryItems,
+    // Spring/Fall full checklist (see checklistItems above). Empty for every other type.
+    checklistItems: checklistItems,
     // Maintenance Notes photos (2026-09-24) — uploaded like every other photo
     // (see collectAllPhotos()'s 'maintNotes' key), viewable in the Dashboard
     // record alongside the notes text itself.
