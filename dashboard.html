@@ -480,6 +480,23 @@ tr:hover td{background:#fafbfe}
   .oi-exp td{display:block;padding:10px 12px 12px}
   .oi-x-grid{grid-template-columns:1fr;gap:4px}
 }
+/* Shared compact lists (2026-10-19): nested issue lists inside inspection Details + Supply Inventory */
+.cx-wrap{margin:0 0 8px}
+.cx-nested{background:white;border-radius:8px;box-shadow:var(--shadow);overflow:hidden}
+.cx-nested thead th{position:static}
+.oi-row.st-supply td.c-item{box-shadow:inset 3px 0 0 var(--blue)}
+.oi-row.st-historical td.c-item{box-shadow:inset 3px 0 0 #B0BEC5}
+.oi-row .c-x{color:var(--dark-gray)}
+.sup-x-items{background:white;border-radius:6px;box-shadow:var(--shadow);padding:4px 10px}
+.sup-x-item{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid #f1f1f1;font-size:12.5px}
+.sup-x-item:last-of-type{border-bottom:none}
+.sup-x-item .q{font-weight:700;color:var(--navy);white-space:nowrap}
+.sup-x-inote{font-size:11.5px;color:var(--dark-gray);font-style:italic;padding:0 0 5px}
+@media (max-width:700px){
+  .oi-row .c-x{display:none}
+  .oi-row.st-supply{box-shadow:inset 3px 0 0 var(--blue)}
+  .oi-row.st-historical{box-shadow:inset 3px 0 0 #B0BEC5}
+}
 .oi-notify{border-top:1px solid var(--mid-gray);margin-top:4px;padding-top:12px}
 .oi-notify-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .oi-notify .btn-email[disabled]{opacity:.6;cursor:default}
@@ -2507,20 +2524,7 @@ function renderInspLog(){
       html+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="11">';
       if(hasIssues){
         html+='<div class="insp-detail-heading">&#128295; '+buildIssueStatusSummary(issueList,i.id)+'</div>';
-        issueList.forEach(function(x,xi){
-          var xPhotos=normalizePhotoUrls(x.photos,'inspLog:'+i.id+':issue');
-          var xKey=x.key||('legacyidx_'+xi);
-          var tied=findTiedIssue(i.id,xKey);
-          html+='<div class="insp-issue-item"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div></div>'+issueStatusBadgeHtml(tied)+'</div>';
-          if(x.notes)html+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
-          if(x.charge>0)html+='<div class="insp-issue-charge">Charge: $'+Number(x.charge).toFixed(2)+'</div>';
-          if(xPhotos.length){
-            html+='<div class="insp-issue-photos">';
-            xPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
-            html+='</div>';
-          }
-          html+='</div>';
-        });
+        html+=cxIssueListHtml(i,safeId,'readonly');
         html+='<button class="view-in-openissues-btn" data-prop="'+esc(i.property||'')+'" onclick="jumpToOpenIssues(this.getAttribute(\'data-prop\'))">View issues in Open Issues &rarr;</button>';
       }
       if(mgrNotes){
@@ -2554,6 +2558,7 @@ function renderInspLog(){
   html+='</tbody></table>';
   document.getElementById('inspLogTable').innerHTML=html;
   reopenPreservedDetails();
+  invdFit();
 }
 var _openDetailIds={}; // remembers which expandable Details rows (Inspection/QC log) are open, so they stay open across a re-render (e.g. after resolving/adding a note)
 function toggleInspDetail(id){
@@ -2605,7 +2610,7 @@ function renderSeasonal(){
     var isResolved=!!i.resolved;
     var hasQuantities=(i.quantityItems||[]).length>0;
     var isInvReport=invdIsInventory(i);
-    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||isResolved||updates.length>0||hasQuantities||isInvReport;
+    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||isResolved||updates.length>0||hasQuantities||isInvReport||seaIsReport(i);
     var photos=normalizePhotoUrls(i.photoUrls,'seasonal:'+i.id);
     var photoCount=photos.length;
     var photoFailCount=i.photoUploadFailCount||0;
@@ -2641,56 +2646,18 @@ function renderSeasonal(){
         if(hasIssues)html+='<div class="insp-detail-heading">&#128295; '+buildIssueStatusSummary(issueList,i.id)+'</div>';
         html+='<div class="invd-host">'+invdPanelHtml(i,safeId)+'</div>';
       }
-      if(hasIssues&&!isInvReport){
+      if(!isInvReport&&seaIsReport(i)){
+        // Spring/Fall: PDF downloads + compact flagged-items list (cxIssueListHtml).
+        html+='<div class="invd cx-wrap"><div class="invd-bar" style="margin-bottom:6px">';
+        html+='<div class="insp-detail-heading" style="margin:0">&#128295; '+(hasIssues?buildIssueStatusSummary(issueList,i.id):'No items flagged')+'</div>';
+        html+=seaPdfMenuHtml(i,safeId);
+        html+='</div>';
+        if(hasIssues)html+='<div style="font-size:11.5px;color:var(--dark-gray);margin:0 0 8px">Seasonal issues are tracked here, not in Open Issues — click an item to update its status or add a resolution note.</div>';
+        html+='</div>';
+        if(hasIssues)html+=cxIssueListHtml(i,safeId,'seasonal');
+      } else if(hasIssues&&!isInvReport){
         html+='<div class="insp-detail-heading">&#128295; '+buildIssueStatusSummary(issueList,i.id)+'</div>';
-        html+='<div style="font-size:11.5px;color:var(--dark-gray);margin:-4px 0 8px">Seasonal issues are tracked here, not in Open Issues — update each item\'s status and add a resolution note directly below.</div>';
-        issueList.forEach(function(x,xi){
-          var xPhotos=normalizePhotoUrls(x.photos,'seasonal:'+i.id+':issue');
-          var xKey=x.key||('legacyidx_'+xi);
-          var isSupplyIssue=(x.section==='Supply Check'||x.section==='Supply Inventory');
-          var issSafeId=safeId+'_'+xi;
-          html+='<div class="insp-issue-item"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div></div>';
-          if(isSupplyIssue){
-            html+='<span class="badge b-ok" title="Supply needs are tracked in the Supply Inventory tab, not here.">&#128230; In Supply Inventory Log</span></div>';
-            if(x.notes)html+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
-            if(xPhotos.length){
-              html+='<div class="insp-issue-photos">';
-              xPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
-              html+='</div>';
-            }
-            html+='</div>';
-            return;
-          }
-          var tied=findTiedIssue(i.id,xKey);
-          html+=issueStatusBadgeHtml(tied)+'</div>';
-          if(x.notes)html+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
-          if(x.charge>0)html+='<div class="insp-issue-charge">Charge: $'+Number(x.charge).toFixed(2)+'</div>';
-          if(xPhotos.length){
-            html+='<div class="insp-issue-photos">';
-            xPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
-            html+='</div>';
-          }
-          if(tied){
-            html+='<div style="display:flex;align-items:center;gap:8px;margin:8px 0 4px;flex-wrap:wrap"><span style="font-size:11.5px;font-weight:700;color:var(--dark-gray)">Status:</span>'+
-              '<select id="sea-sel-'+issSafeId+'" style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:4px 8px;font-size:12px" onchange="stageSeasonalIssueStatusChange(\''+issSafeId+'\',this.value)">'+
-              '<option value="open"'+(tied.status==='open'||!tied.status?' selected':'')+'>Open</option>'+
-              '<option value="in_progress"'+(tied.status==='in_progress'?' selected':'')+'>In Progress</option>'+
-              '<option value="resolved"'+(tied.status==='resolved'?' selected':'')+'>Resolved</option>'+
-              '<option value="dismissed"'+(tied.status==='dismissed'?' selected':'')+'>Dismissed / Not an Issue</option>'+
-              '</select></div>';
-            html+='<div class="status-confirm-panel" id="sea-confirm-'+issSafeId+'" style="display:none">'+
-              '<div style="font-size:12px;color:var(--dark-gray)">Changing status to <strong id="sea-confirm-label-'+issSafeId+'"></strong>. Add an optional resolution note:</div>'+
-              '<textarea id="sea-confirm-note-'+issSafeId+'" placeholder="Optional note…"></textarea>'+
-              '<div class="sc-btns"><button class="sc-confirm" onclick="confirmSeasonalIssueStatusChange(\''+tied.id+'\',\''+issSafeId+'\')">Confirm</button><button class="sc-cancel" onclick="cancelSeasonalIssueStatusChange(\''+issSafeId+'\',\''+(tied.status||'open')+'\')">Cancel</button></div>'+
-              '</div>';
-            var seaUpdates=tied.updates||[];
-            var seaUpdHtml='';
-            seaUpdates.forEach(function(u){seaUpdHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
-            html+='<div class="updates-log">'+(seaUpdHtml||'<div style="font-size:11.5px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
-            html+='<div class="add-update-row"><input type="text" id="sea-note-'+issSafeId+'" placeholder="Add an update&hellip;"><button onclick="addSeasonalIssueUpdate(\''+tied.id+'\',\''+issSafeId+'\')">+ Add</button></div>';
-          }
-          html+='</div>';
-        });
+        html+=cxIssueListHtml(i,safeId,'seasonal');
       }
       if(mgrNotes){
         html+='<div class="insp-detail-heading">&#128221; Manager Notes</div><div class="insp-notes-block">'+esc(mgrNotes).replace(/\n/g,'<br>')+'</div>';
@@ -3449,6 +3416,319 @@ function invpdfBuild(insp,m,mode,imgs){
   return {doc:doc,filename:filename,missing:missing};
 }
 
+// ── SPRING / FALL INSPECTION PDF EXPORT (2026-10-19) ─────────────────────────────
+// Same look as the Kitchen/Linen inventory PDFs (shared jsPDF loader, colors, text
+// cleanup and photo embedding from the INVPDF section above). Two exports:
+//   'flagged' -> every flagged item with its section, follow-up status, notes, photos
+//   'full'    -> the full checklist with every response (OK / Issue / N/A / Not
+//                checked, quantities), notes and photos, plus the inspection notes.
+// The full checklist comes from insp.checklistItems, which the inspection app saves
+// from 2026-10-19 on. Older Spring/Fall records never stored item-by-item responses,
+// so their Full PDF contains the summary counts, every flagged item and all notes,
+// with a clear notice that the per-item responses weren't recorded.
+var SEA_PDF_TYPES={spring:'Spring Inspection',fall:'Fall Inspection'};
+function seaIsReport(i){return !!i&&!!SEA_PDF_TYPES[i.formType];}
+function seaInspBySafeId(safeId){return _insp.find(function(i){return i.id.replace(/[^a-zA-Z0-9]/g,'')===safeId;});}
+function seaPdfMenuHtml(insp,safeId){
+  var nFlag=(insp.issues||[]).length;
+  var full=Array.isArray(insp.checklistItems)&&insp.checklistItems.length;
+  var h='<div class="invd-pdf"><button type="button" class="invd-pdf-btn" id="invd-pdfb-'+safeId+'" onclick="invdPdfMenu(\''+safeId+'\',event)">&#11015; Download PDF <span class="caret">&#9662;</span></button>';
+  h+='<div class="invd-pdf-menu" id="invd-pdfm-'+safeId+'">';
+  h+='<button type="button" onclick="seaDownloadPdf(\''+safeId+'\',\'flagged\')"><strong>Download Flagged Items PDF</strong><span>'+nFlag+' flagged item'+(nFlag!==1?'s':'')+', with notes &amp; photos</span></button>';
+  h+='<button type="button" onclick="seaDownloadPdf(\''+safeId+'\',\'full\')"><strong>Download Full Inspection PDF</strong><span>'+(full?full+' checklist items, responses, notes &amp; photos':'Summary, flagged items &amp; notes (item responses weren\'t saved for this report)')+'</span></button>';
+  return h+'</div></div>';
+}
+function seaFlagStatus(insp,x,xi){
+  if(x.section==='Supply Check'||x.section==='Supply Inventory')return 'FLAGGED - Supply Log';
+  var tied=findTiedIssue(insp.id,x.key||('legacyidx_'+xi));
+  if(!tied)return 'FLAGGED';
+  return 'FLAGGED - '+(ISSUE_STATUS_LABELS[tied.status]||ISSUE_STATUS_LABELS.open).txt;
+}
+function seaGroup(rows){
+  var groups=[],map={};
+  rows.forEach(function(r){var k=r.section||'Other';if(!map[k]){map[k]={title:k,rows:[]};groups.push(map[k]);}map[k].rows.push(r);});
+  return groups;
+}
+function seaNotesText(note,charge){
+  var parts=[];
+  if(note)parts.push(invpdfTxt(note));
+  if(charge>0)parts.push('Charge: $'+Number(charge).toFixed(2));
+  return parts.join('\n');
+}
+function seaBuildCfg(insp,mode){
+  var C=INVPDF_C;
+  var issues=insp.issues||[];
+  var isFlag=mode==='flagged';
+  var hasFull=Array.isArray(insp.checklistItems)&&insp.checklistItems.length>0;
+  var ok=insp.itemsOk||0, iss=insp.issuesFound||0, na=insp.naCount||0;
+  var cfg={
+    house:invpdfTxt(insp.property||'Unknown house'),
+    typeName:SEA_PDF_TYPES[insp.formType]||'Inspection',
+    modeLabel:isFlag?'FLAGGED ITEMS ONLY':'FULL INSPECTION',
+    isFlag:isFlag, dateIso:invpdfInspDate(insp), inspector:insp.inspector||'',
+    fileTag:isFlag?'FlaggedItems':'FullInspection',
+    groups:[], blocks:[], notice:''
+  };
+  var flagRows=issues.map(function(x,xi){
+    var st=seaFlagStatus(insp,x,xi);
+    return {section:x.section||'',flag:true,photos:normalizePhotoUrls(x.photos,'seaPdf'),
+      cells:[{content:invpdfTxt(x.text||'(no description)'),styles:{fontStyle:'bold'}},{content:st,styles:{textColor:C.red,fontStyle:'bold'}},
+        (function(t){return t?{content:t}:{content:'-',styles:{textColor:C.gray}};})(seaNotesText(x.notes,x.charge))]};
+  });
+  if(isFlag){
+    cfg.columns=[{title:'Item',w:66},{title:'Status',w:32},{title:'Notes',w:52},{title:'Photos'}];
+    cfg.summary=issues.length+' flagged item'+(issues.length!==1?'s':'')+'  |  '+ok+' OK  |  '+na+' N/A';
+    cfg.groups=seaGroup(flagRows);
+    cfg.emptyText='No items were flagged on this inspection.';
+  } else {
+    cfg.columns=[{title:'Item',w:66},{title:'Response',w:30},{title:'Notes',w:54},{title:'Photos'}];
+    if(hasFull){
+      var byKey={}; issues.forEach(function(x,xi){ if(x.key)byKey[x.key]={x:x,xi:xi}; });
+      var rows=insp.checklistItems.map(function(c){
+        var m=c.key?byKey[c.key]:null;
+        var st=c.status||'';
+        var resp, rs;
+        if(st==='issue'||m){ resp=m?seaFlagStatus(insp,m.x,m.xi):'FLAGGED'; rs={textColor:C.red,fontStyle:'bold'}; }
+        else if(st==='ok'){ resp='OK'; rs={textColor:C.green,fontStyle:'bold'}; }
+        else if(st==='na'){ resp='N/A'; rs={textColor:C.gray}; }
+        else { resp='Not checked'; rs={textColor:C.gray,fontStyle:'italic'}; }
+        if(c.qty!==undefined&&c.qty!==null&&c.qty!=='')resp+='\nQty: '+invpdfTxt(c.qty);
+        var isF=st==='issue'||!!m;
+        var notes=seaNotesText(c.notes||(m?m.x.notes:''),m?m.x.charge:0);
+        var ph=normalizePhotoUrls((c.photos&&c.photos.length)?c.photos:(m?m.x.photos:[]),'seaPdf');
+        return {section:c.section||'',flag:isF,photos:ph,
+          cells:[{content:invpdfTxt(c.item||''),styles:isF?{fontStyle:'bold'}:{}},{content:resp,styles:rs},notes?{content:notes}:{content:'-',styles:{textColor:C.gray}}]};
+      });
+      cfg.groups=seaGroup(rows);
+      var unchecked=rows.filter(function(r){return r.cells[1].content.indexOf('Not checked')===0;}).length;
+      cfg.summary=rows.length+' items  |  '+ok+' OK  |  '+iss+' flagged (marked in red)  |  '+na+' N/A'+(unchecked?'  |  '+unchecked+' not checked':'');
+    } else {
+      cfg.summary=ok+' OK  |  '+iss+' flagged  |  '+na+' N/A';
+      cfg.notice='Item-by-item responses were not saved for inspections submitted before October 19, 2026. This PDF includes the summary counts, every flagged item and all inspection notes. Items not listed are not shown here and should not be read as unchecked.';
+      cfg.groups=seaGroup(flagRows);
+      cfg.emptyText='No items were flagged on this inspection.';
+      if((insp.quantityItems||[]).length){
+        cfg.blocks.push({title:'QUANTITIES RECORDED',text:insp.quantityItems.map(function(q){return (q.section?q.section+' - ':'')+q.text+': '+q.qty;}).join('\n')});
+      }
+    }
+    var rooms=[];
+    (insp.bedroomInstances||[]).forEach(function(b,ix){rooms.push('Bedroom '+(ix+1)+(b&&b.name?' - '+b.name:''));});
+    (insp.bathroomInstances||[]).forEach(function(b,ix){rooms.push('Bathroom '+(ix+1)+(b&&b.name?' - '+b.name:''));});
+    if(rooms.length)cfg.blocks.push({title:'ROOMS INSPECTED',text:rooms.join('\n')});
+    if((insp.maintenanceNotes||'').trim()||(insp.maintenanceNotesPhotoUrls||[]).length)
+      cfg.blocks.push({title:'MAINTENANCE NOTES',text:insp.maintenanceNotes||'',photos:normalizePhotoUrls(insp.maintenanceNotesPhotoUrls,'seaPdf')});
+    if((insp.managerNotes||'').trim())cfg.blocks.push({title:'MANAGER NOTES',text:insp.managerNotes});
+    if((insp.opsMaintenanceNotes||'').trim())cfg.blocks.push({title:'MAINTENANCE ITEMS FOR OPERATIONS',text:insp.opsMaintenanceNotes});
+    if((insp.updates||[]).length)cfg.blocks.push({title:'INSPECTION UPDATES',text:insp.updates.map(function(u){return (u.text||'')+' - '+(u.by||'')+(u.date?', '+u.date:'');}).join('\n')});
+  }
+  if(isFlag&&(insp.maintenanceNotes||'').trim())cfg.blocks.push({title:'MAINTENANCE NOTES',text:insp.maintenanceNotes,photos:normalizePhotoUrls(insp.maintenanceNotesPhotoUrls,'seaPdf')});
+  return cfg;
+}
+function seaDownloadPdf(safeId,mode){
+  var insp=seaInspBySafeId(safeId); if(!insp){showToast('Report not found');return;}
+  var menu=document.getElementById('invd-pdfm-'+safeId); if(menu)menu.classList.remove('open');
+  var btn=document.getElementById('invd-pdfb-'+safeId);
+  var label=btn?btn.innerHTML:'';
+  function busy(t){if(btn){btn.disabled=true;btn.textContent=t;}}
+  function idle(){if(btn){btn.disabled=false;btn.innerHTML=label;}}
+  busy('Preparing PDF…');
+  invpdfLoadLibs().then(function(){
+    var cfg=seaBuildCfg(insp,mode);
+    var urls=[];
+    function add(u){if(u&&urls.indexOf(u)===-1)urls.push(u);}
+    cfg.groups.forEach(function(g){g.rows.forEach(function(r){r.photos.forEach(add);});});
+    cfg.blocks.forEach(function(b){(b.photos||[]).forEach(add);});
+    return invpdfLoadAll(urls,function(d,n){busy('Loading photos '+d+'/'+n+'…');}).then(function(imgs){
+      busy('Building PDF…');
+      var res=rptPdfBuild(cfg,imgs);
+      res.doc.save(res.filename);
+      idle();
+      showToast(res.missing?('PDF downloaded — '+res.missing+' photo'+(res.missing!==1?'s':'')+' could not be embedded'):'PDF downloaded');
+    });
+  }).catch(function(e){
+    console.warn('[SEAPDF] PDF export failed',e);
+    idle();
+    showToast('Could not create the PDF — please check your connection and try again');
+  });
+}
+// Generic report PDF in the inventory PDF's style. Last column is always Photos
+// (thumbnails); its width is whatever the other columns leave.
+function rptPdfBuild(cfg,imgs){
+  var jsPDF=window.jspdf.jsPDF;
+  var doc=new jsPDF({unit:'mm',format:'letter',orientation:'portrait',compress:true});
+  var C=INVPDF_C, PW=doc.internal.pageSize.getWidth(), PH=doc.internal.pageSize.getHeight(), M=12, CW=PW-2*M;
+  var house=cfg.house, listName=cfg.typeName, isFlag=cfg.isFlag, modeLabel=cfg.modeLabel, dateIso=cfg.dateIso;
+  var missing=0;
+  // ── Page-1 header ──
+  doc.setFillColor.apply(doc,C.navy); doc.rect(0,0,PW,4,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor.apply(doc,C.blue);
+  doc.text('TAHOE LUXURY PROPERTIES',M,12,{charSpace:0.6});
+  doc.setFontSize(19); doc.setTextColor.apply(doc,C.navy);
+  var houseLines=doc.splitTextToSize(house,CW-48);
+  doc.text(houseLines,M,20);
+  var y=20+(houseLines.length-1)*7.5;
+  doc.setFont('helvetica','normal'); doc.setFontSize(12.5); doc.setTextColor(30,30,46);
+  doc.text(listName,M,y+7.5);
+  doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
+  var bw=doc.getTextWidth(modeLabel)+8;
+  if(isFlag){doc.setFillColor.apply(doc,C.redLight);doc.setDrawColor.apply(doc,C.red);doc.setTextColor.apply(doc,C.red);}
+  else{doc.setFillColor.apply(doc,C.light);doc.setDrawColor.apply(doc,C.navy);doc.setTextColor.apply(doc,C.navy);}
+  doc.setLineWidth(0.3); doc.roundedRect(PW-M-bw,8.5,bw,7,1.5,1.5,'FD');
+  doc.text(modeLabel,PW-M-bw/2,13.2,{align:'center'});
+  y+=14;
+  var meta=['Inspection date: '+(dateIso?invpdfPrettyDate(dateIso):'Not recorded'),'Inspector: '+(cfg.inspector?invpdfTxt(cfg.inspector):'Not recorded')];
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor.apply(doc,C.gray);
+  doc.text(meta.join('     |     '),M,y);
+  y+=5;
+  doc.text(invpdfTxt(cfg.summary||''),M,y);
+  y+=3.5;
+  doc.setDrawColor.apply(doc,C.blue); doc.setLineWidth(0.6); doc.line(M,y,PW-M,y);
+  y+=4;
+  if(cfg.notice){
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.3);
+    var nl=doc.splitTextToSize(invpdfTxt(cfg.notice),CW-8);
+    doc.setFillColor(255,248,230); doc.setDrawColor.apply(doc,C.orange||[204,102,0]); doc.setLineWidth(0.3);
+    doc.rect(M,y,CW,nl.length*3.7+4.5,'FD');
+    doc.setTextColor(122,75,0); doc.text(nl,M+4,y+4.4);
+    y+=nl.length*3.7+8;
+  }
+  // ── Table ──
+  var cols=cfg.columns, nCols=cols.length, used=0;
+  cols.forEach(function(c,ci){if(ci<nCols-1)used+=c.w;});
+  var PH_COLW=CW-used, PH_THUMB=13, PH_GAP=1.5, PH_PER_LINE=Math.max(1,Math.floor((PH_COLW-3+PH_GAP)/(PH_THUMB+PH_GAP))), PH_MAX=PH_PER_LINE*2;
+  var head=[cols.map(function(c){return c.title;})];
+  var body=[], meta2=[];
+  var any=cfg.groups.some(function(g){return g.rows.length;});
+  if(!any){
+    body.push([{content:cfg.emptyText||'No items.',colSpan:nCols,styles:{halign:'center',textColor:C.gray,fontStyle:'italic',cellPadding:4}}]);
+    meta2.push(null);
+  }
+  cfg.groups.forEach(function(g){
+    if(!g.rows.length)return;
+    var fl=g.rows.filter(function(r){return r.flag;}).length;
+    var gTxt=invpdfTxt(g.title).toUpperCase()+'   ('+g.rows.length+' item'+(g.rows.length!==1?'s':'')+(fl&&!isFlag?', '+fl+' flagged':'')+')';
+    body.push([{content:gTxt,colSpan:nCols,styles:{fillColor:C.light,textColor:C.navy,fontStyle:'bold',fontSize:8.5,cellPadding:{top:1.8,bottom:1.8,left:2.5,right:2}}}]);
+    meta2.push({group:true});
+    g.rows.forEach(function(r){
+      var ok=[],bad=0;
+      r.photos.forEach(function(u){var im=imgs[u];if(im)ok.push(im);else bad++;});
+      missing+=bad;
+      var shown=ok.slice(0,PH_MAX), extra=[];
+      if(ok.length>shown.length)extra.push('+'+(ok.length-shown.length)+' more');
+      if(bad)extra.push(bad+' not embedded');
+      var lines=shown.length?Math.ceil(shown.length/PH_PER_LINE):0;
+      var minH=lines?(lines*(PH_THUMB+PH_GAP)+2.2+(extra.length?3.6:0)):0;
+      var phText=!r.photos.length?'-':((!shown.length&&extra.length)?r.photos.length+' photo'+(r.photos.length!==1?'s':'')+' (view in Mothership)':'');
+      body.push(r.cells.concat([{content:phText,styles:{minCellHeight:minH,fontSize:7,textColor:C.gray}}]));
+      meta2.push({flag:r.flag,thumbs:shown,extra:extra.join(', ')});
+    });
+  });
+  var colStyles={};
+  cols.forEach(function(c,ci){colStyles[ci]={cellWidth:ci<nCols-1?c.w:PH_COLW};});
+  doc.autoTable({
+    head:head, body:body, startY:y, theme:'grid',
+    margin:{top:22,left:M,right:M,bottom:16},
+    showHead:'everyPage', rowPageBreak:'avoid',
+    styles:{font:'helvetica',fontSize:8.2,cellPadding:{top:1.6,bottom:1.6,left:2,right:2},lineColor:C.line,lineWidth:0.15,textColor:[26,26,46],overflow:'linebreak',valign:'middle'},
+    headStyles:{fillColor:C.navy,textColor:255,fontStyle:'bold',fontSize:8,halign:'left',cellPadding:{top:2.2,bottom:2.2,left:2,right:2}},
+    columnStyles:colStyles,
+    didParseCell:function(d){
+      if(d.section!=='body')return;
+      var mt=meta2[d.row.index];
+      if(mt&&mt.flag)d.cell.styles.fillColor=C.redLight;
+      else if(mt&&!mt.group)d.cell.styles.fillColor=(d.row.index%2)?C.zebra:[255,255,255];
+    },
+    didDrawCell:function(d){
+      if(d.section!=='body')return;
+      var mt=meta2[d.row.index]; if(!mt||mt.group)return;
+      if(d.column.index===0&&mt.flag){doc.setFillColor.apply(doc,C.red);doc.rect(d.cell.x,d.cell.y,1.1,d.cell.height,'F');}
+      if(d.column.index===nCols-1&&mt.thumbs&&mt.thumbs.length){
+        var x0=d.cell.x+1.5,yy=d.cell.y+1.1;
+        mt.thumbs.forEach(function(im,ix){
+          var col=ix%PH_PER_LINE,row=Math.floor(ix/PH_PER_LINE);
+          var s=Math.min(PH_THUMB/im.w,PH_THUMB/im.h),w=im.w*s,h=im.h*s;
+          var bx=x0+col*(PH_THUMB+PH_GAP),by=yy+row*(PH_THUMB+PH_GAP);
+          try{doc.addImage(im.data,'JPEG',bx+(PH_THUMB-w)/2,by+(PH_THUMB-h)/2,w,h,undefined,'FAST');}catch(e){}
+          doc.setDrawColor.apply(doc,C.line);doc.setLineWidth(0.2);doc.rect(bx,by,PH_THUMB,PH_THUMB);
+        });
+        if(mt.extra){
+          var ln=Math.ceil(mt.thumbs.length/PH_PER_LINE);
+          doc.setFont('helvetica','normal');doc.setFontSize(6.8);doc.setTextColor.apply(doc,C.gray);
+          doc.text(mt.extra,x0,yy+ln*(PH_THUMB+PH_GAP)+2);
+        }
+      }
+    }
+  });
+  // ── Notes blocks (with optional photo strip) ──
+  var fy=doc.lastAutoTable.finalY+6;
+  function ensure(h){if(fy+h>PH-18){doc.addPage();fy=24;}}
+  cfg.blocks.forEach(function(b){
+    var txt=invpdfTxt(b.text||'');
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);
+    var al=txt?doc.splitTextToSize(txt,CW-6):[];
+    var bh=(al.length?al.length*3.8+4:0);
+    ensure(8+Math.min(bh,60));
+    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor.apply(doc,C.navy);
+    doc.text(b.title,M,fy); fy+=2;
+    if(al.length){
+      // split long blocks across pages
+      var i=0;
+      while(i<al.length){
+        var room=Math.max(1,Math.floor((PH-18-fy-4)/3.8));
+        var chunk=al.slice(i,i+room);
+        doc.setFillColor.apply(doc,C.zebra);doc.setDrawColor.apply(doc,C.line);doc.setLineWidth(0.2);
+        doc.rect(M,fy,CW,chunk.length*3.8+4,'FD');
+        doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(26,26,46);
+        doc.text(chunk,M+3,fy+4.6); fy+=chunk.length*3.8+4;
+        i+=chunk.length;
+        if(i<al.length){doc.addPage();fy=24;}
+      }
+      fy+=3;
+    } else fy+=2;
+    var ph=(b.photos||[]).map(function(u){var im=imgs[u];if(!im)missing++;return im;}).filter(Boolean);
+    if(ph.length){
+      var T=22,G=2,per=Math.floor((CW+G)/(T+G));
+      ph.forEach(function(im,ix){
+        if(ix%per===0){ if(ix)fy+=T+G; ensure(T+2); }
+        var bx=M+(ix%per)*(T+G);
+        var s=Math.min(T/im.w,T/im.h),w=im.w*s,h=im.h*s;
+        try{doc.addImage(im.data,'JPEG',bx+(T-w)/2,fy+(T-h)/2,w,h,undefined,'FAST');}catch(e){}
+        doc.setDrawColor.apply(doc,C.line);doc.setLineWidth(0.2);doc.rect(bx,fy,T,T);
+      });
+      fy+=T+5;
+    }
+    fy+=2;
+  });
+  if(missing){
+    ensure(8);
+    doc.setFont('helvetica','italic');doc.setFontSize(7.5);doc.setTextColor.apply(doc,C.gray);
+    doc.text(doc.splitTextToSize(missing+' photo'+(missing!==1?'s':'')+' could not be embedded in this PDF and can be viewed in the Mothership report.',CW),M,fy);
+  }
+  // ── Footer + continuation header on every page ──
+  var total=doc.getNumberOfPages();
+  var gen='Generated '+new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  for(var p=1;p<=total;p++){
+    doc.setPage(p);
+    if(p>1){
+      doc.setFillColor.apply(doc,C.navy); doc.rect(0,0,PW,2.5,'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor.apply(doc,C.navy);
+      doc.text(doc.splitTextToSize(house+'  -  '+listName,CW-50)[0],M,11);
+      doc.setFontSize(7.5); doc.setTextColor.apply(doc,isFlag?C.red:C.navy);
+      doc.text(modeLabel,PW-M,11,{align:'right'});
+      doc.setFont('helvetica','normal'); doc.setTextColor.apply(doc,C.gray);
+      doc.text((dateIso?invpdfPrettyDate(dateIso):'')+(cfg.inspector?'  |  Inspector: '+invpdfTxt(cfg.inspector):''),M,15.5);
+    }
+    doc.setDrawColor.apply(doc,C.line);doc.setLineWidth(0.3);doc.line(M,PH-11,PW-M,PH-11);
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor.apply(doc,C.gray);
+    doc.text('Tahoe Luxury Properties  |  '+doc.splitTextToSize(house,70)[0]+'  |  '+gen,M,PH-7);
+    doc.setFont('helvetica','bold');doc.setTextColor.apply(doc,C.navy);
+    doc.text('Page '+p+' of '+total,PW-M,PH-7,{align:'right'});
+  }
+  doc.setProperties({title:house+' - '+listName+' - '+(isFlag?'Flagged Items':'Full Inspection'),subject:'Inspection report',author:'Tahoe Luxury Properties',creator:'Mothership'});
+  var filename=invpdfFileSafe(house)+'_'+invpdfFileSafe(listName)+'_'+cfg.fileTag+'_'+(dateIso||'undated')+'.pdf';
+  return {doc:doc,filename:filename,missing:missing};
+}
+
 // ── SEASONAL DASHBOARD ────────────────────────────────────────────────────────
 function renderSeaDash(){
   var mgrF=document.getElementById('sd-mgr').value;
@@ -3609,20 +3889,7 @@ function renderQCLog(){
       html+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="12">';
       if(hasIssues){
         html+='<div class="insp-detail-heading">&#128295; '+buildIssueStatusSummary(issueList,i.id)+'</div>';
-        issueList.forEach(function(x,xi){
-          var xPhotos=normalizePhotoUrls(x.photos,'qcLog:'+i.id+':issue');
-          var xKey=x.key||('legacyidx_'+xi);
-          var tiedIssue=findTiedIssue(i.id,xKey);
-          html+='<div class="insp-issue-item"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div><div class="insp-issue-section">'+esc(x.section||'')+'</div><div class="insp-issue-text">'+esc(x.text||'')+'</div></div>'+issueStatusBadgeHtml(tiedIssue)+'</div>';
-          if(x.notes)html+='<div class="insp-issue-note">"'+esc(x.notes)+'"</div>';
-          if(x.charge>0)html+='<div class="insp-issue-charge">Charge: $'+Number(x.charge).toFixed(2)+'</div>';
-          if(xPhotos.length){
-            html+='<div class="insp-issue-photos">';
-            xPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
-            html+='</div>';
-          }
-          html+='</div>';
-        });
+        html+=cxIssueListHtml(i,safeId,'readonly');
         html+='<button class="view-in-openissues-btn" data-prop="'+esc(i.property||'')+'" onclick="jumpToOpenIssues(this.getAttribute(\'data-prop\'))">View issues in Open Issues &rarr;</button>';
       }
       if(mgrNotes){
@@ -3652,6 +3919,7 @@ function renderQCLog(){
   html+='</tbody></table>';
   document.getElementById('qcLogTable').innerHTML=html;
   reopenPreservedDetails();
+  invdFit();
 }
 
 // ── SPOT CHECK — no dedicated log ────────────────────────────────────────────
@@ -3743,7 +4011,7 @@ function renderOpenIssues(){
     var xPhotos=normalizePhotoUrls(x.photos,'openIssues:'+x.id);
     var updates=x.updates||[];
     var st=x.status||'open';
-    var isOpen=!!_oiOpen[safeId];
+    var isOpen=_cxOpen.oi===safeId;
     if(isOpen)anyOpen=true;
     var where=x.section||x.location||'';
     var dateShort=oiShortDate(x.reportedAt);
@@ -3819,39 +4087,139 @@ function renderOpenIssues(){
   });
   html+='</tbody></table>';
   tableEl.innerHTML=html;
-  // Forget open rows that are no longer in the filtered list.
-  Object.keys(_oiOpen).forEach(function(id){ if(!document.getElementById('oi-exp-'+id)) delete _oiOpen[id]; });
+  // Forget the open row if it's no longer in the filtered list.
+  if(_cxOpen.oi&&!document.getElementById('oi-exp-'+_cxOpen.oi)) delete _cxOpen.oi;
 }
-// Which Open Issues rows are expanded — survives re-renders (status change, new
-// update, refresh, filter change). Only one is open at a time, like the inventory view.
-var _oiOpen={};
+// Compact expandable rows (Open Issues, inspection issue lists, Supply Inventory).
+// _cxOpen[group] = the one expanded row id in that list — survives re-renders
+// (status change, new update, refresh, filter change). Row ids are 'oi-row-<rid>'
+// and 'oi-exp-<rid>'; every rid is unique across the page.
+var _cxOpen={};
 function oiShortDate(iso){
   if(!iso)return '—';
   var d=new Date(iso); if(isNaN(d.getTime()))return String(iso).slice(0,10);
   return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});
 }
-function oiToggleRow(safeId){
-  var row=document.getElementById('oi-row-'+safeId);
-  var exp=document.getElementById('oi-exp-'+safeId);
+function cxToggle(group,rid){
+  var row=document.getElementById('oi-row-'+rid);
+  var exp=document.getElementById('oi-exp-'+rid);
   if(!row||!exp)return;
   var before=row.getBoundingClientRect().top;
   var sp=invdScrollParent(row);
   var opening=!exp.classList.contains('open');
-  // Close any other open issue so the list stays compact.
-  Object.keys(_oiOpen).forEach(function(id){
-    if(id===safeId)return;
-    var r=document.getElementById('oi-row-'+id), e=document.getElementById('oi-exp-'+id);
+  // Close the other open row in this list so it stays compact.
+  var prev=_cxOpen[group];
+  if(prev&&prev!==rid){
+    var r=document.getElementById('oi-row-'+prev), e=document.getElementById('oi-exp-'+prev);
     if(r){r.classList.remove('open');r.setAttribute('aria-expanded','false');}
     if(e)e.classList.remove('open');
-    delete _oiOpen[id];
-  });
+  }
   exp.classList.toggle('open',opening);
   row.classList.toggle('open',opening);
   row.setAttribute('aria-expanded',opening?'true':'false');
-  if(opening)_oiOpen[safeId]=true; else delete _oiOpen[safeId];
+  if(opening)_cxOpen[group]=rid; else delete _cxOpen[group];
   // Keep the clicked row in the same place on screen.
   var delta=row.getBoundingClientRect().top-before;
   if(delta){ if(sp)sp.scrollTop+=delta; else window.scrollBy(0,delta); }
+}
+function oiToggleRow(safeId){ cxToggle('oi',safeId); }
+// Keyboard + click attributes for a compact row.
+function cxRowAttrs(group,rid,isOpen){
+  return ' id="oi-row-'+rid+'" tabindex="0" aria-expanded="'+(isOpen?'true':'false')+'" onclick="cxToggle(\''+group+'\',\''+rid+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();cxToggle(\''+group+'\',\''+rid+'\');}"';
+}
+// ── Compact issue list inside an inspection's Details (2026-10-19) ──────────────
+// Used by the Check-Ins/Check-Outs Log and QC Log (mode 'readonly' — status is
+// shown read-only and managed in Open Issues, as before) and by Spring/Fall in
+// Seasonal Inspections (mode 'seasonal' — the existing per-item status controls,
+// same sea-* ids and functions, now live inside each expanded item). Supply-section
+// items keep their "Supply Inventory Log" routing in both modes.
+var _cxPhotos={};
+function cxPreview(rid,idx){ var p=_cxPhotos[rid]; if(p)invdPvOpen(p.urls,idx,p.title); }
+function cxPhotosHtml(rid,urls,title){
+  _cxPhotos[rid]={urls:urls,title:title||''};
+  if(!urls.length) return '<div style="font-size:12px;color:var(--dark-gray)">No photos.</div>';
+  var h='<div class="oi-x-photos">';
+  urls.forEach(function(u,pi){h+='<img src="'+esc(u)+'" loading="lazy" alt="Photo '+(pi+1)+'" onclick="cxPreview(\''+rid+'\','+pi+')" onerror="this.classList.add(\'photo-broken\')">';});
+  return h+'</div>';
+}
+function cxUpdatesHtml(updates){
+  var h='';
+  (updates||[]).forEach(function(u){h+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
+  return '<div class="updates-log">'+(h||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
+}
+function cxIssueListHtml(insp,safeId,mode){
+  var list=insp.issues||[];
+  if(!list.length) return '';
+  var group='li'+safeId;
+  var h='<div class="invd cx-wrap"><table class="oi-table cx-nested"><colgroup><col style="width:46%"><col style="width:22%"><col style="width:18%"><col style="width:14%"></colgroup>';
+  h+='<thead><tr><th>Item</th><th>Section / Room</th><th>Status</th><th>Activity</th></tr></thead><tbody>';
+  list.forEach(function(x,xi){
+    var rid='li'+safeId+'_'+xi;
+    var xKey=x.key||('legacyidx_'+xi);
+    var isSupply=(x.section==='Supply Check'||x.section==='Supply Inventory');
+    var tied=isSupply?null:findTiedIssue(insp.id,xKey);
+    var st=isSupply?'supply':(tied?(tied.status||'open'):'historical');
+    var photos=normalizePhotoUrls(x.photos,'cxList:'+insp.id+':issue');
+    var ups=tied?(tied.updates||[]):[];
+    var isOpen=_cxOpen[group]===rid;
+    var statusHtml=isSupply?'<span class="badge b-ok" title="Supply needs are tracked in the Supply Inventory tab.">&#128230; Supply Log</span>':issueStatusBadgeHtml(tied);
+    var act='';
+    if(photos.length)act+='<span title="'+photos.length+' photo'+(photos.length!==1?'s':'')+'">&#128247; '+photos.length+'</span>';
+    if(ups.length)act+='<span title="'+ups.length+' update'+(ups.length!==1?'s':'')+'">&#128172; '+ups.length+'</span>';
+    if(x.charge>0)act+='<span style="color:var(--red)" title="Charge">$'+Number(x.charge).toFixed(2)+'</span>';
+    var note=(x.notes||'').trim();
+    h+='<tr class="oi-row st-'+st+(isOpen?' open':'')+'"'+cxRowAttrs(group,rid,isOpen)+'>';
+    h+='<td class="c-item" title="'+esc(x.text||'')+'"><span class="chev">&#9656;</span>'+esc(x.text||'(no description)');
+    if(note)h+='<span class="c-sub">&#128172; '+esc(note)+'</span>';
+    h+='<span class="oi-m-meta">'+esc(x.section||'')+'</span></td>';
+    h+='<td class="c-x" title="'+esc(x.section||'')+'">'+esc(x.section||'—')+'</td>';
+    h+='<td class="c-st">'+statusHtml+'</td>';
+    h+='<td class="c-act'+(act?'':' empty')+'">'+(act||'<span class="no-photo">&mdash;</span>')+'</td>';
+    h+='</tr>';
+    h+='<tr class="oi-exp'+(isOpen?' open':'')+'" id="oi-exp-'+rid+'"><td colspan="4"><div class="oi-x-grid">';
+    // Left: facts, note, photos
+    h+='<div class="oi-x-col"><div class="oi-x-facts">';
+    h+='<div><span>Section / Room</span>'+esc(x.section||'—')+'</div>';
+    if(x.charge>0)h+='<div><span>Charge</span><b style="color:var(--red)">$'+Number(x.charge).toFixed(2)+'</b></div>';
+    if(tied&&tied.reportedAt)h+='<div><span>Reported</span>'+esc(fmtDateTime(tied.reportedAt))+'</div>';
+    h+='</div>';
+    h+='<div class="oi-x-lbl">Item</div><div class="oi-x-text">'+esc(x.text||'(no description)')+'</div>';
+    h+='<div class="oi-x-lbl">Inspector\'s note</div>'+(note?'<div class="oi-x-text">'+esc(note)+'</div>':'<div style="font-size:12px;color:var(--dark-gray)">No note.</div>');
+    h+='<div class="oi-x-lbl">Photos ('+photos.length+')</div>'+cxPhotosHtml(rid,photos,x.text);
+    h+='</div>';
+    // Right: status + history
+    h+='<div class="oi-x-col"><div class="oi-x-lbl">Status</div>';
+    if(isSupply){
+      h+='<div class="oi-x-status">'+statusHtml+'</div><div style="font-size:12px;color:var(--dark-gray)">Tracked in the Supply Inventory tab, not here.</div>';
+    } else if(!tied){
+      h+='<div class="oi-x-status">'+statusHtml+'</div><div style="font-size:12px;color:var(--dark-gray)">No tracked follow-up record for this item (saved before individual issue tracking existed), so it can\'t be updated.</div>';
+    } else if(mode==='seasonal'){
+      var issSafeId=safeId+'_'+xi;
+      h+='<div class="oi-x-status">'+statusHtml+
+        '<select id="sea-sel-'+issSafeId+'" onchange="stageSeasonalIssueStatusChange(\''+issSafeId+'\',this.value)">'+
+        '<option value="open"'+(tied.status==='open'||!tied.status?' selected':'')+'>Open</option>'+
+        '<option value="in_progress"'+(tied.status==='in_progress'?' selected':'')+'>In Progress</option>'+
+        '<option value="resolved"'+(tied.status==='resolved'?' selected':'')+'>Resolved</option>'+
+        '<option value="dismissed"'+(tied.status==='dismissed'?' selected':'')+'>Dismissed / Not an Issue</option>'+
+        '</select></div>';
+      h+='<div class="status-confirm-panel" id="sea-confirm-'+issSafeId+'" style="display:none">'+
+        '<div style="font-size:12px;color:var(--dark-gray)">Changing status to <strong id="sea-confirm-label-'+issSafeId+'"></strong>. Add an optional resolution note:</div>'+
+        '<textarea id="sea-confirm-note-'+issSafeId+'" placeholder="Optional note…"></textarea>'+
+        '<div class="sc-btns"><button class="sc-confirm" onclick="confirmSeasonalIssueStatusChange(\''+tied.id+'\',\''+issSafeId+'\')">Confirm</button><button class="sc-cancel" onclick="cancelSeasonalIssueStatusChange(\''+issSafeId+'\',\''+(tied.status||'open')+'\')">Cancel</button></div>'+
+        '</div>';
+      h+='<div class="oi-x-lbl">Updates &amp; history ('+ups.length+')</div>'+cxUpdatesHtml(ups);
+      h+='<div class="add-update-row"><input type="text" id="sea-note-'+issSafeId+'" placeholder="Add an update&hellip;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addSeasonalIssueUpdate(\''+tied.id+'\',\''+issSafeId+'\');}"><button onclick="addSeasonalIssueUpdate(\''+tied.id+'\',\''+issSafeId+'\')">+ Add</button></div>';
+    } else {
+      h+='<div class="oi-x-status">'+statusHtml+'<button class="view-in-openissues-btn" style="margin-left:0" data-prop="'+esc(insp.property||'')+'" onclick="jumpToOpenIssues(this.getAttribute(\'data-prop\'))">Manage in Open Issues &rarr;</button></div>';
+      if(tied.resolvedAt&&tied.status==='resolved')h+='<div style="font-size:12px;color:var(--dark-gray)">Resolved '+esc(fmtDateTime(tied.resolvedAt))+(tied.resolvedBy?' by '+esc(tied.resolvedBy):'')+'</div>';
+      if(tied.dismissedAt&&tied.status==='dismissed')h+='<div style="font-size:12px;color:var(--dark-gray)">Dismissed '+esc(fmtDateTime(tied.dismissedAt))+(tied.dismissedBy?' by '+esc(tied.dismissedBy):'')+(tied.dismissalNote?' — '+esc(tied.dismissalNote):'')+'</div>';
+      h+='<div class="oi-x-lbl">Updates &amp; history ('+ups.length+')</div>'+cxUpdatesHtml(ups);
+    }
+    h+='<div style="margin-top:10px"><button type="button" class="invd-close" onclick="cxToggle(\''+group+'\',\''+rid+'\')">Close item</button></div>';
+    h+='</div></div></td></tr>';
+  });
+  h+='</tbody></table></div>';
+  return h;
 }
 function oiPreview(docId,idx){
   var x=_propIssues.find(function(i){return i.id===docId;}); if(!x)return;
@@ -4694,57 +5062,76 @@ function renderSupplyReqs(){
   var tableEl=document.getElementById('supplyReqTable');
   if(!list.length){ tableEl.innerHTML='<div class="empty">No supply requests found</div>'; return; }
   list.sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');});
-  var html='<table><thead><tr><th>Submitted</th><th>Property</th><th>Inspector</th><th>Source</th><th>Supplies Needed</th><th>Notes</th><th>Photos</th><th>Status</th><th>Last Updated</th><th></th></tr></thead><tbody>';
+  // Compact expandable rows (2026-10-19), same pattern as Open Issues. Status,
+  // update and Track-note controls keep their sup-* ids and functions.
+  var html='<div class="oi-count">Showing '+list.length+' of '+_supplyReqs.length+' request'+(_supplyReqs.length!==1?'s':'')+' &middot; click a row to see supplies, notes, photos, history and actions</div>';
+  html+='<table class="oi-table"><colgroup><col style="width:31%"><col style="width:18%"><col style="width:10%"><col style="width:12%"><col style="width:11%"><col style="width:11%"><col style="width:7%"></colgroup>';
+  html+='<thead><tr><th>Supplies Needed</th><th>House</th><th>Submitted</th><th>Inspector</th><th>Source</th><th>Status</th><th>Activity</th></tr></thead><tbody>';
+  var stCls={'Needs Shopping':'open','Purchased':'resolved','Dismissed':'dismissed'};
   list.forEach(function(x){
     var safeId='si'+x.id.replace(/[^a-zA-Z0-9]/g,'');
     var xPhotos=normalizePhotoUrls(x.photoUrls,'supplyReq:'+x.id);
-    var itemsText=x.noneNeeded?'<em style="color:var(--dark-gray)">No restocking needed</em>':supplyItemsSummaryText(x.items);
-    html+='<tr>';
-    html+='<td style="white-space:nowrap">'+esc(x.submittedAt?fmtDateTime(x.submittedAt):'')+'</td>';
-    html+='<td style="font-weight:600;min-width:160px">'+esc(x.property||'')+'</td>';
-    html+='<td>'+esc(x.inspector||'')+'</td>';
-    html+='<td><span class="badge source-badge">'+esc(supplyReqSourceLabel(x))+'</span></td>';
-    html+='<td style="min-width:220px">'+itemsText+'</td>';
-    html+='<td style="min-width:140px">'+esc(x.notes||'')+'</td>';
-    html+='<td>'+(xPhotos.length?'<span class="badge b-ok">&#128247; '+xPhotos.length+'</span>':'<span class="no-photo">&mdash;</span>')+'</td>';
-    html+='<td>'+supplyStatusBadgeHtml(x.status)+'</td>';
-    html+='<td style="white-space:nowrap">'+esc(x.lastUpdatedAt?fmtDateTime(x.lastUpdatedAt):'')+(x.lastUpdatedBy?'<br><span style="font-size:11px;color:var(--dark-gray)">by '+esc(x.lastUpdatedBy)+'</span>':'')+'</td>';
-    html+='<td><button class="details-btn" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
+    var nst=normalizeSupplyStatus(x.status);
+    var items=(!x.noneNeeded&&x.items)?x.items:[];
+    var itemsText=x.noneNeeded?'No restocking needed':(supplyItemsSummaryText(items)||'(no items listed)');
+    var updates=x.updates||[];
+    var isOpen=_cxOpen.sup===safeId;
+    var dateShort=oiShortDate(x.submittedAt), dateFull=x.submittedAt?fmtDateTime(x.submittedAt):'';
+    var note=(x.notes||'').trim();
+    var act='';
+    if(xPhotos.length)act+='<span title="'+xPhotos.length+' photo'+(xPhotos.length!==1?'s':'')+'">&#128247; '+xPhotos.length+'</span>';
+    if(updates.length)act+='<span title="'+updates.length+' update'+(updates.length!==1?'s':'')+'">&#128172; '+updates.length+'</span>';
+    html+='<tr class="oi-row st-'+(x.noneNeeded?'resolved':(stCls[nst]||'open'))+(isOpen?' open':'')+'"'+cxRowAttrs('sup',safeId,isOpen)+'>';
+    html+='<td class="c-item" title="'+esc(itemsText)+'"><span class="chev">&#9656;</span>'+(x.noneNeeded?'<em>'+esc(itemsText)+'</em>':esc(itemsText));
+    html+='<span class="c-sub">'+(x.noneNeeded?'Inventory completed':items.length+' item'+(items.length!==1?'s':''))+(note?' &middot; &#128172; '+esc(note):'')+'</span>';
+    html+='<span class="oi-m-meta"><b>'+esc(x.property||'')+'</b> &middot; '+esc(dateShort)+(x.inspector?' &middot; '+esc(x.inspector):'')+' &middot; '+esc(supplyReqSourceLabel(x))+'</span></td>';
+    html+='<td class="c-house" title="'+esc(x.property||'')+'">'+esc(x.property||'')+'</td>';
+    html+='<td class="c-date" title="'+esc(dateFull)+'">'+esc(dateShort)+'</td>';
+    html+='<td class="c-insp" title="'+esc(x.inspector||'')+'">'+esc(x.inspector||'—')+'</td>';
+    html+='<td class="c-src"><span class="badge source-badge">'+esc(supplyReqSourceLabel(x))+'</span></td>';
+    html+='<td class="c-st">'+supplyStatusBadgeHtml(x.status)+'</td>';
+    html+='<td class="c-act'+(act?'':' empty')+'">'+(act||'<span class="no-photo">&mdash;</span>')+'</td>';
     html+='</tr>';
-    html+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="10">';
-    if(!x.noneNeeded && x.items && x.items.length){
-      html+='<div class="insp-detail-heading">📦 Supplies &amp; Quantities</div><div class="insp-notes-block">';
-      x.items.forEach(function(it){ html+=esc(it.name)+(it.qty?' — Qty needed: '+esc(String(it.qty)):' — Qty not specified')+(it.isOther?' <em>(other / unlisted)</em>':'')+'<br>'; });
+    html+='<tr class="oi-exp'+(isOpen?' open':'')+'" id="oi-exp-'+safeId+'"><td colspan="7"><div class="oi-x-grid">';
+    // Left: facts, supplies, notes, photos
+    html+='<div class="oi-x-col"><div class="oi-x-facts">';
+    html+='<div><span>House</span>'+esc(x.property||'—')+'</div>';
+    html+='<div><span>Submitted</span>'+esc(dateFull||'—')+'</div>';
+    html+='<div><span>Inspector</span>'+esc(x.inspector||'—')+'</div>';
+    html+='<div><span>Source</span>'+esc(supplyReqSourceLabel(x))+'</div>';
+    if(x.lastUpdatedAt)html+='<div><span>Last updated</span>'+esc(fmtDateTime(x.lastUpdatedAt))+(x.lastUpdatedBy?' by '+esc(x.lastUpdatedBy):'')+'</div>';
+    html+='</div>';
+    html+='<div class="oi-x-lbl">Supplies &amp; quantities ('+items.length+')</div>';
+    if(x.noneNeeded){ html+='<div class="oi-x-text">Inventory completed — no restocking needed.</div>'; }
+    else if(items.length){
+      html+='<div class="sup-x-items">';
+      items.forEach(function(it){ html+='<div class="sup-x-item"><span class="nm">'+esc(it.name)+(it.isOther?' <em>(other / unlisted)</em>':'')+'</span><span class="q">'+(it.qty?'Qty '+esc(String(it.qty)):'<span class="invd-muted">Qty not specified</span>')+'</span></div>'+(it.notes?'<div class="sup-x-inote">'+esc(it.notes)+'</div>':''); });
       html+='</div>';
-    }
-    if((x.notes||'').trim()) html+='<div class="insp-detail-heading">📝 Notes</div><div class="insp-notes-block">'+esc(x.notes).replace(/\n/g,'<br>')+'</div>';
-    if(xPhotos.length){
-      html+='<div class="insp-detail-heading">📷 Photos</div><div class="insp-issue-photos">';
-      xPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
-      html+='</div>';
-    }
-    html+='<div class="insp-detail-heading">🔧 Status &amp; Follow-Up History</div>';
-    html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap"><span style="font-size:12px;font-weight:700;color:var(--dark-gray)">Status:</span>'+supplyStatusBadgeHtml(x.status)+
-      '<select id="sup-sel-'+safeId+'" style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px" onchange="stageSupplyStatusChange(\''+safeId+'\',this.value)">'+
-      ['Needs Shopping','Purchased','Dismissed'].map(function(s){return '<option value="'+s+'"'+(normalizeSupplyStatus(x.status)===s?' selected':'')+'>'+s+'</option>';}).join('')+
+    } else { html+='<div style="font-size:12px;color:var(--dark-gray)">No items listed.</div>'; }
+    html+='<div class="oi-x-lbl">Notes</div>'+(note?'<div class="oi-x-text">'+esc(note)+'</div>':'<div style="font-size:12px;color:var(--dark-gray)">No notes.</div>');
+    html+='<div class="oi-x-lbl">Photos ('+xPhotos.length+')</div>'+cxPhotosHtml(safeId,xPhotos,(x.property||'')+' — supplies');
+    html+='</div>';
+    // Right: status, history, Track note
+    html+='<div class="oi-x-col"><div class="oi-x-lbl">Status</div>';
+    html+='<div class="oi-x-status">'+supplyStatusBadgeHtml(x.status)+
+      '<select id="sup-sel-'+safeId+'" onchange="stageSupplyStatusChange(\''+safeId+'\',this.value)">'+
+      ['Needs Shopping','Purchased','Dismissed'].map(function(s){return '<option value="'+s+'"'+(nst===s?' selected':'')+'>'+s+'</option>';}).join('')+
       '</select></div>';
     html+='<div class="status-confirm-panel" id="sup-confirm-'+safeId+'" style="display:none">'+
       '<div style="font-size:12px;color:var(--dark-gray)">Changing status to <strong id="sup-confirm-label-'+safeId+'"></strong>. Add an optional note — it will be saved to this request\'s history:</div>'+
       '<textarea id="sup-confirm-note-'+safeId+'" placeholder="Optional note…"></textarea>'+
-      '<div class="sc-btns"><button class="sc-confirm" onclick="confirmSupplyStatusChange(\''+x.id+'\',\''+safeId+'\')">Confirm</button><button class="sc-cancel" onclick="cancelSupplyStatusChange(\''+safeId+'\',\''+normalizeSupplyStatus(x.status)+'\')">Cancel</button></div>'+
+      '<div class="sc-btns"><button class="sc-confirm" onclick="confirmSupplyStatusChange(\''+x.id+'\',\''+safeId+'\')">Confirm</button><button class="sc-cancel" onclick="cancelSupplyStatusChange(\''+safeId+'\',\''+nst+'\')">Cancel</button></div>'+
       '</div>';
-    var updates=x.updates||[];
-    var updHtml='';
-    updates.forEach(function(u){updHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
-    html+='<div class="updates-log">'+(updHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
-    html+='<div class="add-update-row"><input type="text" id="sup-note-'+safeId+'" placeholder="Add an update…"><button onclick="addSupplyRequestUpdate(\''+x.id+'\',\''+safeId+'\')">+ Add</button></div>';
-    html+='<div class="insp-detail-heading">📋 Track Home-File Note <button class="view-in-openissues-btn" style="margin-left:8px" onclick="copyTrackNote(\''+safeId+'\')">⧉ Copy</button></div>';
+    html+='<div class="oi-x-lbl">Updates &amp; history ('+updates.length+')</div>'+cxUpdatesHtml(updates);
+    html+='<div class="add-update-row"><input type="text" id="sup-note-'+safeId+'" placeholder="Add an update…" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addSupplyRequestUpdate(\''+x.id+'\',\''+safeId+'\');}"><button onclick="addSupplyRequestUpdate(\''+x.id+'\',\''+safeId+'\')">+ Add</button></div>';
+    html+='<div class="oi-x-lbl">Track home-file note <button class="view-in-openissues-btn" style="margin-left:8px" onclick="copyTrackNote(\''+safeId+'\')">⧉ Copy</button></div>';
     html+='<div class="track-note-box" id="sup-tracknote-'+safeId+'">'+esc(buildTrackNoteText(x))+'</div>';
-    html+='</td></tr>';
+    html+='<div style="margin-top:10px"><button type="button" class="invd-close" onclick="cxToggle(\'sup\',\''+safeId+'\')">Close request</button></div>';
+    html+='</div></div></td></tr>';
   });
   html+='</tbody></table>';
   tableEl.innerHTML=html;
-  reopenPreservedDetails();
+  if(_cxOpen.sup&&!document.getElementById('oi-exp-'+_cxOpen.sup)) delete _cxOpen.sup;
 }
 // Plain-text, copy-pasteable note formatted for dropping straight into the property's
 // Track home file — no direct Track integration exists, so this is the deliberate
