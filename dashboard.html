@@ -418,6 +418,68 @@ tr:hover td{background:#fafbfe}
 .btn-email{background:#E8F5EE;color:#1A7A3F;border:1.5px solid #A5D6A7;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer}
 .btn-email:hover{background:#C8E6C9}
 /* Open Issues — Send Notification (2026-10-18) */
+/* ══ OPEN ISSUES — compact expandable rows (2026-10-19), modeled on the inventory Flagged Items view ══ */
+.oi-count{font-size:11.5px;color:var(--dark-gray);padding:8px 14px 0}
+.oi-table{table-layout:fixed;width:100%;font-size:12.5px}
+.oi-table col.w-item{width:30%}.oi-table col.w-house{width:18%}.oi-table col.w-date{width:10%}.oi-table col.w-insp{width:12%}.oi-table col.w-src{width:10%}.oi-table col.w-st{width:11%}.oi-table col.w-act{width:9%}
+.oi-table thead th{padding:7px 10px;font-size:10px;background:#F6F8FB}
+.oi-table td{padding:6px 10px;border-bottom:1px solid #f1f1f1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+.oi-row{cursor:pointer}
+.oi-row:hover td{background:#F7FAFD}
+.oi-row:focus{outline:2px solid var(--blue);outline-offset:-2px}
+.oi-row .chev{display:inline-block;color:#aaa;margin-right:5px;transition:transform .15s;font-size:10px}
+.oi-row.open .chev{transform:rotate(90deg);color:var(--navy)}
+.oi-row.open td{background:#F2F7FC}
+.oi-row td.c-item{font-weight:600;color:var(--text)}
+.oi-row.st-open td.c-item{box-shadow:inset 3px 0 0 var(--red)}
+.oi-row.st-in_progress td.c-item{box-shadow:inset 3px 0 0 var(--orange)}
+.oi-row.st-resolved td.c-item{box-shadow:inset 3px 0 0 #1E7B45}
+.oi-row.st-dismissed td.c-item{box-shadow:inset 3px 0 0 #90A4AE}
+.oi-row.st-resolved td.c-item,.oi-row.st-dismissed td.c-item{color:var(--dark-gray);font-weight:500}
+.oi-row .c-sub{display:block;font-size:10.5px;font-weight:600;color:var(--dark-gray);overflow:hidden;text-overflow:ellipsis;padding-left:15px}
+.oi-row .c-house{font-weight:700;color:var(--navy)}
+.oi-row .c-date,.oi-row .c-insp{color:var(--dark-gray)}
+.oi-row .c-act{color:var(--navy);font-weight:700;font-size:11.5px}
+.oi-row .c-act span{margin-right:6px}
+.oi-m-meta{display:none}
+.oi-exp{display:none}
+.oi-exp.open{display:table-row}
+.oi-exp td{white-space:normal;background:#FBFCFE;padding:12px 16px 14px;border-bottom:2px solid var(--mid-gray)}
+.oi-x-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+.oi-x-facts{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:12.5px}
+.oi-x-facts span{display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--dark-gray)}
+.oi-x-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--dark-gray);margin:12px 0 4px}
+.oi-x-col>.oi-x-lbl:first-child{margin-top:0}
+.oi-x-text{background:white;border-radius:6px;padding:7px 10px;font-size:12.5px;box-shadow:var(--shadow);white-space:pre-wrap}
+.oi-x-photos{display:flex;flex-wrap:wrap;gap:6px}
+.oi-x-photos img{width:64px;height:64px;object-fit:cover;border-radius:6px;border:1.5px solid var(--mid-gray);cursor:zoom-in}
+.oi-x-photos img.photo-broken{display:none}
+.oi-x-status{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.oi-x-status select{border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px}
+.oi-exp .updates-log{max-height:220px;overflow-y:auto;margin-bottom:8px}
+.oi-exp .oi-notify{margin-top:12px}
+@media (max-width:700px){
+  .oi-table,.oi-table tbody{display:block}
+  .oi-table thead,.oi-table colgroup{display:none}
+  .oi-table tr.oi-row{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;row-gap:3px;padding:8px 10px;border-bottom:1px solid #f1f1f1;align-items:center}
+  .oi-table tr.oi-row td{padding:0;border:none;background:none!important}
+  .oi-row.st-open{box-shadow:inset 3px 0 0 var(--red)}
+  .oi-row.st-in_progress{box-shadow:inset 3px 0 0 var(--orange)}
+  .oi-row.st-resolved{box-shadow:inset 3px 0 0 #1E7B45}
+  .oi-row.st-dismissed{box-shadow:inset 3px 0 0 #90A4AE}
+  .oi-row td.c-item{box-shadow:none!important;grid-column:1;grid-row:1 / 3;white-space:normal;line-height:1.3}
+  .oi-row.open{background:#F2F7FC}
+  .oi-row .c-house,.oi-row .c-date,.oi-row .c-insp,.oi-row .c-src{display:none}
+  .oi-row .c-st{grid-column:2;grid-row:1;text-align:right}
+  .oi-row .c-act{grid-column:2;grid-row:2;text-align:right}
+  .oi-row .c-act.empty{visibility:hidden}
+  .oi-m-meta{display:block;font-size:11px;font-weight:500;color:var(--dark-gray);padding-left:15px;margin-top:2px;white-space:normal}
+  .oi-m-meta b{color:var(--navy)}
+  .oi-row .c-sub{white-space:normal}
+  .oi-exp.open{display:block}
+  .oi-exp td{display:block;padding:10px 12px 12px}
+  .oi-x-grid{grid-template-columns:1fr;gap:4px}
+}
 .oi-notify{border-top:1px solid var(--mid-gray);margin-top:4px;padding-top:12px}
 .oi-notify-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .oi-notify .btn-email[disabled]{opacity:.6;cursor:default}
@@ -2983,7 +3045,11 @@ var _invdPv={urls:[],idx:0,title:''};
 function invdPreview(safeId,rk,idx){
   var insp=invdInspBySafeId(safeId); if(!insp)return;
   var r=invdModel(insp).rows.find(function(x){return x.rk===rk;}); if(!r)return;
-  _invdPv={urls:r.photos.slice(),idx:idx||0,title:r.item};
+  invdPvOpen(r.photos,idx,r.item);
+}
+// Shared enlarged photo viewer — used by the inventory detail view and Open Issues.
+function invdPvOpen(urls,idx,title){
+  _invdPv={urls:(urls||[]).slice(),idx:idx||0,title:title||''};
   var ov=document.getElementById('invdPv');
   if(!ov){
     ov=document.createElement('div'); ov.id='invdPv'; ov.className='invd-pv';
@@ -3663,62 +3729,133 @@ function renderOpenIssues(){
   var tableEl=document.getElementById('openIssuesTable');
   if(!list.length){ tableEl.innerHTML='<div class="empty">No follow-up issues found</div>'; return; }
   list.sort(function(a,b){return (b.reportedAt||'').localeCompare(a.reportedAt||'');});
-  var html='<table><thead><tr><th>Reported</th><th>Property</th><th>Source</th><th>Section / Location</th><th>Issue</th><th>Reported By</th><th>Status</th><th>Photos</th><th></th></tr></thead><tbody>';
+  // Compact, expandable rows (2026-10-19) — same pattern as the inventory Flagged
+  // Items view: one line per issue with the key facts, click to expand full notes,
+  // photos, status control, update history and Send Notification. Every control
+  // inside keeps its previous element id (oi-sel-/oi-confirm-/oi-note-/oi-notify-)
+  // so the existing status, update and notification functions are unchanged.
+  var html='<div class="oi-count">Showing '+list.length+' of '+eligible.length+' issue'+(eligible.length!==1?'s':'')+' &middot; click a row to see notes, photos, history and actions</div>';
+  html+='<table class="oi-table"><colgroup><col class="w-item"><col class="w-house"><col class="w-date"><col class="w-insp"><col class="w-src"><col class="w-st"><col class="w-act"></colgroup>';
+  html+='<thead><tr><th>Issue</th><th>House</th><th>Reported</th><th>Inspector</th><th>Source</th><th>Status</th><th>Activity</th></tr></thead><tbody>';
+  var anyOpen=false;
   list.forEach(function(x){
     var safeId='oi'+x.id.replace(/[^a-zA-Z0-9]/g,'');
     var xPhotos=normalizePhotoUrls(x.photos,'openIssues:'+x.id);
-    html+='<tr>';
-    html+='<td style="white-space:nowrap">'+esc(x.reportedAt?fmtDateTime(x.reportedAt):'')+'</td>';
-    html+='<td style="font-weight:600;min-width:160px">'+esc(x.property||'')+'</td>';
-    html+='<td><span class="badge source-badge">'+esc(sourceLabel(x.formType))+'</span></td>';
-    html+='<td>'+esc(x.section||x.location||'')+'</td>';
-    html+='<td style="min-width:220px">'+esc(x.text||'')+'</td>';
-    html+='<td>'+esc(x.reportedByName||'')+'</td>';
-    html+='<td>'+issueStatusBadgeHtml(x)+'</td>';
-    html+='<td>'+(xPhotos.length?'<span class="badge b-ok">&#128247; '+xPhotos.length+'</span>':'<span class="no-photo">&mdash;</span>')+'</td>';
-    html+='<td><button class="details-btn" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
+    var updates=x.updates||[];
+    var st=x.status||'open';
+    var isOpen=!!_oiOpen[safeId];
+    if(isOpen)anyOpen=true;
+    var where=x.section||x.location||'';
+    var dateShort=oiShortDate(x.reportedAt);
+    var dateFull=x.reportedAt?fmtDateTime(x.reportedAt):'';
+    var act='';
+    if(xPhotos.length)act+='<span title="'+xPhotos.length+' photo'+(xPhotos.length!==1?'s':'')+'">&#128247; '+xPhotos.length+'</span>';
+    if(updates.length)act+='<span title="'+updates.length+' update'+(updates.length!==1?'s':'')+'">&#128172; '+updates.length+'</span>';
+    if(x.lastNotifiedAt)act+='<span title="House notified '+esc(oiFmtStamp(x.lastNotifiedAt))+'">&#9993;</span>';
+    // Row
+    html+='<tr class="oi-row st-'+esc(st)+(isOpen?' open':'')+'" id="oi-row-'+safeId+'" tabindex="0" aria-expanded="'+(isOpen?'true':'false')+'" onclick="oiToggleRow(\''+safeId+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();oiToggleRow(\''+safeId+'\');}">';
+    html+='<td class="c-item" title="'+esc(x.text||'')+'"><span class="chev">&#9656;</span>'+esc(x.text||'(no description)');
+    if(where)html+='<span class="c-sub">'+esc(where)+'</span>';
+    html+='<span class="oi-m-meta"><b>'+esc(x.property||'')+'</b> &middot; '+esc(dateShort)+(x.reportedByName?' &middot; '+esc(x.reportedByName):'')+' &middot; '+esc(sourceLabel(x.formType))+'</span>';
+    html+='</td>';
+    html+='<td class="c-house" title="'+esc(x.property||'')+'">'+esc(x.property||'')+'</td>';
+    html+='<td class="c-date" title="'+esc(dateFull)+'">'+esc(dateShort)+'</td>';
+    html+='<td class="c-insp" title="'+esc(x.reportedByName||'')+'">'+esc(x.reportedByName||'—')+'</td>';
+    html+='<td class="c-src"><span class="badge source-badge">'+esc(sourceLabel(x.formType))+'</span></td>';
+    html+='<td class="c-st">'+issueStatusBadgeHtml(x)+'</td>';
+    html+='<td class="c-act'+(act?'':' empty')+'">'+(act||'<span class="no-photo">&mdash;</span>')+'</td>';
     html+='</tr>';
-    html+='<tr class="insp-detail-row" id="insp-detail-'+safeId+'" style="display:none"><td colspan="9">';
-    if((x.notes||'').trim()){
-      html+='<div class="insp-detail-heading">&#128221; Inspector\'s Note</div><div class="insp-notes-block">'+esc(x.notes).replace(/\n/g,'<br>')+'</div>';
-    }
-    if(x.priority||x.category||x.assignedManagerName){
-      html+='<div class="insp-detail-heading">&#128295; Details</div><div class="insp-notes-block">'+
-        (x.category?'<strong>Category:</strong> '+esc(x.category)+'<br>':'')+
-        (x.location?'<strong>Location:</strong> '+esc(x.location)+'<br>':'')+
-        (x.priority?'<strong>Priority:</strong> '+esc(x.priority)+'<br>':'')+
-        (x.assignedManagerName?'<strong>Assigned Operations Contact:</strong> '+esc(x.assignedManagerName):'')+
-        '</div>';
-    }
+    // Expanded detail
+    html+='<tr class="oi-exp'+(isOpen?' open':'')+'" id="oi-exp-'+safeId+'"><td colspan="7"><div class="oi-x-grid">';
+    // Left: facts, notes, photos
+    html+='<div class="oi-x-col">';
+    html+='<div class="oi-x-facts">';
+    html+='<div><span>House</span>'+esc(x.property||'—')+'</div>';
+    html+='<div><span>Reported</span>'+esc(dateFull||'—')+'</div>';
+    html+='<div><span>Inspector</span>'+esc(x.reportedByName||'—')+'</div>';
+    html+='<div><span>Source</span>'+esc(sourceLabel(x.formType))+'</div>';
+    if(x.section)html+='<div><span>Section</span>'+esc(x.section)+'</div>';
+    if(x.location)html+='<div><span>Location</span>'+esc(x.location)+'</div>';
+    if(x.category&&x.category!==x.section)html+='<div><span>Category</span>'+esc(x.category)+'</div>';
+    if(x.priority)html+='<div><span>Priority</span>'+esc(x.priority)+'</div>';
+    if(x.assignedManagerName)html+='<div><span>Assigned Ops Contact</span>'+esc(x.assignedManagerName)+'</div>';
+    html+='</div>';
+    html+='<div class="oi-x-lbl">Issue</div><div class="oi-x-text">'+esc(x.text||'(no description)')+'</div>';
+    html+='<div class="oi-x-lbl">Inspector\'s note</div>';
+    html+=(x.notes||'').trim()?'<div class="oi-x-text">'+esc(x.notes)+'</div>':'<div style="font-size:12px;color:var(--dark-gray)">No note.</div>';
+    html+='<div class="oi-x-lbl">Photos ('+xPhotos.length+')</div>';
     if(xPhotos.length){
-      html+='<div class="insp-detail-heading">&#128247; Photos</div><div class="insp-issue-photos">';
-      xPhotos.forEach(function(url){html+='<img src="'+esc(url)+'" class="insp-issue-thumb" loading="lazy" onclick="window.open(\''+esc(url)+'\',\'_blank\')" onerror="this.classList.add(\'photo-broken\')">';});
+      html+='<div class="oi-x-photos">';
+      xPhotos.forEach(function(url,pi){html+='<img src="'+esc(url)+'" loading="lazy" alt="Photo '+(pi+1)+'" onclick="oiPreview(\''+x.id+'\','+pi+')" onerror="this.classList.add(\'photo-broken\')">';});
       html+='</div>';
+    } else {
+      html+='<div style="font-size:12px;color:var(--dark-gray)">No photos.</div>';
     }
-    html+='<div class="insp-detail-heading">&#128295; Status &amp; Follow-Up History</div>';
-    html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap"><span style="font-size:12px;font-weight:700;color:var(--dark-gray)">Status:</span>'+issueStatusBadgeHtml(x)+
-      '<select id="oi-sel-'+safeId+'" style="border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 9px;font-size:12px" onchange="stageIssueStatusChange(\''+safeId+'\',this.value)">'+
-      '<option value="open"'+(x.status==='open'||!x.status?' selected':'')+'>Open</option>'+
-      '<option value="in_progress"'+(x.status==='in_progress'?' selected':'')+'>In Progress</option>'+
-      '<option value="resolved"'+(x.status==='resolved'?' selected':'')+'>Resolved</option>'+
-      '<option value="dismissed"'+(x.status==='dismissed'?' selected':'')+'>Dismissed / Not an Issue</option>'+
+    html+='</div>';
+    // Right: status, history, notify
+    html+='<div class="oi-x-col">';
+    html+='<div class="oi-x-lbl">Status</div>';
+    html+='<div class="oi-x-status">'+issueStatusBadgeHtml(x)+
+      '<select id="oi-sel-'+safeId+'" onchange="stageIssueStatusChange(\''+safeId+'\',this.value)">'+
+      '<option value="open"'+(st==='open'?' selected':'')+'>Open</option>'+
+      '<option value="in_progress"'+(st==='in_progress'?' selected':'')+'>In Progress</option>'+
+      '<option value="resolved"'+(st==='resolved'?' selected':'')+'>Resolved</option>'+
+      '<option value="dismissed"'+(st==='dismissed'?' selected':'')+'>Dismissed / Not an Issue</option>'+
       '</select></div>';
     html+='<div class="status-confirm-panel" id="oi-confirm-'+safeId+'" style="display:none">'+
       '<div style="font-size:12px;color:var(--dark-gray)">Changing status to <strong id="oi-confirm-label-'+safeId+'"></strong>. Add an optional note (e.g. why it was dismissed, or what was done to resolve it) — it will be saved to this issue\'s history:</div>'+
       '<textarea id="oi-confirm-note-'+safeId+'" placeholder="Optional note…"></textarea>'+
-      '<div class="sc-btns"><button class="sc-confirm" onclick="confirmIssueStatusChange(\''+x.id+'\',\''+safeId+'\')">Confirm</button><button class="sc-cancel" onclick="cancelIssueStatusChange(\''+safeId+'\',\''+(x.status||'open')+'\')">Cancel</button></div>'+
+      '<div class="sc-btns"><button class="sc-confirm" onclick="confirmIssueStatusChange(\''+x.id+'\',\''+safeId+'\')">Confirm</button><button class="sc-cancel" onclick="cancelIssueStatusChange(\''+safeId+'\',\''+st+'\')">Cancel</button></div>'+
       '</div>';
-    var updates=x.updates||[];
+    html+='<div class="oi-x-lbl">Updates &amp; history ('+updates.length+')</div>';
     var updHtml='';
     updates.forEach(function(u){updHtml+='<div class="update-item">'+esc(u.text)+'<div class="u-date">'+esc(u.by)+' &middot; '+esc(u.date)+'</div></div>';});
     html+='<div class="updates-log">'+(updHtml||'<div style="font-size:12px;color:var(--dark-gray)">No updates yet.</div>')+'</div>';
-    html+='<div class="add-update-row"><input type="text" id="oi-note-'+safeId+'" placeholder="Add an update&hellip; (e.g. hangers ordered, arriving Friday)"><button onclick="addPropertyIssueUpdate(\''+x.id+'\',\''+safeId+'\')">+ Add</button></div>';
+    html+='<div class="add-update-row"><input type="text" id="oi-note-'+safeId+'" placeholder="Add an update&hellip; (e.g. hangers ordered, arriving Friday)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addPropertyIssueUpdate(\''+x.id+'\',\''+safeId+'\');}"><button onclick="addPropertyIssueUpdate(\''+x.id+'\',\''+safeId+'\')">+ Add</button></div>';
     html+=oiNotifyBlockHtml(x,safeId);
-    html+='</td></tr>';
+    html+='<div style="margin-top:10px"><button type="button" class="invd-close" onclick="oiToggleRow(\''+safeId+'\')">Close issue</button></div>';
+    html+='</div>';
+    html+='</div></td></tr>';
   });
   html+='</tbody></table>';
   tableEl.innerHTML=html;
-  reopenPreservedDetails();
+  // Forget open rows that are no longer in the filtered list.
+  Object.keys(_oiOpen).forEach(function(id){ if(!document.getElementById('oi-exp-'+id)) delete _oiOpen[id]; });
+}
+// Which Open Issues rows are expanded — survives re-renders (status change, new
+// update, refresh, filter change). Only one is open at a time, like the inventory view.
+var _oiOpen={};
+function oiShortDate(iso){
+  if(!iso)return '—';
+  var d=new Date(iso); if(isNaN(d.getTime()))return String(iso).slice(0,10);
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});
+}
+function oiToggleRow(safeId){
+  var row=document.getElementById('oi-row-'+safeId);
+  var exp=document.getElementById('oi-exp-'+safeId);
+  if(!row||!exp)return;
+  var before=row.getBoundingClientRect().top;
+  var sp=invdScrollParent(row);
+  var opening=!exp.classList.contains('open');
+  // Close any other open issue so the list stays compact.
+  Object.keys(_oiOpen).forEach(function(id){
+    if(id===safeId)return;
+    var r=document.getElementById('oi-row-'+id), e=document.getElementById('oi-exp-'+id);
+    if(r){r.classList.remove('open');r.setAttribute('aria-expanded','false');}
+    if(e)e.classList.remove('open');
+    delete _oiOpen[id];
+  });
+  exp.classList.toggle('open',opening);
+  row.classList.toggle('open',opening);
+  row.setAttribute('aria-expanded',opening?'true':'false');
+  if(opening)_oiOpen[safeId]=true; else delete _oiOpen[safeId];
+  // Keep the clicked row in the same place on screen.
+  var delta=row.getBoundingClientRect().top-before;
+  if(delta){ if(sp)sp.scrollTop+=delta; else window.scrollBy(0,delta); }
+}
+function oiPreview(docId,idx){
+  var x=_propIssues.find(function(i){return i.id===docId;}); if(!x)return;
+  invdPvOpen(normalizePhotoUrls(x.photos,'openIssues:'+x.id),idx,(x.property?x.property+' — ':'')+(x.text||''));
 }
 // ── Staged status change (requirement: let the user attach a note BEFORE confirming
 // a status change, in one action, rather than changing status then having to add a
