@@ -70,6 +70,12 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .prop-card.show{display:block}
 .prop-card-name{font-size:15px;font-weight:800;color:var(--navy);margin-bottom:6px}
 .prop-card-addr{font-size:12px;color:var(--dark-gray);margin-bottom:10px}
+/* Track PMS stays strip (TRACK SYNC 2026-10-23) */
+.prop-stays{display:none;margin:0 0 10px;border-radius:8px;background:#EEF4FB;border-left:3px solid var(--blue);padding:8px 10px;font-size:12px;color:var(--navy);line-height:1.55}
+.prop-stays.show{display:block}
+.prop-stays b{font-weight:800}
+.prop-stays .stay-muted{color:var(--dark-gray);font-size:11px}
+.prop-stays .stay-today{display:inline-block;background:#F0A500;color:white;border-radius:4px;padding:0 6px;font-size:10.5px;font-weight:800;margin-left:4px}
 .prop-tags{display:flex;flex-wrap:wrap;gap:6px}
 .prop-tag{background:var(--light-blue);color:var(--navy);border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600}
 .prop-tag.pets{background:#E8F5EE;color:var(--green)}
@@ -314,6 +320,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
     <div class="prop-card" id="propCard">
       <div class="prop-card-name" id="propCardName"></div>
       <div class="prop-card-addr" id="propCardAddr"></div>
+      <div class="prop-stays" id="propStays"></div>
       <div id="propNotes" style="display:none;font-size:11px;color:#555;margin:6px 0 0;padding:8px 10px;background:#FFF8E1;border-radius:6px;border-left:3px solid #F0A500;white-space:pre-wrap;max-height:120px;overflow-y:auto"></div>
       <div class="prop-tags" id="propTags"></div>
       <div class="prop-open-issues" id="propOpenIssues" style="display:none"></div>
@@ -1542,6 +1549,98 @@ var PROPERTIES = [
 {"name":"Wolf Ridge","address":"820 Arch Way  - Carnelian Bay, CA 96140 US","occupancy":8,"bedrooms":4,"bathrooms":"3 + 1 half","size":"2800 sq. ft.","pets":true,"contact":"Kobe Robbin","lockbox":"1946","bear":"No","checkinNotes":"Known Problems: \nOttoman in front of the TV has a hole - This existed prior to TLUXP Rentals \nDownstairs ensuite bathroom sink faucet handle pulls out","email":"wolfridge@tluxp.com","alarm":"","owner":"Kathleen Sheehy"},
 {"name":"Zoe's North Star at Northstar","address":"1709 Grouse Ridge Road  - Truckee, CA 96161 US","occupancy":10,"bedrooms":4,"bathrooms":"3 + 1 half","size":"2639 sq. ft.","pets":false,"contact":"Rachael Brigham","lockbox":"1116 + Ultra Loq","bear":"No","checkinNotes":"Check Conos for all HO check-ins - make sure all 5 speakers are working\nPlease cover after each guest - the ping pong table in the garage, the barbecue, & the outdoor furniture.","email":"zoesnorthstar@tluxp.com","alarm":"1116","owner":"Randolph Charlton and Karen Kemby"}
 ];
+
+// ── TRACK SYNC (2026-10-23) ──────────────────────────────────────────────
+// PROPERTIES above is the fallback/base list. An hourly Firebase function
+// (tlp-track-sync, codebase "track-sync") copies live data from Track PMS into
+// the single Firestore doc track_sync/properties. On load we merge it in:
+//   Track wins:  active/inactive, check-in notes, occupancy, bedrooms,
+//                bathrooms, size, pets (unless Track's value is blank/0)
+//   App keeps:   name, address, contact, owner, lockbox, alarm, bear, email
+// Inactive-in-Track homes stay in PROPERTIES (so old inspections still resolve
+// via PROPERTIES.find) but are flagged p.inactive and hidden from pickers.
+// Active+bookable Track homes missing from the list are added (codes blank).
+// If Firestore is unreachable nothing changes — the app keeps working on the
+// list above. Stays (next arrival / in house / last departure) go on p.track.
+var TRACK_SYNC = { loaded: false, trackToday: null, syncedAt: null, added: [], hidden: [] };
+function trackNameKey(n) { return String(n || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+function activeProps() { return PROPERTIES.filter(function(p){ return !p.inactive; }); }
+function applyTrackData(doc) {
+  var byKey = {};
+  PROPERTIES.forEach(function(p){ byKey[trackNameKey(p.name)] = p; });
+  (doc.records || []).forEach(function(r) {
+    var key = r.nameKey || trackNameKey(r.name);
+    var p = byKey[key];
+    if (!r.active) {
+      if (p && !p.inactive) { p.inactive = true; TRACK_SYNC.hidden.push(p.name); }
+      return;
+    }
+    if (!p) {
+      if (!r.bookable) return; // e.g. Accounting Units, homes still onboarding
+      p = { name: r.name, address: r.address || '', contact: r.contact || '', owner: '', lockbox: '', alarm: '', bear: 'No', email: '', fromTrack: true };
+      PROPERTIES.push(p); byKey[key] = p; TRACK_SYNC.added.push(r.name);
+    }
+    p.inactive = false;
+    if (r.checkinNotes && r.checkinNotes !== 'None') p.checkinNotes = r.checkinNotes;
+    if (r.occupancy) p.occupancy = r.occupancy;
+    if (r.bedrooms) p.bedrooms = r.bedrooms;
+    if (r.bathrooms && r.bathrooms !== '0') p.bathrooms = r.bathrooms;
+    if (r.size) p.size = r.size;
+    if (typeof r.pets === 'boolean') p.pets = r.pets;
+    p.track = { unitId: r.trackUnitId, currentStay: r.currentStay || null, nextArrival: r.nextArrival || null, lastDeparture: r.lastDeparture || null };
+  });
+  PROPERTIES.sort(function(a, b){ return a.name.localeCompare(b.name); });
+  TRACK_SYNC.loaded = true;
+  TRACK_SYNC.trackToday = doc.trackToday || null;
+  TRACK_SYNC.syncedAt = doc.syncedAt && doc.syncedAt.toDate ? doc.syncedAt.toDate() : null;
+}
+function loadTrackProperties() {
+  if (!db) return;
+  db.collection('track_sync').doc('properties').get().then(function(snap) {
+    if (!snap.exists) return;
+    applyTrackData(snap.data());
+    // Refresh anything already on screen.
+    if (state && state.selectedProp) selectProperty(state.selectedProp);
+    console.log('[TRACK] merged', (snap.data().records || []).length, 'records; added', TRACK_SYNC.added, 'hidden', TRACK_SYNC.hidden);
+  }).catch(function(e) { console.warn('[TRACK] sync data unavailable, using built-in list', e); });
+}
+function fmtStayDate(ymd) {
+  if (!ymd) return '';
+  var d = new Date(ymd + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+function stayGuests(s) {
+  var o = s && s.occupants; if (!o) return '';
+  var n = 0; Object.keys(o).forEach(function(k){ if (k !== 'pets' && typeof o[k] === 'number') n += o[k]; });
+  var parts = []; if (n) parts.push(n + ' guest' + (n === 1 ? '' : 's'));
+  if (o.pets) parts.push(o.pets + ' pet' + (o.pets === 1 ? '' : 's'));
+  return parts.join(', ');
+}
+function stayLine(label, s, dateField, extra) {
+  var bits = [];
+  if (s.nights) bits.push(s.nights + ' night' + (s.nights === 1 ? '' : 's'));
+  var g = stayGuests(s); if (g) bits.push(g);
+  if (s.type) bits.push(s.type);
+  var today = TRACK_SYNC.trackToday && s[dateField] === TRACK_SYNC.trackToday ? '<span class="stay-today">TODAY</span>' : '';
+  return '<div><b>' + label + ':</b> ' + esc(fmtStayDate(s[dateField])) + today + (extra || '') +
+    (bits.length ? ' <span class="stay-muted">· ' + esc(bits.join(' · ')) + '</span>' : '') + '</div>';
+}
+function renderPropStays(p) {
+  var el = document.getElementById('propStays');
+  if (!el) return;
+  var t = p && p.track;
+  if (!t) { el.classList.remove('show'); el.innerHTML = ''; return; }
+  var html = '';
+  if (t.currentStay) html += stayLine('In house until', t.currentStay, 'departure', '');
+  if (t.nextArrival) html += stayLine('Next arrival', t.nextArrival, 'arrival', '');
+  else html += '<div><b>Next arrival:</b> <span class="stay-muted">none in the next 60 days</span></div>';
+  if (t.lastDeparture && !t.currentStay) html += '<div class="stay-muted">Last departure: ' + esc(fmtStayDate(t.lastDeparture.departure)) + '</div>';
+  if (TRACK_SYNC.syncedAt) html += '<div class="stay-muted">From Track · updated ' + TRACK_SYNC.syncedAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + '</div>';
+  el.innerHTML = html;
+  el.classList.add('show');
+}
+loadTrackProperties();
+// ── end TRACK SYNC ───────────────────────────────────────────────────────
 
 // Operations Contacts who no longer have any active homes (per explicit user
 // confirmation, 2026-10-01) -- kept out of operationsContactOptions() below
@@ -2778,7 +2877,7 @@ function sendViaHTTP(payload, mailtoFallback, onSuccess) {
 var filteredProps = [];
 function filterProperties() {
   var q = document.getElementById('propSearch').value.toLowerCase();
-  filteredProps = q.length < 1 ? PROPERTIES : PROPERTIES.filter(function(p) {
+  filteredProps = q.length < 1 ? activeProps() : activeProps().filter(function(p) {
     return p.name.toLowerCase().indexOf(q) >= 0 || p.address.toLowerCase().indexOf(q) >= 0;
   });
   renderDropdown();
@@ -2796,7 +2895,7 @@ function renderDropdown() {
   });
   dd.classList.toggle('open', list.length > 0);
 }
-function openDropdown() { filteredProps = PROPERTIES; renderDropdown(); }
+function openDropdown() { filteredProps = activeProps(); renderDropdown(); }
 function closeDropdown() { document.getElementById('propDropdown').classList.remove('open'); }
 function selectProperty(p) {
   state.selectedProp = p;
@@ -2829,6 +2928,7 @@ function selectProperty(p) {
     document.getElementById('fieldBedrooms').value = p.bedrooms;
   }
   document.getElementById('propCard').classList.add('show');
+  renderPropStays(p);
   loadOpenPropertyIssues(p.name);
 }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
