@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mothership | Operations Dashboard</title>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
@@ -553,7 +554,7 @@ tr:hover td{background:#fafbfe}
       <p>Tahoe Luxury Properties — Staff Dashboard</p>
     </div>
     <div class="lfield"><label>Username</label><input id="lu" type="text" placeholder="Enter username" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()"></div>
-    <div class="lfield"><label>PIN</label><input id="lp" type="password" placeholder="4-digit PIN" inputmode="numeric" maxlength="4" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="lfield"><label>PIN</label><input id="lp" type="password" placeholder="PIN" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button class="login-btn" id="loginBtn" onclick="doLogin()">Log In</button>
     <div class="login-err" id="loginErr"></div>
   </div>
@@ -921,8 +922,130 @@ var FIREBASE_CONFIG={apiKey:"AIzaSyBNR7trmAOrTtu-uDoU7v_kuxbiVWwqFgQ",authDomain
 var db=null;
 try{firebase.initializeApp(FIREBASE_CONFIG);db=firebase.firestore();}catch(e){}
 
+// ══ SIGN-IN (Firebase Authentication, added 2026-11) ═════════════════════════
+// Staff still log in with username + PIN. Behind the scenes each person has a
+// Firebase Authentication account (username@staff.tluxp.internal, password
+// "tlp#" + PIN), and the database/storage rules only let signed-in, ACTIVE staff
+// read or write anything. staff/{uid} links that sign-in account to the
+// person's users/{id} record (name, role, active) — users/{id} is still the
+// one place roles and active/inactive are managed.
+// The Inspections app and the Mothership share one sign-in per device (same
+// website), so logging into one with a different person signs the other out.
+var STAFF_EMAIL_DOMAIN='staff.tluxp.internal';
+var PIN_PW_PREFIX='tlp#';
+var auth=null;
+try{ if(firebase.auth) auth=firebase.auth(); }catch(e){ console.warn('[AUTH] init failed',e); }
+function staffEmail(username){return String(username||'').trim().toLowerCase().replace(/[^a-z0-9._-]/g,'-')+'@'+STAFF_EMAIL_DOMAIN;}
+function pinPassword(pin){return PIN_PW_PREFIX+String(pin);}
+function isValidPinFormat(pin){return /^(\d{4}|\d{6})$/.test(String(pin||''));}
+function weakPinReason(pin){
+  if(!/^\d{6}$/.test(pin))return 'Your PIN must be exactly 6 digits.';
+  if(/^(\d)\1{5}$/.test(pin))return 'Pick a PIN that isn’t the same digit six times.';
+  if('01234567890'.indexOf(pin)>=0||'09876543210'.indexOf(pin)>=0)return 'Pick a PIN that isn’t a straight run like 123456.';
+  return '';
+}
+function authErrorMessage(e){
+  var c=(e&&e.code)||'';
+  if(c==='auth/too-many-requests')return 'Too many attempts. Wait a few minutes and try again.';
+  if(c==='auth/network-request-failed'||c==='unavailable')return 'Connection error — check your signal and try again';
+  if(c==='tlp/no-profile')return 'This account isn’t set up yet. Contact your admin.';
+  if(c==='tlp/inactive')return 'Account inactive. Contact your manager.';
+  if(c==='tlp/no-auth')return 'App not configured yet. Contact your admin.';
+  if(c.indexOf('auth/')===0)return 'Invalid username or PIN';
+  return 'Connection error — try again';
+}
+function loadStaffProfile(user){
+  return db.collection('staff').doc(user.uid).get().then(function(s){
+    if(!s.exists)throw {code:'tlp/no-profile'};
+    var st=s.data()||{};
+    if(!st.userId)throw {code:'tlp/no-profile'};
+    return db.collection('users').doc(st.userId).get().then(function(u){
+      if(!u.exists)throw {code:'tlp/no-profile'};
+      var d=u.data()||{};
+      return {uid:user.uid,id:u.id,username:d.username,name:d.name,role:d.role,active:!!d.active,operationsContact:d.operationsContact||null,mustChangePin:!!st.mustChangePin};
+    });
+  });
+}
+// Signs in and loads the person's profile. Rejects with {code} on any failure,
+// and never leaves a half-signed-in account behind.
+function staffSignIn(username,pin){
+  if(!auth||!db)return Promise.reject({code:'tlp/no-auth'});
+  return auth.signInWithEmailAndPassword(staffEmail(username),pinPassword(pin)).then(function(cred){
+    return loadStaffProfile(cred.user).then(function(p){
+      if(!p.active)throw {code:'tlp/inactive'};
+      return p;
+    });
+  }).catch(function(e){
+    if(auth.currentUser)return auth.signOut().then(function(){throw e;},function(){throw e;});
+    throw e;
+  });
+}
+function staffSignOut(){
+  if(!auth)return Promise.resolve();
+  return auth.signOut().catch(function(){});
+}
+// Full-screen "choose a new 6-digit PIN" step. Shown the first time someone
+// signs in with their old 4-digit PIN, or with a temporary PIN an admin set.
+function showPinChange(profile,onDone){
+  var old=document.getElementById('tlpPinChange'); if(old)old.parentNode.removeChild(old);
+  var ov=document.createElement('div'); ov.id='tlpPinChange';
+  ov.setAttribute('style','position:fixed;inset:0;z-index:100000;background:linear-gradient(160deg,#063461 0%,#2E75B6 100%);display:flex;align-items:center;justify-content:center;padding:24px;overflow:auto;-webkit-font-smoothing:antialiased;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif');
+  var inp='width:100%;box-sizing:border-box;font-size:20px;padding:11px 12px;border:1.5px solid #c9d3de;border-radius:10px;margin:0 0 12px;letter-spacing:6px;text-align:center';
+  var lbl='display:block;font-size:12px;font-weight:700;color:#063461;margin:0 0 5px;text-transform:uppercase;letter-spacing:.5px';
+  ov.innerHTML='<div style="background:#fff;border-radius:16px;padding:24px 22px;max-width:360px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.25)">'+
+    '<div style="font-size:20px;font-weight:800;color:#063461;margin-bottom:6px">Choose a new PIN</div>'+
+    '<div style="font-size:14px;color:#444;margin-bottom:18px;line-height:1.45">Hi '+esc(profile.name||profile.username||'')+'! PINs are now 6 digits. Pick a new one you’ll remember — you’ll use it for both the Inspections app and the Mothership.</div>'+
+    '<label style="'+lbl+'" for="tlpNewPin">New 6-digit PIN</label>'+
+    '<input id="tlpNewPin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="new-password" style="'+inp+'">'+
+    '<label style="'+lbl+'" for="tlpNewPin2">Type it again</label>'+
+    '<input id="tlpNewPin2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="new-password" style="'+inp+'">'+
+    '<div id="tlpPinErr" style="display:none;color:#CC0000;font-size:13.5px;margin:0 0 12px;line-height:1.4"></div>'+
+    '<button id="tlpPinSave" type="button" style="width:100%;padding:14px;border:none;border-radius:10px;background:#063461;color:#fff;font-size:16px;font-weight:700;cursor:pointer">Save new PIN</button>'+
+    '<button id="tlpPinCancel" type="button" style="width:100%;padding:10px;border:none;background:none;color:#666;font-size:13.5px;margin-top:8px;cursor:pointer">Cancel and log out</button>'+
+    '</div>';
+  document.body.appendChild(ov);
+  var p1=document.getElementById('tlpNewPin'), p2=document.getElementById('tlpNewPin2');
+  var err=document.getElementById('tlpPinErr'), btn=document.getElementById('tlpPinSave');
+  function showErr(m){err.textContent=m;err.style.display='block';}
+  function save(){
+    err.style.display='none';
+    var a=(p1.value||'').trim(), b=(p2.value||'').trim();
+    var weak=weakPinReason(a); if(weak){showErr(weak);return;}
+    if(a!==b){showErr('The two PINs don’t match. Try again.');p2.value='';p2.focus();return;}
+    if(!auth||!auth.currentUser){showErr('You’ve been signed out. Please log in again.');setTimeout(function(){location.reload();},1500);return;}
+    btn.disabled=true; btn.textContent='Saving…';
+    auth.currentUser.updatePassword(pinPassword(a)).then(function(){
+      return db.collection('staff').doc(profile.uid).update({mustChangePin:false,pinChangedAt:new Date().toISOString()});
+    }).then(function(){
+      if(ov.parentNode)ov.parentNode.removeChild(ov);
+      onDone();
+    }).catch(function(e){
+      btn.disabled=false; btn.textContent='Save new PIN';
+      if(e&&e.code==='auth/requires-recent-login'){
+        showErr('For security, please log in again with your current PIN, then choose your new one.');
+        setTimeout(function(){staffSignOut().then(function(){location.reload();});},2500);
+        return;
+      }
+      showErr(e&&e.code&&String(e.code).indexOf('auth/')===0?authErrorMessage(e):'Couldn’t save your new PIN — check your connection and try again.');
+    });
+  }
+  btn.onclick=save;
+  p1.onkeydown=function(ev){if(ev.key==='Enter')p2.focus();};
+  p2.onkeydown=function(ev){if(ev.key==='Enter')save();};
+  document.getElementById('tlpPinCancel').onclick=function(){staffSignOut().then(function(){location.reload();});};
+  setTimeout(function(){try{p1.focus();}catch(e){}},50);
+}
+// Waits for Firebase to restore any saved sign-in on this device (works offline).
+function whenAuthReady(cb){
+  if(!auth){cb(null);return;}
+  var done=false;
+  var unsub=auth.onAuthStateChanged(function(user){ if(done)return; done=true; try{unsub();}catch(e){} cb(user); });
+}
+// ══ end SIGN-IN ═══════════════════════════════════════════════════════════════
+
+
 // ── STATIC DATA ───────────────────────────────────────────────────────────────
-var PROPERTIES=[{"name":"12th Tee At Northstar","manager":"Rachael Brigham","alarm":"","owner":"Bret and Kirstin Grainger"},{"name":"A Walk In The Woods","manager":"Rachael Brigham","alarm":"","owner":"Bruno Delagneau & Jennifer Mitchell"},{"name":"Above & Beyond - Lakeview","manager":"Andrea Degliantoni","alarm":"5698-not active","owner":"Mark Logsdon, Michael and Julie Ridgeway"},{"name":"Adventure Awaits","manager":"Christian Cuneo","alarm":"5966 inactive","owner":"Janette and Eugene Lupario"},{"name":"Alpen Glow At Northstar","manager":"Trevor Dimino","alarm":"","owner":"Kelly MacDonald and Katy Neumer"},{"name":"Alpine Perfection","manager":"Christian Cuneo","alarm":"7357 - TLUXP","owner":"Aramie and Kevin McDonald"},{"name":"Anchors Aweigh - Lakefront","manager":"Kobe Robbin","alarm":"1270-Not Active","owner":"Rachel and Kurt Latta"},{"name":"Aspen Paradise","manager":"Charli Martin","alarm":"","owner":"Tracy Roberts and Gerald Roberts"},{"name":"Backside 180 at Northstar","manager":"Rachael Brigham","alarm":"2468Not Active","owner":"Giles Kennedy"},{"name":"Bella Vista Sul Lago - Lakeview","manager":"Rachael Brigham","alarm":"4850","owner":"Janae, Micheal, and Bonnie Zumbo"},{"name":"Belleview's Beauty - Lakefront","manager":"Charli Martin","alarm":"1999-not active","owner":"Todd Sperber and Maria Sperber"},{"name":"Bellissimo Lago - Lakefront","manager":"Pat Hall","alarm":"","owner":"Alan and Genia Phillips"},{"name":"Big Sky - Lakeview","manager":"Christopher Mumaw","alarm":"","owner":"Mina Liu"},{"name":"Black Bear Cottage - Lakefront","manager":"Michael Ballew","alarm":"1234","owner":"Michael Bailey"},{"name":"Blackwood Creek Chalet","manager":"Trevor Dimino","alarm":"","owner":"Todd Berryhill"},{"name":"Blissful Days - Lakefront","manager":"Charli Martin","alarm":"6619 ON/OFF","owner":"Elizabeth Hachman, Greg and Muriel Harris"},{"name":"Bluebird Days At Palisades","manager":"Christian Cuneo","alarm":"","owner":"Amrita Arora and Aditya Chawla"},{"name":"Boulder Place Lookout At Northstar","manager":"Trevor Dimino","alarm":"","owner":"Maria Vegas"},{"name":"Bradley's Bungalow","manager":"Kobe Robbin","alarm":"","owner":"Jennifer and Todd Bradley"},{"name":"California Sunshine - Lakeview","manager":"Andrea Degliantoni","alarm":"","owner":"Christopher and Kimberly  Hall"},{"name":"Candlelight Lodge","manager":"Christian Cuneo","alarm":"8828-not active","owner":"Jon Easterbrook"},{"name":"Carnelian Charm - Lakefront","manager":"Rachael Brigham","alarm":"0711 on/off","owner":""},{"name":"Carnelian Haus - Lakefront","manager":"Michael Ballew","alarm":"","owner":"Brit Hahn"},{"name":"Charlie's Den - Lakefront","manager":"Pat Hall","alarm":"3449 TLUXP","owner":"Paul  and Carrie Dolan"},{"name":"Cherry Lodge","manager":"Christian Cuneo","alarm":"2575","owner":"Eric and Mia Heglie"},{"name":"Constellation #404 Ski-In & Out At Northstar","manager":"Scott McBeth","alarm":"","owner":"Jason Watson"},{"name":"Constellation #407 Ski-In & Out At Northstar","manager":"Scott McBeth","alarm":"","owner":"Tracey and Shane Brisbin"},{"name":"Creekview","manager":"Charli Martin","alarm":"5388","owner":"Susan Russo"},{"name":"Dancing Bear Lodge - Lakefront","manager":"Jennifer Suter","alarm":"3672","owner":"Christopher Legallet"},{"name":"Donner Lake Dreams - Lakefront","manager":"Christopher Mumaw","alarm":"","owner":"Logan Randolph"},{"name":"Eagle's Nest at Northstar","manager":"Christopher Mumaw","alarm":"7547-not active","owner":"Jon Venverloh"},{"name":"Enchanted Ridge","manager":"Christian Cuneo","alarm":"","owner":"Nanette and John Taraya-Vonk"},{"name":"First Chair @ Palisades (The Bronson)","manager":"Christian Cuneo","alarm":"","owner":"Barbara Hetch an d Tatiana Botton"},{"name":"Fleur du Lac #1 - Lakefront","manager":"Charli Martin","alarm":"","owner":"Cecilia Herbert"},{"name":"Forever Edgewood - Lakeview","manager":"Christian Cuneo","alarm":"1139","owner":"Marla Alders"},{"name":"Fresh Tracks at Northstar","manager":"Scott McBeth","alarm":"","owner":"Mark and Michelle Rosenblatt"},{"name":"Front and Center","manager":"Andrea Degliantoni","alarm":"","owner":"Frank and Christina Giambattista"},{"name":"Gerry G. - Lakefront","manager":"Michael Ballew","alarm":"","owner":"James Simkalo"},{"name":"Gonowabie Lodge - Lakefront","manager":"Andrea Degliantoni","alarm":"1234","owner":"Andrew Solomon and Marc Sondheimer"},{"name":"Granite Chief Lodge At Palisades","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Heavenly View - Lakefront","manager":"Michael Ballew","alarm":"2035- Away/Off","owner":"Tatiana Botton and Barbara Hetch"},{"name":"Hidden Ridge at Northstar","manager":"Scott McBeth","alarm":"","owner":"Jane and Chris Clare"},{"name":"Highlands Holiday","manager":"Kobe Robbin","alarm":"1946","owner":"Kathleen Sheehy"},{"name":"Holly Hideaway","manager":"Charli Martin","alarm":"1970-not active","owner":"Eric and Bibi Moore"},{"name":"Home Run at Northstar","manager":"Rachael Brigham","alarm":"1234 - Never Arm","owner":"Alan Strasbaugh and Janice Noll"},{"name":"Homewood Trifecta - Lakefront","manager":"Kobe Robbin","alarm":"3444","owner":"John  Truchard and Elizabeth Imboden"},{"name":"In the Wild Woods","manager":"Rachael Brigham","alarm":"","owner":"Matthew and Vanessa Herridge"},{"name":"Incline Oasis - Lakeview","manager":"Tina Geilenfeldt","alarm":"1234 1 (off)","owner":"Sandeep and Purvi Kunwar"},{"name":"Just Grand","manager":"Charli Martin","alarm":"","owner":"Riley and Eryn Parker Strong"},{"name":"King's View Lodge - Lakeview","manager":"Andrea Degliantoni","alarm":"1019","owner":"Albert Stasek and Courtney Robins"},{"name":"La Dolce Vita - Lakefront","manager":"Kobe Robbin","alarm":"","owner":"Dean and Stacey Allara"},{"name":"Lago Azul - Lakefront","manager":"Christina Cifelli","alarm":"","owner":"Alan and Martha Bryan"},{"name":"Lake Escape - Lakefront","manager":"Michael Ballew","alarm":"1234","owner":"Nina Yoshpe"},{"name":"Lake Of The Sky - Lakeview","manager":"Charli Martin","alarm":"","owner":"James and Kimberly Draeger"},{"name":"Lakeside Cedars","manager":"Kobe Robbin","alarm":"","owner":""},{"name":"Lakeside Grove - Lakefront","manager":"Trevor Dimino","alarm":"1130","owner":"Vince Sosnkowski"},{"name":"Laughing Waters - Lakefront","manager":"Jessie Byers","alarm":"2389 Lake House","owner":"Greg Price"},{"name":"Laura's Overlook Lodge at Northstar","manager":"Natalie Garnett","alarm":"","owner":""},{"name":"Lift and Tee Retreat at Schaffer's Mill","manager":"Trevor Dimino","alarm":"","owner":""},{"name":"Luxury River Retreat","manager":"Christian Cuneo","alarm":"1128","owner":"Freya Eduarte"},{"name":"Majestic Waters - Lakefront","manager":"Christopher Mumaw","alarm":"5930-not active","owner":"Brigette Lau"},{"name":"Making Memories - Lakeview","manager":"Andrea Degliantoni","alarm":"0424-not active","owner":"Randall Vallen"},{"name":"Manzanita House - Lakeview","manager":"Christopher Mumaw","alarm":"","owner":"Brenda and Les Seymour"},{"name":"Maybach Lake House - Lakefront","manager":"Christina Cifelli","alarm":"","owner":"Uli Maybach"},{"name":"McKinney Bay Retreat","manager":"Kobe Robbin","alarm":"3254","owner":"Paul Silva"},{"name":"Mill Creek Retreat - Incline Village","manager":"Andrea Degliantoni","alarm":"1234","owner":"Andrew Hansen"},{"name":"Moana Mountain Shack - Lakeview","manager":"Kobe Robbin","alarm":"1214","owner":"Jack and Barbara Britton"},{"name":"Modern Marvel - Incline Village","manager":"Andrea Degliantoni","alarm":"2672 Burgular","owner":"Junaid Qurashi and JJ Zhuang"},{"name":"Modern Mountain at Palisades","manager":"Christian Cuneo","alarm":"9689","owner":"Eldon Mayer and Alyssa Thomas"},{"name":"Moondance At Tahoe Park","manager":"Charli Martin","alarm":"","owner":"Nik and Rajesh Daftary"},{"name":"Mountain Bear Lodge At Northstar","manager":"Scott McBeth","alarm":"0209-Not Active","owner":"Elika and Michael Rosenbaum"},{"name":"Mountain Retreat - Lakeview","manager":"Tina Geilenfeldt","alarm":"3499 master code","owner":"Pat, Dena, and Austin McDonald"},{"name":"Palatial Pines - Lakefront","manager":"Tina Geilenfeldt","alarm":"1364","owner":"Robert and Janet Kearn"},{"name":"Peace of Tahoe - Lakefront","manager":"Christina Cifelli","alarm":"9597not active","owner":"Thomas Reilly and Tim Winter"},{"name":"Pier Pleasure - Lakefront","manager":"Tina Geilenfeldt","alarm":"7981","owner":"Mike and Caroline Buckley"},{"name":"Pineland Retreat","manager":"Christina Cifelli","alarm":"3980","owner":"Joseph Cannata"},{"name":"Ramblin' Rose - Lakeview","manager":"Michael Ballew","alarm":"","owner":"Tim and Tara Guleri"},{"name":"Reflections - Lakeview","manager":"Michael Ballew","alarm":"","owner":"Janelle and Audrey Grimes"},{"name":"Rise and Shine - Lakefront","manager":"Christina Cifelli","alarm":"","owner":""},{"name":"Rising Sun","manager":"Charli Martin","alarm":"8751 TLUXP","owner":"Massey Rafani"},{"name":"Riverfront Lodge","manager":"Christian Cuneo","alarm":"","owner":"Mike and Vicki Riherd"},{"name":"Rubicon Shores - Lakefront","manager":"Charli Martin","alarm":"","owner":"Vanessa Meyers and Erica Desjardins"},{"name":"Sail Away - Lakefront","manager":"Michael Ballew","alarm":"1234","owner":"Michael Bailey"},{"name":"Sandy Shores - Lakefront","manager":"Andrea Degliantoni","alarm":"5050","owner":"Todd Jaksick"},{"name":"Seek No Further - Lakefront","manager":"Pat Hall","alarm":"1313-not active","owner":"Louis Stervinou"},{"name":"Serendipity - Lakeview","manager":"Andrea Degliantoni","alarm":"","owner":"Romina Notarainni"},{"name":"Shimmering Shores - Lakefront","manager":"Christian Cuneo","alarm":"5754","owner":"Lynn Olson"},{"name":"Shore Camp - Lakefront","manager":"Christopher Mumaw","alarm":"7547-not active","owner":"Jonathan Venverloh"},{"name":"Shoshone Chalet at Palisades","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Sierra Sunset Estate - Lakefront","manager":"Tina Geilenfeldt","alarm":"3449-not active","owner":"Patrick Willis"},{"name":"Sierra Vista - Lakeview","manager":"Charli Martin","alarm":"2625","owner":"Catriona Fallon"},{"name":"Signature Retreat on the 18th","manager":"Christopher Mumaw","alarm":"","owner":"Margie and Joel Weidert"},{"name":"Silverfell Lodge at Northstar","manager":"Rachael Brigham","alarm":"6148","owner":"Kenneth and Louise Adamson"},{"name":"Sittin' on the Dock - Lakefront","manager":"Charli Martin","alarm":"","owner":"Dylan Alegria"},{"name":"Skippin' Stones - Lakefront","manager":"Tina Geilenfeldt","alarm":"4800","owner":"Stephen Gordon and Anja Laicher"},{"name":"Slopeside At Northstar","manager":"Trevor Dimino","alarm":"1234-Not Active","owner":"Mia Martin and Lisa Franzia"},{"name":"Solitude","manager":"Charli Martin","alarm":"","owner":"Sharon Blunden and Paula Firenze"},{"name":"Spirit of the Mountain","manager":"Christian Cuneo","alarm":"","owner":"Shannon Poulsen"},{"name":"Stanford Rock Retreat","manager":"Kobe Robbin","alarm":"","owner":"Jeremy and Heather Wenner"},{"name":"Starry Nights - Lakefront","manager":"Kobe Robbin","alarm":"1234","owner":"Mike Reidy"},{"name":"Steeple Cove - Lakefront","manager":"Christian Cuneo","alarm":"","owner":"Russell and Janice Foulk"},{"name":"Stone Crest Estate - Lakefront","manager":"Pat Hall","alarm":"","owner":"Anne and Marty Putnam"},{"name":"Streams and Dreams","manager":"Christopher Mumaw","alarm":"","owner":"Brad Squires"},{"name":"Sugar Pine Chalet - Lakefront","manager":"Trevor Dimino","alarm":"","owner":"Meika Rouda"},{"name":"Summer Breeze - Lakefront","manager":"Charli Martin","alarm":"1058-Not Active","owner":"Sharon Jennings"},{"name":"Summerhouse - Lakefront","manager":"Tina Geilenfeldt","alarm":"5050","owner":"Holly Fuller"},{"name":"Summit Splendor at Martis Camp","manager":"Christina Cifelli","alarm":"1935","owner":"Jerry Glembocki and Juliette  Davis"},{"name":"Sundance","manager":"Kobe Robbin","alarm":"","owner":"Darren.Alan, and Andrea Zulberti"},{"name":"Sunny Days","manager":"Michael Ballew","alarm":"","owner":"Luke and Hsian Winter"},{"name":"Sunrise by Sunnyside - Lakefront","manager":"Tina Geilenfeldt","alarm":"4251","owner":"Susan Gates"},{"name":"Sunset Blue - Lakefront","manager":"Christian Cuneo","alarm":"9448","owner":"Gina and William Glaser"},{"name":"Tahoe City Serenity","manager":"Michael Ballew","alarm":"","owner":"Vincent Ferrante"},{"name":"Tahoe Treehouse","manager":"Kobe Robbin","alarm":"","owner":"Stuart Sclater-Booth"},{"name":"Tahoe's Ahwahnee - Lakeview","manager":"Pat Hall","alarm":"8541 TLUXP","owner":"Paul LeCoque"},{"name":"Tahoe's Tranquility - Lakeview","manager":"Tina Geilenfeldt","alarm":"4491","owner":"Sara Weinstock"},{"name":"Tall Pines Ski Shack","manager":"Tina Geilenfeldt","alarm":"2250","owner":"Steve Ruths"},{"name":"Tewesi Manor - Lakefront","manager":"Tina Geilenfeldt","alarm":"1957","owner":"Ron and Jason Jenny"},{"name":"The Duck House","manager":"Andrea Degliantoni","alarm":"8134 TLUXP","owner":"Kenn and Shay Kurtz"},{"name":"The Frontier","manager":"Andrea Degliantoni","alarm":"1945-not active","owner":"Alex and  Greg Freemon"},{"name":"The Lodge at Swiss Lane","manager":"Christopher Mumaw","alarm":"1272","owner":"Timothy Hoxie"},{"name":"The View at Big Pine - Lakeview","manager":"Charli Martin","alarm":"3449","owner":"Edwin Baldry"},{"name":"Treetop Lodge","manager":"Christopher Mumaw","alarm":"","owner":"Peggy O'Connell"},{"name":"Twilight Ridge","manager":"Kobe Robbin","alarm":"","owner":"Chris Bowman"},{"name":"Twin Tips At Northstar","manager":"Trevor Dimino","alarm":"","owner":"Steven Baker and Marisa Bauer"},{"name":"Village Walk Skyline At Northstar","manager":"Rachael Brigham","alarm":"","owner":"Sean and Morgen Donovan"},{"name":"Water's Edge - Lakefront","manager":"Michael Ballew","alarm":"1991","owner":"Virginia Stock"},{"name":"Wendy's Wish - Lakefront","manager":"Kayla Cox","alarm":"","owner":""},{"name":"Whispering Winds","manager":"Christian Cuneo","alarm":"","owner":"Shannon Poulsen"},{"name":"Wildwood at Dollar Point - Lakeview","manager":"Kobe Robbin","alarm":"194200","owner":"Kim Fennell"},{"name":"Wolf Ridge","manager":"Kobe Robbin","alarm":"","owner":"Kathleen Sheehy"},{"name":"Zoe's North Star at Northstar","manager":"Rachael Brigham","alarm":"1116","owner":"Randolph Charlton and Karen Kemby"}];
+var PROPERTIES=[{"name":"12th Tee At Northstar","manager":"Rachael Brigham","alarm":"","owner":""},{"name":"A Walk In The Woods","manager":"Rachael Brigham","alarm":"","owner":""},{"name":"Above & Beyond - Lakeview","manager":"Andrea Degliantoni","alarm":"","owner":""},{"name":"Adventure Awaits","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Alpen Glow At Northstar","manager":"Trevor Dimino","alarm":"","owner":""},{"name":"Alpine Perfection","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Anchors Aweigh - Lakefront","manager":"Kobe Robbin","alarm":"","owner":""},{"name":"Aspen Paradise","manager":"Charli Martin","alarm":"","owner":""},{"name":"Backside 180 at Northstar","manager":"Rachael Brigham","alarm":"","owner":""},{"name":"Bella Vista Sul Lago - Lakeview","manager":"Rachael Brigham","alarm":"","owner":""},{"name":"Belleview's Beauty - Lakefront","manager":"Charli Martin","alarm":"","owner":""},{"name":"Bellissimo Lago - Lakefront","manager":"Pat Hall","alarm":"","owner":""},{"name":"Big Sky - Lakeview","manager":"Christopher Mumaw","alarm":"","owner":""},{"name":"Black Bear Cottage - Lakefront","manager":"Michael Ballew","alarm":"","owner":""},{"name":"Blackwood Creek Chalet","manager":"Trevor Dimino","alarm":"","owner":""},{"name":"Blissful Days - Lakefront","manager":"Charli Martin","alarm":"","owner":""},{"name":"Bluebird Days At Palisades","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Boulder Place Lookout At Northstar","manager":"Trevor Dimino","alarm":"","owner":""},{"name":"Bradley's Bungalow","manager":"Kobe Robbin","alarm":"","owner":""},{"name":"California Sunshine - Lakeview","manager":"Andrea Degliantoni","alarm":"","owner":""},{"name":"Candlelight Lodge","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Carnelian Charm - Lakefront","manager":"Rachael Brigham","alarm":"","owner":""},{"name":"Carnelian Haus - Lakefront","manager":"Michael Ballew","alarm":"","owner":""},{"name":"Charlie's Den - Lakefront","manager":"Pat Hall","alarm":"","owner":""},{"name":"Cherry Lodge","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Constellation #404 Ski-In & Out At Northstar","manager":"Scott McBeth","alarm":"","owner":""},{"name":"Constellation #407 Ski-In & Out At Northstar","manager":"Scott McBeth","alarm":"","owner":""},{"name":"Creekview","manager":"Charli Martin","alarm":"","owner":""},{"name":"Dancing Bear Lodge - Lakefront","manager":"Jennifer Suter","alarm":"","owner":""},{"name":"Donner Lake Dreams - Lakefront","manager":"Christopher Mumaw","alarm":"","owner":""},{"name":"Eagle's Nest at Northstar","manager":"Christopher Mumaw","alarm":"","owner":""},{"name":"Enchanted Ridge","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"First Chair @ Palisades (The Bronson)","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Fleur du Lac #1 - Lakefront","manager":"Charli Martin","alarm":"","owner":""},{"name":"Forever Edgewood - Lakeview","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Fresh Tracks at Northstar","manager":"Scott McBeth","alarm":"","owner":""},{"name":"Front and Center","manager":"Andrea Degliantoni","alarm":"","owner":""},{"name":"Gerry G. - Lakefront","manager":"Michael Ballew","alarm":"","owner":""},{"name":"Gonowabie Lodge - Lakefront","manager":"Andrea Degliantoni","alarm":"","owner":""},{"name":"Granite Chief Lodge At Palisades","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Heavenly View - Lakefront","manager":"Michael Ballew","alarm":"","owner":""},{"name":"Hidden Ridge at Northstar","manager":"Scott McBeth","alarm":"","owner":""},{"name":"Highlands Holiday","manager":"Kobe Robbin","alarm":"","owner":""},{"name":"Holly Hideaway","manager":"Charli Martin","alarm":"","owner":""},{"name":"Home Run at Northstar","manager":"Rachael Brigham","alarm":"","owner":""},{"name":"Homewood Trifecta - Lakefront","manager":"Kobe Robbin","alarm":"","owner":""},{"name":"In the Wild Woods","manager":"Rachael Brigham","alarm":"","owner":""},{"name":"Incline Oasis - Lakeview","manager":"Tina Geilenfeldt","alarm":"","owner":""},{"name":"Just Grand","manager":"Charli Martin","alarm":"","owner":""},{"name":"King's View Lodge - Lakeview","manager":"Andrea Degliantoni","alarm":"","owner":""},{"name":"La Dolce Vita - Lakefront","manager":"Kobe Robbin","alarm":"","owner":""},{"name":"Lago Azul - Lakefront","manager":"Christina Cifelli","alarm":"","owner":""},{"name":"Lake Escape - Lakefront","manager":"Michael Ballew","alarm":"","owner":""},{"name":"Lake Of The Sky - Lakeview","manager":"Charli Martin","alarm":"","owner":""},{"name":"Lakeside Cedars","manager":"Kobe Robbin","alarm":"","owner":""},{"name":"Lakeside Grove - Lakefront","manager":"Trevor Dimino","alarm":"","owner":""},{"name":"Laughing Waters - Lakefront","manager":"Jessie Byers","alarm":"","owner":""},{"name":"Laura's Overlook Lodge at Northstar","manager":"Natalie Garnett","alarm":"","owner":""},{"name":"Lift and Tee Retreat at Schaffer's Mill","manager":"Trevor Dimino","alarm":"","owner":""},{"name":"Luxury River Retreat","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Majestic Waters - Lakefront","manager":"Christopher Mumaw","alarm":"","owner":""},{"name":"Making Memories - Lakeview","manager":"Andrea Degliantoni","alarm":"","owner":""},{"name":"Manzanita House - Lakeview","manager":"Christopher Mumaw","alarm":"","owner":""},{"name":"Maybach Lake House - Lakefront","manager":"Christina Cifelli","alarm":"","owner":""},{"name":"McKinney Bay Retreat","manager":"Kobe Robbin","alarm":"","owner":""},{"name":"Mill Creek Retreat - Incline Village","manager":"Andrea Degliantoni","alarm":"","owner":""},{"name":"Moana Mountain Shack - Lakeview","manager":"Kobe Robbin","alarm":"","owner":""},{"name":"Modern Marvel - Incline Village","manager":"Andrea Degliantoni","alarm":"","owner":""},{"name":"Modern Mountain at Palisades","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Moondance At Tahoe Park","manager":"Charli Martin","alarm":"","owner":""},{"name":"Mountain Bear Lodge At Northstar","manager":"Scott McBeth","alarm":"","owner":""},{"name":"Mountain Retreat - Lakeview","manager":"Tina Geilenfeldt","alarm":"","owner":""},{"name":"Palatial Pines - Lakefront","manager":"Tina Geilenfeldt","alarm":"","owner":""},{"name":"Peace of Tahoe - Lakefront","manager":"Christina Cifelli","alarm":"","owner":""},{"name":"Pier Pleasure - Lakefront","manager":"Tina Geilenfeldt","alarm":"","owner":""},{"name":"Pineland Retreat","manager":"Christina Cifelli","alarm":"","owner":""},{"name":"Ramblin' Rose - Lakeview","manager":"Michael Ballew","alarm":"","owner":""},{"name":"Reflections - Lakeview","manager":"Michael Ballew","alarm":"","owner":""},{"name":"Rise and Shine - Lakefront","manager":"Christina Cifelli","alarm":"","owner":""},{"name":"Rising Sun","manager":"Charli Martin","alarm":"","owner":""},{"name":"Riverfront Lodge","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Rubicon Shores - Lakefront","manager":"Charli Martin","alarm":"","owner":""},{"name":"Sail Away - Lakefront","manager":"Michael Ballew","alarm":"","owner":""},{"name":"Sandy Shores - Lakefront","manager":"Andrea Degliantoni","alarm":"","owner":""},{"name":"Seek No Further - Lakefront","manager":"Pat Hall","alarm":"","owner":""},{"name":"Serendipity - Lakeview","manager":"Andrea Degliantoni","alarm":"","owner":""},{"name":"Shimmering Shores - Lakefront","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Shore Camp - Lakefront","manager":"Christopher Mumaw","alarm":"","owner":""},{"name":"Shoshone Chalet at Palisades","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Sierra Sunset Estate - Lakefront","manager":"Tina Geilenfeldt","alarm":"","owner":""},{"name":"Sierra Vista - Lakeview","manager":"Charli Martin","alarm":"","owner":""},{"name":"Signature Retreat on the 18th","manager":"Christopher Mumaw","alarm":"","owner":""},{"name":"Silverfell Lodge at Northstar","manager":"Rachael Brigham","alarm":"","owner":""},{"name":"Sittin' on the Dock - Lakefront","manager":"Charli Martin","alarm":"","owner":""},{"name":"Skippin' Stones - Lakefront","manager":"Tina Geilenfeldt","alarm":"","owner":""},{"name":"Slopeside At Northstar","manager":"Trevor Dimino","alarm":"","owner":""},{"name":"Solitude","manager":"Charli Martin","alarm":"","owner":""},{"name":"Spirit of the Mountain","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Stanford Rock Retreat","manager":"Kobe Robbin","alarm":"","owner":""},{"name":"Starry Nights - Lakefront","manager":"Kobe Robbin","alarm":"","owner":""},{"name":"Steeple Cove - Lakefront","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Stone Crest Estate - Lakefront","manager":"Pat Hall","alarm":"","owner":""},{"name":"Streams and Dreams","manager":"Christopher Mumaw","alarm":"","owner":""},{"name":"Sugar Pine Chalet - Lakefront","manager":"Trevor Dimino","alarm":"","owner":""},{"name":"Summer Breeze - Lakefront","manager":"Charli Martin","alarm":"","owner":""},{"name":"Summerhouse - Lakefront","manager":"Tina Geilenfeldt","alarm":"","owner":""},{"name":"Summit Splendor at Martis Camp","manager":"Christina Cifelli","alarm":"","owner":""},{"name":"Sundance","manager":"Kobe Robbin","alarm":"","owner":""},{"name":"Sunny Days","manager":"Michael Ballew","alarm":"","owner":""},{"name":"Sunrise by Sunnyside - Lakefront","manager":"Tina Geilenfeldt","alarm":"","owner":""},{"name":"Sunset Blue - Lakefront","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Tahoe City Serenity","manager":"Michael Ballew","alarm":"","owner":""},{"name":"Tahoe Treehouse","manager":"Kobe Robbin","alarm":"","owner":""},{"name":"Tahoe's Ahwahnee - Lakeview","manager":"Pat Hall","alarm":"","owner":""},{"name":"Tahoe's Tranquility - Lakeview","manager":"Tina Geilenfeldt","alarm":"","owner":""},{"name":"Tall Pines Ski Shack","manager":"Tina Geilenfeldt","alarm":"","owner":""},{"name":"Tewesi Manor - Lakefront","manager":"Tina Geilenfeldt","alarm":"","owner":""},{"name":"The Duck House","manager":"Andrea Degliantoni","alarm":"","owner":""},{"name":"The Frontier","manager":"Andrea Degliantoni","alarm":"","owner":""},{"name":"The Lodge at Swiss Lane","manager":"Christopher Mumaw","alarm":"","owner":""},{"name":"The View at Big Pine - Lakeview","manager":"Charli Martin","alarm":"","owner":""},{"name":"Treetop Lodge","manager":"Christopher Mumaw","alarm":"","owner":""},{"name":"Twilight Ridge","manager":"Kobe Robbin","alarm":"","owner":""},{"name":"Twin Tips At Northstar","manager":"Trevor Dimino","alarm":"","owner":""},{"name":"Village Walk Skyline At Northstar","manager":"Rachael Brigham","alarm":"","owner":""},{"name":"Water's Edge - Lakefront","manager":"Michael Ballew","alarm":"","owner":""},{"name":"Wendy's Wish - Lakefront","manager":"Kayla Cox","alarm":"","owner":""},{"name":"Whispering Winds","manager":"Christian Cuneo","alarm":"","owner":""},{"name":"Wildwood at Dollar Point - Lakeview","manager":"Kobe Robbin","alarm":"","owner":""},{"name":"Wolf Ridge","manager":"Kobe Robbin","alarm":"","owner":""},{"name":"Zoe's North Star at Northstar","manager":"Rachael Brigham","alarm":"","owner":""}];
 
 // ── TRACK SYNC (2026-10-23) ──────────────────────────────────────────────
 // Same source as the Inspections app: the hourly Firebase function writes live
@@ -973,7 +1096,8 @@ function loadTrackProperties(){
     try{if(typeof _insp!=='undefined'&&_insp&&_insp.length)renderAll();}catch(e){console.warn('[TRACK] re-render skipped',e);}
   }).catch(function(e){console.warn('[TRACK] sync data unavailable, using built-in list',e);});
 }
-loadTrackProperties();
+// loadTrackProperties() now runs from showApp() — the database only answers
+// signed-in staff.
 // ── end TRACK SYNC ───────────────────────────────────────────────────────
 
 // Operations Contacts who no longer have any active homes (per explicit user
@@ -1054,22 +1178,40 @@ function doLogin(){
   var pin=(document.getElementById('lp').value||'').trim();
   var err=document.getElementById('loginErr'); err.style.display='none';
   if(!username||!pin){err.textContent='Enter username and PIN';err.style.display='block';return;}
-  var btn=document.getElementById('loginBtn'); btn.disabled=true; btn.textContent='Logging in…';
-  db.collection('users').where('username','==',username).get().then(function(snap){
-    if(snap.empty){err.textContent='Invalid username or PIN';err.style.display='block';btn.disabled=false;btn.textContent='Log In';return;}
-    var u=snap.docs[0].data();
-    if(!u.active){err.textContent='Account inactive';err.style.display='block';btn.disabled=false;btn.textContent='Log In';return;}
-    if(String(u.pin)!==String(pin)){err.textContent='Invalid username or PIN';err.style.display='block';btn.disabled=false;btn.textContent='Log In';return;}
-    if(!(u.role==='manager'||u.role==='admin'||u.role==='inspector')){err.textContent='This account does not have dashboard access';err.style.display='block';btn.disabled=false;btn.textContent='Log In';return;}
-    currentUser={id:snap.docs[0].id,name:u.name,username:u.username,role:u.role,operationsContact:u.operationsContact||null};
-    setSession(currentUser); showApp();
-  }).catch(function(){err.textContent='Connection error';err.style.display='block';btn.disabled=false;btn.textContent='Log In';});
+  if(!isValidPinFormat(pin)){err.textContent='Invalid username or PIN';err.style.display='block';return;}
+  var btn=document.getElementById('loginBtn'); btn.disabled=true; btn.textContent='Logging in\u2026';
+  function fail(msg){err.textContent=msg;err.style.display='block';btn.disabled=false;btn.textContent='Log In';}
+  staffSignIn(username,pin).then(function(p){
+    if(!(p.role==='manager'||p.role==='admin'||p.role==='inspector')){staffSignOut();fail('This account does not have dashboard access');return;}
+    var u={id:p.id,uid:p.uid,name:p.name,username:p.username,role:p.role,operationsContact:p.operationsContact||null};
+    btn.disabled=false;btn.textContent='Log In';
+    function go(){currentUser=u;setSession(currentUser);showApp();}
+    if(p.mustChangePin){showPinChange(p,go);return;}
+    go();
+  }).catch(function(e){fail(authErrorMessage(e));});
 }
-function doLogout(){clearSession();location.reload();}
+// Background re-check after opening from a saved sign-in (role/name changes,
+// deactivated accounts). See the SIGN-IN block above.
+function refreshDashProfile(user){
+  loadStaffProfile(user).then(function(p){
+    if(!p.active){clearSession();staffSignOut().then(function(){alert('Your account is inactive. Contact your manager.');location.reload();});return;}
+    if(p.mustChangePin)showPinChange(p,function(){});
+    if(currentUser&&(currentUser.role!==p.role||currentUser.name!==p.name||(currentUser.operationsContact||null)!==(p.operationsContact||null))){
+      setSession({id:p.id,uid:p.uid,name:p.name,username:p.username,role:p.role,operationsContact:p.operationsContact||null});
+      showToast('Your account details were updated \u2014 reloading');
+      setTimeout(function(){location.reload();},1200);
+    }
+  }).catch(function(e){
+    if(e&&e.code==='tlp/no-profile'){clearSession();staffSignOut().then(function(){location.reload();});}
+  });
+}
+function doLogout(){clearSession();staffSignOut().then(function(){location.reload();});}
 
 // ── SHOW APP ──────────────────────────────────────────────────────────────────
 var _insp=[], _trainings={}, _propIssues=[], _supplyReqs=[];
+var _trackLoadStarted=false;
 function showApp(){
+  if(!_trackLoadStarted){_trackLoadStarted=true;loadTrackProperties();}
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('app').style.display='flex';
   document.getElementById('userPill').textContent=(currentUser.role==='admin'?'⭐ ':'')+currentUser.name;
@@ -5727,7 +5869,14 @@ function deleteComplaint(docId){
 // ── BOOT ──────────────────────────────────────────────────────────────────────
 window.onload=function(){
   var s=getSession();
-  if(s&&(s.role==='manager'||s.role==='admin'||s.role==='inspector')){currentUser=s;showApp();}
+  // Wait for Firebase to restore this device's sign-in. A saved session only
+  // counts if it belongs to whoever is actually signed in (sessions from before
+  // the 2026-11 sign-in upgrade have no uid, so everyone logs in once more).
+  whenAuthReady(function(user){
+    if(user&&s&&s.uid&&s.uid===user.uid&&(s.role==='manager'||s.role==='admin'||s.role==='inspector')){
+      currentUser=s;showApp();refreshDashProfile(user);
+    } else if(s){ clearSession(); }
+  });
 };
 </script>
 </body>
