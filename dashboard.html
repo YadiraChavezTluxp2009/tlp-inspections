@@ -1309,12 +1309,33 @@ function maintNotesPhotosHtml(insp){
 function findTiedIssue(inspId,issueKey){
   return _propIssues.find(function(p){return p.sourceInspectionId===inspId&&p.sourceIssueKey===issueKey;});
 }
+// 2026-10-26: flagged supply/inventory items live only in the Supply Inventory
+// tab — they're left out of every Details issue list and every displayed issue
+// count. Checks the saved isSupply flag AND the section names (including the
+// "— Additional Item" variants, which used to slip through as "Historical").
+function isSupplyIssueItem(x){
+  if(!x)return false;
+  if(x.isSupply)return true;
+  var sec=String(x.section||'').trim();
+  return sec==='Supply Check'||sec==='Supply Inventory'||sec==='Supply Check — Additional Item'||sec==='Supply Inventory — Additional Item';
+}
+function supplyIssueItemCount(insp){
+  return ((insp&&insp.issues)||[]).filter(isSupplyIssueItem).length;
+}
+// Issue count shown on screen: the stored issuesFound minus supply items.
+function maintIssueCount(insp){
+  if(!insp)return 0;
+  return Math.max(0,(insp.issuesFound||0)-supplyIssueItemCount(insp));
+}
 // Builds the "3 issues: 1 Open, 1 Resolved, 1 Dismissed" summary line shown in place
 // of the old plain "N Issues Found" heading, so the historical log still shows how
 // many issues were originally reported alongside each one's current follow-up status.
 function buildIssueStatusSummary(issueList,inspId){
   var counts={open:0,in_progress:0,resolved:0,dismissed:0,historical:0};
+  var n=0;
   (issueList||[]).forEach(function(x,xi){
+    if(isSupplyIssueItem(x))return;
+    n++;
     var key=x.key||('legacyidx_'+xi);
     var tied=findTiedIssue(inspId,key);
     if(!tied){counts.historical++;return;}
@@ -1327,7 +1348,6 @@ function buildIssueStatusSummary(issueList,inspId){
   if(counts.resolved)parts.push(counts.resolved+' Resolved');
   if(counts.dismissed)parts.push(counts.dismissed+' Dismissed');
   if(counts.historical)parts.push(counts.historical+' Historical (untracked)');
-  var n=(issueList||[]).length;
   return n+' issue'+(n!==1?'s':'')+(parts.length?': '+parts.join(', '):'');
 }
 // Switches to the Open Issues tab and filters it down to the given property, so a
@@ -1683,13 +1703,13 @@ function renderMyHouses(){
 
   if(active==='checkinout'){
     html+=mhTableHtml(['House','Activity','Date','Inspector','Status'],checkInOutFiltered.slice().sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');}).map(function(i){
-      var hasIssues=(i.issuesFound||0)>0;
+      var hasIssues=maintIssueCount(i)>0;
       return [
         '<span class="mh-house-cell">'+esc(i.property||'')+'</span>',
         '<span class="mh-activity-icon">'+mhActivityTypeIconHtml(i.formType)+' '+esc(TYPE_LABELS[i.formType]||i.formType||'')+'</span>',
         esc(i.submittedAt?fmtDateTime(i.submittedAt):''),
         esc(i.inspector||''),
-        hasIssues?'<span class="badge b-issue">'+i.issuesFound+' Issue'+(i.issuesFound!==1?'s':'')+'</span>':'<span class="badge b-clear">All Clear</span>'
+        hasIssues?'<span class="badge b-issue">'+maintIssueCount(i)+' Issue'+(maintIssueCount(i)!==1?'s':'')+'</span>':'<span class="badge b-clear">All Clear</span>'
       ];
     }));
   } else if(active==='openissues'){
@@ -1980,7 +2000,7 @@ function myHousesQCSectionHtml(list){
   var sorted=list.slice().sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');});
   var inner='<div class="tbl-wrap"><table class="mh-table"><thead><tr><th>House</th><th>Checked By</th><th>Date</th><th>Status</th><th></th></tr></thead><tbody>';
   sorted.forEach(function(i){
-    var hasIssues=(i.issuesFound||0)>0;
+    var hasIssues=maintIssueCount(i)>0;
     var issueList=i.issues||[];
     var mgrNotes=(i.managerNotes||'').trim();
     var maintNotes=(i.maintenanceNotes||'').trim();
@@ -1995,7 +2015,7 @@ function myHousesQCSectionHtml(list){
     inner+='<td data-label="House" class="mh-house-cell">'+esc(i.property||'')+'</td>';
     inner+='<td data-label="Checked By">'+esc(i.inspector||'')+'</td>';
     inner+='<td data-label="Date" style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td>';
-    inner+='<td data-label="Status">'+(hasIssues?'<span class="badge b-issue">'+i.issuesFound+' Issue'+(i.issuesFound!==1?'s':'')+'</span>':'<span class="badge b-clear">All Clear</span>')+'</td>';
+    inner+='<td data-label="Status">'+(hasIssues?'<span class="badge b-issue">'+maintIssueCount(i)+' Issue'+(maintIssueCount(i)!==1?'s':'')+'</span>':'<span class="badge b-clear">All Clear</span>')+'</td>';
     if(hasDetails){
       inner+='<td data-label=""><button class="details-btn'+(hasIssues?'':' no-issues')+'" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
     } else {
@@ -2012,6 +2032,7 @@ function myHousesQCSectionHtml(list){
       if(hasIssues){
         inner+='<div class="insp-detail-heading">&#128295; '+buildIssueStatusSummary(issueList,i.id)+'</div>';
         issueList.forEach(function(x,xi){
+          if(isSupplyIssueItem(x))return;
           var xPhotos=normalizePhotoUrls(x.photos,'myHousesQC:'+i.id+':issue');
           var xKey=x.key||('legacyidx_'+xi);
           var tiedIssue=findTiedIssue(i.id,xKey);
@@ -2076,7 +2097,7 @@ function myHousesSeasonalSectionHtml(list){
   var inner='<div class="tbl-wrap"><table class="mh-table"><thead><tr><th>House</th><th>Type</th><th>Date</th><th>Inspector</th><th>Status</th><th></th></tr></thead><tbody>';
   sorted.forEach(function(i){
     var issueList=i.issues||[];
-    var hasIssues=i.issuesFound>0;
+    var hasIssues=maintIssueCount(i)>0;
     var mgrNotes=(i.managerNotes||'').trim();
     var maintNotes=(i.maintenanceNotes||'').trim();
     var opsNotes=(i.opsMaintenanceNotes||'').trim();
@@ -2091,7 +2112,7 @@ function myHousesSeasonalSectionHtml(list){
     inner+='<td data-label="Type"><span class="badge b-ok">'+esc(TYPE_LABELS[i.formType]||i.formType||'')+'</span></td>';
     inner+='<td data-label="Date" style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td>';
     inner+='<td data-label="Inspector">'+esc(i.inspector||'')+'</td>';
-    inner+='<td data-label="Status">'+(hasIssues?'<span class="badge b-issue">'+i.issuesFound+' Issue'+(i.issuesFound!==1?'s':'')+'</span>':'<span class="badge b-clear">All Clear</span>')+'</td>';
+    inner+='<td data-label="Status">'+(hasIssues?'<span class="badge b-issue">'+maintIssueCount(i)+' Issue'+(maintIssueCount(i)!==1?'s':'')+'</span>':'<span class="badge b-clear">All Clear</span>')+'</td>';
     if(hasDetails){
       inner+='<td data-label=""><button class="details-btn'+(hasIssues?'':' no-issues')+'" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
     } else {
@@ -2109,6 +2130,7 @@ function myHousesSeasonalSectionHtml(list){
         inner+='<div class="insp-detail-heading">&#128295; '+buildIssueStatusSummary(issueList,i.id)+'</div>';
         inner+='<div style="font-size:11.5px;color:var(--dark-gray);margin:-4px 0 8px">Seasonal issues are tracked here, not in Open Issues — update each item\'s status and add a resolution note directly below.</div>';
         issueList.forEach(function(x,xi){
+          if(isSupplyIssueItem(x))return;
           var xPhotos=normalizePhotoUrls(x.photos,'myHousesSeasonal:'+i.id+':issue');
           var xKey=x.key||('legacyidx_'+xi);
           var isSupplyIssue=(x.section==='Supply Check'||x.section==='Supply Inventory');
@@ -2518,7 +2540,7 @@ function renderInspLog(){
     return true;
   });
   // Stats
-  var issues=list.reduce(function(s,i){return s+(i.issuesFound||0);},0);
+  var issues=list.reduce(function(s,i){return s+maintIssueCount(i);},0);
   var week=list.filter(function(i){return (Date.now()-new Date(i.submittedAt))<7*86400000;}).length;
   var props=new Set(list.map(function(i){return i.property;})).size;
   document.getElementById('sl-total').textContent=list.length;
@@ -2530,7 +2552,7 @@ function renderInspLog(){
   var checkinStatusLabels={'ready':{txt:'✅ Ready',cls:'b-ready'},'not-ready':{txt:'❌ Not Ready',cls:'b-not-ready'},'conditional':{txt:'⚠️ Conditional',cls:'b-conditional'},'VOID':{txt:'🚫 VOID',cls:'b-void'}};
   list.forEach(function(i){
     var issueList=i.issues||[];
-    var hasIssues=i.issuesFound>0;
+    var hasIssues=maintIssueCount(i)>0;
     var mgrNotes=(i.managerNotes||'').trim();
     var maintNotes=(i.maintenanceNotes||'').trim();
     var opsNotes=(i.opsMaintenanceNotes||'').trim();
@@ -2553,7 +2575,7 @@ function renderInspLog(){
     var effectiveCheckinStatus=wasAutoReadied?'ready':i.overallStatus;
     var checkinSt=checkinStatusLabels[effectiveCheckinStatus];
     var issueBadgeCls=hasIssues?(isResolved?'b-clear':'b-issue'):'b-clear';
-    var issueBadgeTxt=hasIssues?(i.issuesFound+' Issue'+(i.issuesFound!==1?'s':'')+(isResolved?' — Resolved':'')):'All Clear';
+    var issueBadgeTxt=hasIssues?(maintIssueCount(i)+' Issue'+(maintIssueCount(i)!==1?'s':'')+(isResolved?' — Resolved':'')):'All Clear';
     html+='<tr>';
     html+='<td style="white-space:nowrap">'+esc(i.submittedAt?fmtDateTime(i.submittedAt):'')+'</td>';
     html+='<td style="font-weight:600;min-width:160px">'+esc(i.property||'')+(guestFbText(i)?' <span class="badge" style="background:#F3E5F5;color:#6a1b9a" title="Guest Condition Feedback — see Details">&#128100; Guest feedback</span>':'')+'</td>';
@@ -2562,7 +2584,7 @@ function renderInspLog(){
     html+='<td>'+(checkinSt?'<span class="badge '+checkinSt.cls+'">'+checkinSt.txt+'</span>':'<span class="no-photo">&mdash;</span>')+'</td>';
     html+='<td><span class="badge '+issueBadgeCls+'">'+issueBadgeTxt+'</span></td>';
     html+='<td style="text-align:center">'+( i.itemsOk||0)+'</td>';
-    html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( i.issuesFound||0)+'</td>';
+    html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( maintIssueCount(i)||0)+'</td>';
     html+='<td style="text-align:center">'+( i.naCount||0)+'</td>';
     if(hasDetails){
       html+='<td><button class="details-btn'+(hasIssues?'':' no-issues')+'" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
@@ -2657,7 +2679,7 @@ function renderSeasonal(){
   list.forEach(function(i){
     var mgr=PROPERTIES.find(function(p){return p.name===i.property;});
     var issueList=i.issues||[];
-    var hasIssues=i.issuesFound>0;
+    var hasIssues=maintIssueCount(i)>0;
     var mgrNotes=(i.managerNotes||'').trim();
     var maintNotes=(i.maintenanceNotes||'').trim();
     var opsNotes=(i.opsMaintenanceNotes||'').trim();
@@ -2677,9 +2699,9 @@ function renderSeasonal(){
     html+='<td>'+esc(i.inspector||'')+'</td>';
     html+='<td><span class="badge b-ok">'+esc(TYPE_LABELS[i.formType]||i.formType||'')+'</span></td>';
     html+='<td style="text-align:center">'+( i.itemsOk||0)+'</td>';
-    html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( i.issuesFound||0)+'</td>';
+    html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( maintIssueCount(i)||0)+'</td>';
     html+='<td style="text-align:center">'+( i.naCount||0)+'</td>';
-    html+='<td><span class="badge '+(hasIssues?'b-issue':'b-clear')+'">'+(hasIssues?i.issuesFound+' Issue'+(i.issuesFound!==1?'s':''):'All Clear')+'</span></td>';
+    html+='<td><span class="badge '+(hasIssues?'b-issue':'b-clear')+'">'+(hasIssues?maintIssueCount(i)+' Issue'+(maintIssueCount(i)!==1?'s':''):'All Clear')+'</span></td>';
     if(hasDetails){
       html+='<td><button class="details-btn'+(hasIssues?'':' no-issues')+'" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
     } else {
@@ -3907,7 +3929,7 @@ function renderQCLog(){
   list.forEach(function(i){
     var mgrRec=PROPERTIES.find(function(p){return p.name===i.property;});
     var issueList=i.issues||[];
-    var hasIssues=i.issuesFound>0;
+    var hasIssues=maintIssueCount(i)>0;
     var mgrNotes=(i.managerNotes||'').trim();
     var maintNotes=(i.maintenanceNotes||'').trim();
     var opsNotes=(i.opsMaintenanceNotes||'').trim();
@@ -3928,9 +3950,9 @@ function renderQCLog(){
     html+='<td>'+esc(i.inspector||'')+'</td>';
     html+='<td style="text-align:center">'+total+'</td>';
     html+='<td style="text-align:center">'+( i.itemsOk||0)+'</td>';
-    html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( i.issuesFound||0)+'</td>';
+    html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( maintIssueCount(i)||0)+'</td>';
     html+='<td style="text-align:center">'+( i.naCount||0)+'</td>';
-    html+='<td><span class="badge '+(hasIssues?'b-issue':'b-clear')+'">'+(hasIssues?i.issuesFound+' Issue'+(i.issuesFound!==1?'s':''):'All Clear')+'</span></td>';
+    html+='<td><span class="badge '+(hasIssues?'b-issue':'b-clear')+'">'+(hasIssues?maintIssueCount(i)+' Issue'+(maintIssueCount(i)!==1?'s':''):'All Clear')+'</span></td>';
     if(hasDetails){
       html+='<td><button class="details-btn'+(hasIssues?'':' no-issues')+'" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
     } else {
@@ -4019,7 +4041,7 @@ function isOpenIssuesEligible(x){
   // etc.) -- they're intentionally excluded here so each issue has exactly one home
   // instead of appearing in two places.
   if(x.formType==='spring'||x.formType==='fall'||x.formType==='kitchen_inv'||x.formType==='linen_inv') return false;
-  if(x.section==='Supply Check'||x.section==='Supply Inventory') return false;
+  if(isSupplyIssueItem(x)) return false;
   return true;
 }
 function renderOpenIssues(){
@@ -4206,11 +4228,12 @@ function cxUpdatesHtml(updates){
 }
 function cxIssueListHtml(insp,safeId,mode){
   var list=insp.issues||[];
-  if(!list.length) return '';
+  if(!list.some(function(x){return !isSupplyIssueItem(x);})) return '';
   var group='li'+safeId;
   var h='<div class="invd cx-wrap"><table class="oi-table cx-nested"><colgroup><col style="width:46%"><col style="width:22%"><col style="width:18%"><col style="width:14%"></colgroup>';
   h+='<thead><tr><th>Item</th><th>Section / Room</th><th>Status</th><th>Activity</th></tr></thead><tbody>';
   list.forEach(function(x,xi){
+    if(isSupplyIssueItem(x))return; // original index kept so keys/ids don't shift
     var rid='li'+safeId+'_'+xi;
     var xKey=x.key||('legacyidx_'+xi);
     var isSupply=(x.section==='Supply Check'||x.section==='Supply Inventory');
