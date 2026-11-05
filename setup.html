@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>TLP sign-in setup (one time)</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f3f6fa;color:#1c2b3a;margin:0;padding:24px}
+.wrap{max-width:820px;margin:0 auto}
+h1{color:#063461;font-size:22px;margin:0 0 4px}
+.sub{color:#555;margin:0 0 20px;font-size:14px}
+.card{background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:18px 20px;margin-bottom:16px}
+.card h2{font-size:16px;color:#063461;margin:0 0 6px}
+.card p{font-size:14px;line-height:1.5;margin:0 0 12px;color:#333}
+button{background:#063461;color:#fff;border:none;border-radius:8px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+input{font-size:15px;padding:9px 10px;border:1.5px solid #c9d3de;border-radius:8px;margin-right:8px;width:170px}
+.log{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;background:#0f1d2b;color:#d7e3ef;border-radius:8px;padding:12px;max-height:340px;overflow:auto;white-space:pre-wrap;margin-top:12px;display:none}
+.ok{color:#7fd88f}.warn{color:#ffcc66}.bad{color:#ff8a80}
+.done{display:inline-block;margin-left:10px;color:#1b7f3b;font-weight:700;font-size:14px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:10px}
+td,th{border-bottom:1px solid #e3e8ee;padding:6px 8px;text-align:left}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>TLP sign-in setup</h1>
+<p class="sub">One-time page for the security upgrade. Run step 1 and step 2 <b>before</b> uploading the new index.html and dashboard.html. Run step 3 the next day. Delete this file from GitHub when you're done.</p>
+
+<div class="card">
+  <h2>Admin check</h2>
+  <p>Log in with your admin username and your current PIN.</p>
+  <input id="adU" placeholder="username" autocapitalize="none"><input id="adP" type="password" placeholder="PIN" inputmode="numeric"><button id="adBtn" onclick="adminCheck()">Continue</button><span id="adOk" class="done"></span>
+</div>
+
+<div class="card">
+  <h2>Step 1 — Create sign-in accounts</h2>
+  <p>Creates a Firebase sign-in for every person in the Users list. Their current 4-digit PIN keeps working; the app asks each person to choose a new 6-digit PIN the first time they log in. Safe to run more than once.</p>
+  <button id="s1" onclick="step1()" disabled>Create sign-in accounts</button><span id="s1ok" class="done"></span>
+  <div id="log1" class="log"></div>
+</div>
+
+<div class="card">
+  <h2>Step 2 — Move lockbox/alarm codes, owners and check-in notes into the database</h2>
+  <p>Copies them from the <b>current</b> live index.html into Firestore, where only signed-in staff can read them. Must run before the new index.html is uploaded (the new one no longer contains them). Safe to run more than once.</p>
+  <button id="s2" onclick="step2()" disabled>Copy property details</button><span id="s2ok" class="done"></span>
+  <div id="log2" class="log"></div>
+</div>
+
+<div class="card">
+  <h2>Step 3 — Remove the old 4-digit PINs from the database <span style="font-weight:400;color:#888">(the next day)</span></h2>
+  <p>Only after the new apps and rules have worked for a day. After this, going back to the old files is no longer possible. For this step, log in above with your <b>new 6-digit PIN</b>.</p>
+  <button id="s3" onclick="step3()" disabled>Remove old PINs</button><span id="s3ok" class="done"></span>
+  <div id="log3" class="log"></div>
+</div>
+</div>
+
+<script>
+var FIREBASE_CONFIG={apiKey:"AIzaSyBNR7trmAOrTtu-uDoU7v_kuxbiVWwqFgQ",authDomain:"tlp-inspections.firebaseapp.com",projectId:"tlp-inspections",storageBucket:"tlp-inspections.firebasestorage.app",messagingSenderId:"814526642685",appId:"1:814526642685:web:d47f5b6bf47e8dd44f8194"};
+firebase.initializeApp(FIREBASE_CONFIG);
+var db=firebase.firestore(), auth=firebase.auth();
+// Must match the SIGN-IN block in index.html / dashboard.html.
+var STAFF_EMAIL_DOMAIN='staff.tluxp.internal', PIN_PW_PREFIX='tlp#';
+function staffEmail(u){return String(u||'').trim().toLowerCase().replace(/[^a-z0-9._-]/g,'-')+'@'+STAFF_EMAIL_DOMAIN;}
+function pinPassword(p){return PIN_PW_PREFIX+String(p);}
+function nameKey(n){return String(n||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function log(id,msg,cls){var el=document.getElementById(id);el.style.display='block';el.innerHTML+='<span class="'+(cls||'')+'">'+esc(msg)+'</span>\n';el.scrollTop=el.scrollHeight;}
+function nowIso(){return new Date().toISOString();}
+var adminMode=null; // 'legacy' (rules still open, checked against the old PIN) or 'auth'
+
+function adminCheck(){
+  var u=document.getElementById('adU').value.trim().toLowerCase(), p=document.getElementById('adP').value.trim();
+  var ok=document.getElementById('adOk'); ok.textContent='';
+  if(!u||!p)return;
+  document.getElementById('adBtn').disabled=true;
+  // First try the new way (works once the new rules are published).
+  auth.signInWithEmailAndPassword(staffEmail(u),pinPassword(p)).then(function(cred){
+    return db.collection('staff').doc(cred.user.uid).get().then(function(s){
+      return db.collection('users').doc(s.data().userId).get();
+    }).then(function(d){
+      if(!d.exists||d.data().role!=='admin'||!d.data().active)throw new Error('not an active admin');
+      adminMode='auth'; return d.data();
+    });
+  }).catch(function(){
+    // Before the switch: check the old way (users collection, rules still open).
+    return auth.signOut().catch(function(){}).then(function(){
+      return db.collection('users').where('username','==',u).get();
+    }).then(function(snap){
+      if(snap.empty)throw new Error('no');
+      var d=snap.docs[0].data();
+      if(String(d.pin)!==p||d.role!=='admin'||!d.active)throw new Error('no');
+      adminMode='legacy'; return d;
+    });
+  }).then(function(d){
+    ok.textContent='✓ '+d.name+(adminMode==='auth'?' (new sign-in)':'');
+    ['s1','s2','s3'].forEach(function(id){document.getElementById(id).disabled=false;});
+  }).catch(function(){
+    ok.style.color='#CC0000'; ok.textContent='Not an active admin, or wrong PIN';
+  }).then(function(){document.getElementById('adBtn').disabled=false;});
+}
+
+function createAccount(username,pin){
+  var app2=firebase.initializeApp(FIREBASE_CONFIG,'setup-'+Date.now()+'-'+Math.random().toString(36).slice(2));
+  var a2=app2.auth();
+  var finish=function(){return a2.signOut().catch(function(){}).then(function(){return app2.delete().catch(function(){});});};
+  return a2.setPersistence(firebase.auth.Auth.Persistence.NONE).then(function(){
+    return a2.createUserWithEmailAndPassword(staffEmail(username),pinPassword(pin)).then(function(c){return {uid:c.user.uid,created:true};},function(e){
+      if(e&&e.code==='auth/email-already-in-use'){
+        // Already made on an earlier run — sign in with the same PIN to find it.
+        return a2.signInWithEmailAndPassword(staffEmail(username),pinPassword(pin)).then(function(c){return {uid:c.user.uid,created:false};});
+      }
+      throw e;
+    });
+  }).then(function(r){return finish().then(function(){return r;});},function(e){return finish().then(function(){throw e;});});
+}
+
+function step1(){
+  var btn=document.getElementById('s1'); btn.disabled=true;
+  var made=0, existed=0, skipped=0, failed=0;
+  db.collection('users').get().then(function(snap){
+    var docs=snap.docs, seen={};
+    log('log1','Found '+docs.length+' people in Users.');
+    docs.forEach(function(d){var e=staffEmail(d.data().username);seen[e]=(seen[e]||0)+1;});
+    var chain=Promise.resolve();
+    docs.forEach(function(d){
+      chain=chain.then(function(){
+        var u=d.data(), who=(u.name||'?')+' (@'+(u.username||'?')+')';
+        var pin=String(u.pin==null?'':u.pin).trim();
+        if(!u.username){skipped++;log('log1','SKIPPED '+who+': no username',"warn");return;}
+        if(seen[staffEmail(u.username)]>1){skipped++;log('log1','SKIPPED '+who+': another user has the same username — fix in the Users screen, then use Reset PIN',"warn");return;}
+        if(!/^(\d{4}|\d{6})$/.test(pin)){
+          if(u.uid){existed++;log('log1','already set up: '+who,'ok');return;}
+          skipped++;log('log1','SKIPPED '+who+': PIN on file isn’t 4 or 6 digits — use Reset PIN in the app after the switch',"warn");return;
+        }
+        return createAccount(u.username,pin).then(function(r){
+          return db.collection('staff').doc(r.uid).set({userId:d.id,username:u.username,mustChangePin:pin.length!==6,createdAt:nowIso()},{merge:true}).then(function(){
+            return db.collection('users').doc(d.id).update({uid:r.uid});
+          }).then(function(){
+            if(r.created){made++;log('log1','created: '+who+(u.active?'':' (inactive)'),'ok');}
+            else{existed++;log('log1','already set up: '+who,'ok');}
+          });
+        }).catch(function(e){failed++;log('log1','FAILED '+who+': '+((e&&(e.code||e.message))||e),'bad');});
+      });
+    });
+    return chain;
+  }).then(function(){
+    log('log1','\nDone. Created '+made+', already set up '+existed+', skipped '+skipped+', failed '+failed+'.',failed?'bad':'ok');
+    document.getElementById('s1ok').textContent=failed?'':'✓ Done';
+  }).catch(function(e){log('log1','Stopped: '+((e&&(e.code||e.message))||e),'bad');})
+  .then(function(){btn.disabled=false;});
+}
+
+function step2(){
+  var btn=document.getElementById('s2'); btn.disabled=true;
+  fetch('index.html?setup='+Date.now(),{cache:'no-store'}).then(function(r){
+    if(!r.ok)throw new Error('could not load index.html ('+r.status+')');
+    return r.text();
+  }).then(function(src){
+    var i=src.indexOf('var PROPERTIES = ['); if(i<0)throw new Error('PROPERTIES list not found in index.html');
+    var j=src.indexOf('\n];',i); var arr=JSON.parse(src.slice(i+'var PROPERTIES = '.length,j+2));
+    var withCodes=arr.filter(function(p){return p.lockbox||p.alarm||p.owner||p.checkinNotes;});
+    log('log2','index.html has '+arr.length+' homes; '+withCodes.length+' have codes/owners/notes.');
+    if(!withCodes.length)throw new Error('The live index.html no longer has any codes in it — it looks like the NEW file is already uploaded. If step 2 ran before, you’re fine; otherwise put the old index.html back, run step 2, then upload the new one.');
+    var chain=Promise.resolve(), n=0;
+    for(var k=0;k<withCodes.length;k+=400){(function(part){
+      chain=chain.then(function(){
+        var b=db.batch();
+        part.forEach(function(p){
+          b.set(db.collection('property_private').doc(nameKey(p.name)),{name:p.name,lockbox:String(p.lockbox||''),alarm:String(p.alarm||''),owner:String(p.owner||''),checkinNotes:String(p.checkinNotes||''),updatedAt:nowIso()});
+        });
+        return b.commit().then(function(){n+=part.length;});
+      });
+    })(withCodes.slice(k,k+400));}
+    return chain.then(function(){
+      log('log2','Saved details for '+n+' homes to property_private.','ok');
+      document.getElementById('s2ok').textContent='✓ Done';
+    });
+  }).catch(function(e){log('log2','Stopped: '+((e&&(e.code||e.message))||e),'bad');})
+  .then(function(){btn.disabled=false;});
+}
+
+function step3(){
+  var btn=document.getElementById('s3');
+  if(adminMode!=='auth'){log('log3','Log in at the top with your NEW 6-digit PIN first (this step needs the new sign-in).','warn');return;}
+  if(!confirm('Remove every old PIN from the database? After this the old app files can no longer log anyone in.'))return;
+  btn.disabled=true;
+  db.collection('users').get().then(function(snap){
+    var noSignIn=snap.docs.filter(function(d){return !d.data().uid;});
+    noSignIn.forEach(function(d){log('log3','note: '+(d.data().name||d.id)+' has no sign-in yet — use Reset PIN in the app','warn');});
+    var b=db.batch(), n=0;
+    snap.docs.forEach(function(d){ if(d.data().pin!==undefined){ b.update(d.ref,{pin:firebase.firestore.FieldValue.delete()}); n++; } });
+    return b.commit().then(function(){log('log3','Removed old PINs from '+n+' records.','ok');document.getElementById('s3ok').textContent='✓ Done';});
+  }).catch(function(e){log('log3','Stopped: '+((e&&(e.code||e.message))||e),'bad');})
+  .then(function(){btn.disabled=false;});
+}
+</script>
+</body>
+</html>
