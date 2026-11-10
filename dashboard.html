@@ -580,6 +580,7 @@ tr:hover td{background:#fafbfe}
     <button class="tab-btn" onclick="switchTab('supplyinv',this)">📦 Supply Inventory</button>
     <button class="tab-btn" onclick="switchTab('seasonal',this)">🌿 Seasonal Inspections</button>
     <button class="tab-btn" onclick="switchTab('seadash',this)">📊 Seasonal Dashboard</button>
+    <button class="tab-btn" onclick="switchTab('drafts',this)">📝 Drafts &amp; Progress</button>
     <button class="tab-btn" onclick="switchTab('qcdash',this)">🔍 QC Dashboard</button>
     <button class="tab-btn" onclick="switchTab('qclog',this)">📝 QC Log</button>
     <button class="tab-btn" onclick="switchTab('training',this)">🎓 Trainings</button>
@@ -684,6 +685,29 @@ tr:hover td{background:#fafbfe}
           </div>
         </div>
         <div class="tbl-wrap"><div id="seasonalTable"><div class="loading">Loading…</div></div></div>
+      </div>
+    </div>
+
+    <!-- DRAFTS & PROGRESS (2026-11-10) -->
+    <div class="tab-panel" id="tab-drafts">
+      <div class="stats-row stats-row-compact">
+        <div class="stat-card"><div class="stat-num" id="dr-draft">—</div><div class="stat-lbl">Draft (started, nothing answered)</div></div>
+        <div class="stat-card orange"><div class="stat-num" id="dr-progress">—</div><div class="stat-lbl">In Progress (saved, not submitted)</div></div>
+        <div class="stat-card navy"><div class="stat-num" id="dr-sub">—</div><div class="stat-lbl">Submitted — last 7 days</div></div>
+        <div class="stat-card red"><div class="stat-num" id="dr-stale">—</div><div class="stat-lbl">Not saved in 7+ days</div></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr">
+          <div><div class="card-title">📝 Drafts &amp; Progress</div><div class="card-sub">Inspections saved in the app but not yet submitted. Drafts count toward progress (Seasonal Dashboard shows them as In Progress) but never as completed. Submitted/completed inspections are in the logs.</div></div>
+          <div class="spacer"></div>
+          <div class="filters">
+            <select id="dr-type" onchange="renderDrafts()"><option value="">All Types</option></select>
+            <select id="dr-status" onchange="renderDrafts()"><option value="">Draft + In Progress</option><option value="Draft">Draft</option><option value="In Progress">In Progress</option></select>
+            <input id="dr-prop" oninput="renderDrafts()" placeholder="🔍 Property…" style="width:170px">
+            <select id="dr-mgr" onchange="renderDrafts()"><option value="">All Operations Contacts</option></select>
+          </div>
+        </div>
+        <div class="tbl-wrap"><div id="draftsTable"><div class="loading">Loading…</div></div></div>
       </div>
     </div>
 
@@ -1208,7 +1232,7 @@ function refreshDashProfile(user){
 function doLogout(){clearSession();staffSignOut().then(function(){location.reload();});}
 
 // ── SHOW APP ──────────────────────────────────────────────────────────────────
-var _insp=[], _trainings={}, _propIssues=[], _supplyReqs=[];
+var _insp=[], _trainings={}, _propIssues=[], _supplyReqs=[], _drafts=[], _draftsError='';
 var _trackLoadStarted=false;
 function showApp(){
   if(!_trackLoadStarted){_trackLoadStarted=true;loadTrackProperties();}
@@ -1267,12 +1291,138 @@ function loadData(){
   // that's intentional. A failed collection must fail the whole Promise.all so
   // refreshDashboardData() can show a real error and skip updating "Last synced",
   // rather than silently rendering with stale/partial data as if the refresh succeeded.
-  return Promise.all([pInsp,pTrain,pIssues,pSupply]).then(function(){
+  // Active drafts (2026-11-10). A drafts read problem must not block the rest of the
+  // dashboard, so this one is caught and shown as a message on the Drafts tab.
+  var pDrafts=db.collection('drafts').orderBy('savedAt','desc').limit(400).get().then(function(snap){
+    _drafts=snap.docs.map(function(d){return Object.assign({_docId:d.id},d.data());}); _draftsError='';
+  }).catch(function(e){ console.warn('[DRAFTS] could not load drafts',e); _drafts=[]; _draftsError=(e&&(e.code||e.message))||'error'; });
+  return Promise.all([pInsp,pTrain,pIssues,pSupply,pDrafts]).then(function(){
     renderAll();
     renderTraining();
   });
 }
-function renderAll(){renderInspLog();renderSeasonal();renderSeaDash();renderQCDash();renderQCLog();renderOpenIssues();renderSupplyReqs();renderMyHouses();renderProductivity();}
+function renderAll(){renderDrafts();renderInspLog();renderSeasonal();renderSeaDash();renderQCDash();renderQCLog();renderOpenIssues();renderSupplyReqs();renderMyHouses();renderProductivity();}
+
+
+// ── DRAFTS & PROGRESS (2026-11-10) ───────────────────────────────────────────
+// Reads the same `drafts` docs the app saves (drafts/{userId}_{draftId}). Status
+// uses the app's own vocabulary: "Draft" = saved but nothing answered yet,
+// "In Progress" = at least one item answered; once submitted it is an inspection
+// record (Submitted/Completed) and the draft is removed by the app. Soft-deleted
+// drafts ({deleted:true}) and drafts whose inspection was already submitted are
+// left out.
+function draftProgress(d){
+  var secs=(d._sections&&d._sections.length)?d._sections:[]; var items=d.items||{};
+  var total=0,done=0;
+  secs.forEach(function(sec,si){
+    if(sec.dynamic==='bedroom'||sec.dynamic==='bathroom'){
+      var pre=sec.dynamic==='bedroom'?'bedI':'bathI';
+      var inst=(d[sec.dynamic+'Instances']&&d[sec.dynamic+'Instances'].length)?d[sec.dynamic+'Instances']:[{}];
+      inst.forEach(function(_,idx){(sec.items||[]).forEach(function(_,ii){total++;if((items[pre+idx+'_'+ii]||{}).status)done++;});});
+      return;
+    }
+    (sec.items||[]).forEach(function(_,ii){
+      total++; var it=items[si+'_'+ii]||{};
+      if(it.status||(it.value!==undefined&&it.value!==''))done++;
+    });
+  });
+  Object.keys(d.extraItems||{}).forEach(function(si){(d.extraItems[si]||[]).forEach(function(_,idx){total++;if((items['extra_'+si+'_'+idx]||{}).status)done++;});});
+  return {total:total,done:done,pct:total?Math.round(done/total*100):0};
+}
+function activeDrafts(){
+  var submitted={}; _insp.forEach(function(i){submitted[i.id]=1;});
+  return _drafts.filter(function(d){
+    if(d.deleted) return false;
+    if(!d.formType||!TYPE_LABELS[d.formType]) return false;
+    if(submitted['insp_'+d.id]) return false;
+    return true;
+  }).map(function(d){
+    var pr=draftProgress(d);
+    var prop=(d.info&&d.info.property)||(d.selectedProp&&d.selectedProp.name)||'';
+    return {d:d,property:prop,type:d.formType,staff:(d.info&&d.info.inspector)||'',savedAt:d.savedAt||0,progress:pr,status:pr.done>0?'In Progress':'Draft'};
+  });
+}
+function fmtAgo(ms){
+  if(!ms)return '—'; var m=Math.floor((Date.now()-ms)/60000);
+  if(m<1)return 'just now'; if(m<60)return m+' min ago'; var h=Math.floor(m/60); if(h<24)return h+' hr ago';
+  var dd=Math.floor(h/24); return dd+' day'+(dd!==1?'s':'')+' ago';
+}
+function renderDrafts(){
+  var el=document.getElementById('draftsTable'); if(!el)return;
+  var typeSel=document.getElementById('dr-type');
+  if(typeSel&&typeSel.options.length<=1){Object.keys(TYPE_LABELS).forEach(function(t){if(t==='spot_check')return;var o=document.createElement('option');o.value=t;o.textContent=TYPE_LABELS[t];typeSel.appendChild(o);});}
+  populateContactSelect('dr-mgr');
+  var all=activeDrafts();
+  var wk=_insp.filter(function(i){return i.submittedAt&&(Date.now()-new Date(i.submittedAt))<7*86400000;}).length;
+  document.getElementById('dr-draft').textContent=all.filter(function(x){return x.status==='Draft';}).length;
+  document.getElementById('dr-progress').textContent=all.filter(function(x){return x.status==='In Progress';}).length;
+  document.getElementById('dr-sub').textContent=wk;
+  document.getElementById('dr-stale').textContent=all.filter(function(x){return Date.now()-x.savedAt>7*86400000;}).length;
+  if(_draftsError){el.innerHTML='<div class="empty">Drafts could not be loaded ('+esc(_draftsError)+'). Use Refresh to try again.</div>';return;}
+  var tF=document.getElementById('dr-type').value, sF=document.getElementById('dr-status').value;
+  var pF=(document.getElementById('dr-prop').value||'').toLowerCase(), mF=document.getElementById('dr-mgr').value;
+  var list=all.filter(function(x){
+    if(tF&&x.type!==tF)return false; if(sF&&x.status!==sF)return false;
+    if(pF&&x.property.toLowerCase().indexOf(pF)===-1)return false;
+    if(mF){var pr=PROPERTIES.find(function(p){return p.name===x.property;}); if(!contactMatches(pr?pr.manager:'',mF))return false;}
+    return true;
+  }).sort(function(a,b){return b.savedAt-a.savedAt;});
+  if(!list.length){el.innerHTML='<div class="empty">No active drafts match these filters</div>';return;}
+  var h='<table><thead><tr><th>Property</th><th>Inspection Type</th><th>Staff Member</th><th>Status</th><th>Progress</th><th>Last Saved</th></tr></thead><tbody>';
+  list.forEach(function(x){
+    var stale=Date.now()-x.savedAt>7*86400000;
+    h+='<tr><td style="font-weight:600">'+esc(x.property||'—')+'</td><td>'+esc(TYPE_LABELS[x.type]||x.type)+'</td><td>'+esc(x.staff||'—')+'</td>';
+    h+='<td><span class="badge '+(x.status==='Draft'?'b-never':'b-pending')+'">'+(x.status==='Draft'?'📝 Draft':'⏳ In Progress')+'</span></td>';
+    h+='<td>'+(x.progress.total?x.progress.pct+'% <span style="color:var(--dark-gray);font-size:11px">('+x.progress.done+'/'+x.progress.total+')</span>':'—')+'</td>';
+    h+='<td title="'+esc(new Date(x.savedAt).toLocaleString())+'">'+esc(fmtDateTime(new Date(x.savedAt).toISOString()))+'<div style="font-size:11px;color:'+(stale?'var(--red)':'var(--dark-gray)')+'">'+fmtAgo(x.savedAt)+(stale?' — stale':'')+'</div></td></tr>';
+  });
+  h+='</tbody></table>';
+  el.innerHTML=h;
+}
+// Draft lookup for the Seasonal Dashboard: newest active draft per property|type.
+function latestDraftFor(prop,type){
+  var best=null; activeDrafts().forEach(function(x){ if(x.property===prop&&x.type===type&&(!best||x.savedAt>best.savedAt))best=x; }); return best;
+}
+
+// ── MAINTENANCE NOTES ADDED AFTER SUBMISSION (2026-11-10) ────────────────────
+// Appended to inspections/{id}.postSubmitNotes[] ({text,by,byId,at}) with
+// arrayUnion — the original submission (issues, maintenanceNotes, etc.) is never
+// edited. Managers/admins can add notes to any inspection; an inspector only to
+// one they submitted.
+function canAddPostNote(i){
+  if(!currentUser||!i)return false;
+  if(currentUser.role==='manager'||currentUser.role==='admin')return true;
+  return !!(i.inspectorId&&i.inspectorId===currentUser.id);
+}
+var _postNoteSeq=0;
+function postSubmitNotesHtml(i){
+  var notes=i.postSubmitNotes||[];
+  if(!notes.length&&!canAddPostNote(i))return '';
+  var h='<div class="insp-detail-heading">&#128295; Maintenance Notes added after submission</div>';
+  if(notes.length){
+    notes.slice().sort(function(a,b){return (a.at||'').localeCompare(b.at||'');}).forEach(function(n){
+      h+='<div class="update-item"><div class="u-date">'+esc(n.by||'')+' &middot; '+esc(n.at?fmtDateTime(n.at):'')+'</div>'+esc(n.text||'').replace(/\n/g,'<br>')+'</div>';
+    });
+  } else h+='<div style="font-size:12px;color:var(--dark-gray);margin-bottom:6px">None yet. The original submission stays unchanged.</div>';
+  if(canAddPostNote(i)){
+    var id='psn-'+(++_postNoteSeq);
+    h+='<div style="display:flex;gap:6px;margin:6px 0 10px"><textarea id="'+id+'" rows="2" placeholder="Add a maintenance note (author and time are recorded)…" style="flex:1;padding:8px;border:1px solid var(--mid-gray);border-radius:6px;font-size:13px"></textarea><button style="white-space:nowrap;background:var(--blue);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer" onclick="addPostSubmitNote(\''+esc(i.id)+'\',\''+id+'\',this)">Add Note</button></div>';
+  }
+  return h;
+}
+function addPostSubmitNote(docId,inputId,btn){
+  var input=document.getElementById(inputId); if(!input)return;
+  var text=(input.value||'').trim(); if(!text){showToast('Type a note first');return;}
+  var insp=_insp.find(function(x){return x.id===docId;});
+  if(!canAddPostNote(insp)){showToast('You can only add notes to your own inspections');return;}
+  if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  var entry={text:text,by:currentUser.name||currentUser.username||'',byId:currentUser.id||'',at:new Date().toISOString()};
+  db.collection('inspections').doc(docId).update({postSubmitNotes:firebase.firestore.FieldValue.arrayUnion(entry)}).then(function(){
+    if(insp){ if(!insp.postSubmitNotes)insp.postSubmitNotes=[]; insp.postSubmitNotes.push(entry); }
+    showToast('Maintenance note added');
+    renderAll();
+  }).catch(function(e){ console.warn('[POST-NOTE] failed',e); if(btn){btn.disabled=false;btn.textContent='Add Note';} showToast('Could not save the note — please try again'); });
+}
 
 // ── MANUAL REFRESH ────────────────────────────────────────────────────────────
 // Re-queries every collection the currently-displayed Dashboard tabs depend on
@@ -1425,6 +1575,22 @@ function opsMaintenanceBlockHtml(insp){
 // marks an item an Issue. Returns '' when there are none, so callers can
 // append this unconditionally.
 function quantityItemsBlockHtml(insp){
+  return quantityItemsOnlyHtml(insp)+itemFieldsBlockHtml(insp);
+}
+// 2026-11-10: extra per-item fields (service dates, appliance type, pillow size,
+// emergency-kit location, broom "needs replacing?") + jurisdiction review flag.
+function itemFieldsBlockHtml(insp){
+  var f=insp.itemFields||[]; var h='';
+  if(insp.jurisdictionMissing) h+='<div class="insp-detail-heading">&#9888;&#65039; Jurisdiction</div><div class="insp-notes-block">Not on file for this home when inspected — county-specific items were not shown. Office review needed.</div>';
+  if(!f.length) return h;
+  h+='<div class="insp-detail-heading">&#128197; Recorded Details</div><div class="insp-notes-block">';
+  f.forEach(function(x){
+    var flag=x.flag==='over'?' <span class="badge b-overdue">Over 1 year</span>':x.flag==='soon'?' <span class="badge b-pending">Approaching 1 year</span>':'';
+    h+='<div>'+esc(x.section||'')+' — '+esc(x.text||'')+'<br><strong>'+esc(x.label||'')+':</strong> '+esc(String(x.value))+flag+'</div>';
+  });
+  return h+'</div>';
+}
+function quantityItemsOnlyHtml(insp){
   var items=insp.quantityItems||[];
   if(!items.length) return '';
   var html='<div class="insp-detail-heading">&#128290; Quantities Recorded</div><div class="insp-notes-block">';
@@ -2166,8 +2332,8 @@ function myHousesQCSectionHtml(list){
     var opsNotes=(i.opsMaintenanceNotes||'').trim();
     var qcUpdates=i.updates||[];
     var qcIsResolved=!!i.resolved;
-    var hasQuantities=(i.quantityItems||[]).length>0;
-    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||qcIsResolved||qcUpdates.length>0||hasQuantities;
+    var hasQuantities=(i.quantityItems||[]).length>0||(i.itemFields||[]).length>0||!!i.jurisdictionMissing;
+    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||qcIsResolved||qcUpdates.length>0||hasQuantities||canAddPostNote(i)||(i.postSubmitNotes||[]).length>0;
     var photos=normalizePhotoUrls(i.photoUrls,'myHousesQC:'+i.id);
     var safeId='mhqc'+i.id.replace(/[^a-zA-Z0-9]/g,'');
     inner+='<tr>';
@@ -2209,6 +2375,7 @@ function myHousesQCSectionHtml(list){
       if(mgrNotes) inner+='<div class="insp-detail-heading">&#128221; Manager Notes</div><div class="insp-notes-block">'+esc(mgrNotes).replace(/\n/g,'<br>')+'</div>';
       if(maintNotes) inner+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
       inner+=maintNotesPhotosHtml(i);
+      inner+=postSubmitNotesHtml(i);
       inner+=opsMaintenanceBlockHtml(i);
       inner+=quantityItemsBlockHtml(i);
       if(hasIssues||qcIsResolved||qcUpdates.length){
@@ -2262,8 +2429,8 @@ function myHousesSeasonalSectionHtml(list){
     var opsNotes=(i.opsMaintenanceNotes||'').trim();
     var updates=i.updates||[];
     var isResolved=!!i.resolved;
-    var hasQuantities=(i.quantityItems||[]).length>0;
-    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||isResolved||updates.length>0||hasQuantities;
+    var hasQuantities=(i.quantityItems||[]).length>0||(i.itemFields||[]).length>0||!!i.jurisdictionMissing;
+    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||isResolved||updates.length>0||hasQuantities||canAddPostNote(i)||(i.postSubmitNotes||[]).length>0;
     var photos=normalizePhotoUrls(i.photoUrls,'myHousesSeasonal:'+i.id);
     var safeId='mhsea'+i.id.replace(/[^a-zA-Z0-9]/g,'');
     inner+='<tr>';
@@ -2340,6 +2507,7 @@ function myHousesSeasonalSectionHtml(list){
       if(mgrNotes) inner+='<div class="insp-detail-heading">&#128221; Manager Notes</div><div class="insp-notes-block">'+esc(mgrNotes).replace(/\n/g,'<br>')+'</div>';
       if(maintNotes) inner+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
       inner+=maintNotesPhotosHtml(i);
+      inner+=postSubmitNotesHtml(i);
       inner+=opsMaintenanceBlockHtml(i);
       inner+=quantityItemsBlockHtml(i);
       if(isResolved||updates.length){
@@ -2718,8 +2886,8 @@ function renderInspLog(){
     var updates=i.updates||[];
     var isResolved=!!i.resolved;
     var needsResolution=(i.overallStatus==='not-ready'||i.overallStatus==='conditional');
-    var hasQuantities=(i.quantityItems||[]).length>0;
-    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||needsResolution||isResolved||updates.length>0||hasQuantities||readyEmailShouldShow(i)||!!guestFbText(i);
+    var hasQuantities=(i.quantityItems||[]).length>0||(i.itemFields||[]).length>0||!!i.jurisdictionMissing;
+    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||needsResolution||isResolved||updates.length>0||hasQuantities||readyEmailShouldShow(i)||!!guestFbText(i)||canAddPostNote(i)||(i.postSubmitNotes||[]).length>0;
     var photos=normalizePhotoUrls(i.photoUrls,'inspLog:'+i.id);
     var photoCount=photos.length;
     var photoFailCount=i.photoUploadFailCount||0;
@@ -2770,6 +2938,7 @@ function renderInspLog(){
         html+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
       }
       html+=maintNotesPhotosHtml(i);
+      html+=postSubmitNotesHtml(i);
       html+=opsMaintenanceBlockHtml(i);
       html+=readyEmailStatusHtml(i);
       html+=guestFeedbackBlockHtml(i);
@@ -2844,9 +3013,9 @@ function renderSeasonal(){
     var opsNotes=(i.opsMaintenanceNotes||'').trim();
     var updates=i.updates||[];
     var isResolved=!!i.resolved;
-    var hasQuantities=(i.quantityItems||[]).length>0;
+    var hasQuantities=(i.quantityItems||[]).length>0||(i.itemFields||[]).length>0||!!i.jurisdictionMissing;
     var isInvReport=invdIsInventory(i);
-    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||isResolved||updates.length>0||hasQuantities||isInvReport||seaIsReport(i);
+    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||isResolved||updates.length>0||hasQuantities||isInvReport||seaIsReport(i)||canAddPostNote(i)||(i.postSubmitNotes||[]).length>0;
     var photos=normalizePhotoUrls(i.photoUrls,'seasonal:'+i.id);
     var photoCount=photos.length;
     var photoFailCount=i.photoUploadFailCount||0;
@@ -2910,6 +3079,7 @@ function renderSeasonal(){
         html+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
       }
       html+=maintNotesPhotosHtml(i);
+      html+=postSubmitNotesHtml(i);
       html+=opsMaintenanceBlockHtml(i);
       html+=quantityItemsBlockHtml(i);
       if(isResolved||updates.length){
@@ -2988,7 +3158,7 @@ function invdModel(insp){
     var rk=invdRowKey(it.key,it.section,it.item);
     if(byRk[rk])rk=rk+'_'+rows.length;
     var row={rk:rk,key:it.key||'',section:it.section||'',item:it.item||'',current:it.current,needed:it.needed,
-      comment:(it.comment||'').trim(),notes:'',flagged:it.flagged===true,flagKnown:it.flagged!==undefined,
+      comment:((it.field&&it.field.value)?(it.field.label+': '+it.field.value+((it.comment||'').trim()?' · ':'')):'')+(it.comment||'').trim(),notes:'',flagged:it.flagged===true,flagKnown:it.flagged!==undefined,
       issue:null,xi:-1,recorded:true,photoSrc:it.photos||[]};
     rows.push(row); byRk[rk]=row;
   });
@@ -3737,6 +3907,7 @@ function seaBuildCfg(insp,mode){
         else if(st==='na'){ resp='N/A'; rs={textColor:C.gray}; }
         else { resp='Not checked'; rs={textColor:C.gray,fontStyle:'italic'}; }
         if(c.qty!==undefined&&c.qty!==null&&c.qty!=='')resp+='\nQty: '+invpdfTxt(c.qty);
+        if(c.field&&c.field.value)resp+='\n'+invpdfTxt(c.field.label)+': '+invpdfTxt(c.field.value);
         var isF=st==='issue'||!!m;
         var notes=seaNotesText(c.notes||(m?m.x.notes:''),m?m.x.charge:0);
         var ph=normalizePhotoUrls((c.photos&&c.photos.length)?c.photos:(m?m.x.photos:[]),'seaPdf');
@@ -4000,15 +4171,18 @@ function renderSeaDash(){
     var kitchen=byPT[p.name+'|kitchen_inv'];
     var linen=byPT[p.name+'|linen_inv'];
     var done=[spring,fall,kitchen,linen].filter(Boolean).length;
-    var status=done===4?'Complete':done===0?'All Pending':'In Progress';
+    // Active drafts count toward progress (In Progress) but never as completed.
+    var drafting=['spring','fall','kitchen_inv','linen_inv'].filter(function(t){return !byPT[p.name+'|'+t]&&latestDraftFor(p.name,t);}).length;
+    var status=done===4?'Complete':(done===0&&!drafting)?'All Pending':'In Progress';
     if(statusF&&status!==statusF)return;
     shown++;
-    var sBadge=done===4?'b-done':done===0?'b-overdue':'b-pending';
+    var sBadge=done===4?'b-done':(done===0&&!drafting)?'b-overdue':'b-pending';
     html+='<tr>';
     html+='<td style="font-weight:600">'+esc(p.name)+'</td><td>'+esc(p.manager)+'</td>';
     ['spring','fall','kitchen_inv','linen_inv'].forEach(function(t){
       var rec=byPT[p.name+'|'+t];
-      html+='<td>'+(rec?'<span class="badge b-done">'+rec.submittedAt.slice(0,10)+'</span>':'<span class="badge b-never">Pending</span>')+'</td>';
+      var dr=rec?null:latestDraftFor(p.name,t);
+      html+='<td>'+(rec?'<span class="badge b-done">'+rec.submittedAt.slice(0,10)+'</span>':dr?'<span class="badge b-pending" title="Saved '+esc(new Date(dr.savedAt).toLocaleString())+(dr.staff?' by '+esc(dr.staff):'')+'">'+(dr.status==='Draft'?'📝 Draft':'⏳ In Progress '+dr.progress.pct+'%')+'</span>':'<span class="badge b-never">Pending</span>')+'</td>';
     });
     html+='<td><span class="badge '+sBadge+'">'+status+'</span></td>';
     html+='</tr>';
@@ -4102,8 +4276,8 @@ function renderQCLog(){
     var opsNotes=(i.opsMaintenanceNotes||'').trim();
     var qcUpdates=i.updates||[];
     var qcIsResolved=!!i.resolved;
-    var hasQuantities=(i.quantityItems||[]).length>0;
-    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||qcIsResolved||qcUpdates.length>0||hasQuantities;
+    var hasQuantities=(i.quantityItems||[]).length>0||(i.itemFields||[]).length>0||!!i.jurisdictionMissing;
+    var hasDetails=hasIssues||mgrNotes||maintNotes||opsNotes||qcIsResolved||qcUpdates.length>0||hasQuantities||canAddPostNote(i)||(i.postSubmitNotes||[]).length>0;
     var photos=normalizePhotoUrls(i.photoUrls,'qcLog:'+i.id);
     var photoCount=photos.length;
     var photoFailCount=i.photoUploadFailCount||0;
@@ -4145,6 +4319,7 @@ function renderQCLog(){
         html+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
       }
       html+=maintNotesPhotosHtml(i);
+      html+=postSubmitNotesHtml(i);
       html+=opsMaintenanceBlockHtml(i);
       html+=quantityItemsBlockHtml(i);
       if(hasIssues||qcIsResolved||qcUpdates.length){

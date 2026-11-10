@@ -47,6 +47,17 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .draft-card{background:white;border-radius:10px;padding:14px 16px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;cursor:pointer}
 .draft-card:active{background:var(--gray)}
 .draft-icon{font-size:22px}.draft-info{flex:1}.draft-name{font-size:14px;font-weight:600;color:var(--navy)}.draft-meta{font-size:12px;color:var(--dark-gray);margin-top:2px}.draft-pct{font-size:13px;font-weight:700;color:var(--green)}.draft-delete{background:none;border:none;font-size:18px;color:var(--mid-gray);cursor:pointer;padding:4px}
+.draft-row{display:flex;align-items:stretch;gap:8px}.draft-row .draft-card{flex:1;min-width:0}
+.draft-open-lbl{font-size:12px;font-weight:700;color:var(--blue);white-space:nowrap}
+.draft-del-btn{flex-shrink:0;background:white;border:1.5px solid #e3b4b4;color:#B00020;border-radius:10px;padding:0 12px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);min-width:72px}
+.draft-del-btn:active{background:#FDECEA}
+.drafts-deleted-link{background:none;border:none;color:var(--dark-gray);font-size:12px;text-decoration:underline;cursor:pointer;padding:8px 2px}
+.deleted-draft-row{display:flex;align-items:center;gap:10px;background:white;border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);font-size:13px}
+.undo-bar{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--text);color:white;border-radius:22px;padding:8px 8px 8px 18px;font-size:13px;font-weight:600;display:none;align-items:center;gap:12px;z-index:1001;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.undo-bar.show{display:flex}.undo-bar button{background:#fff;color:var(--navy);border:none;border-radius:16px;padding:7px 14px;font-weight:700;cursor:pointer}
+.confirm-ov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:1002;padding:20px}.confirm-ov.open{display:flex}
+.confirm-box{background:white;border-radius:14px;max-width:360px;width:100%;padding:18px}.confirm-box h3{font-size:16px;color:var(--navy);margin-bottom:8px}.confirm-box p{font-size:13px;color:var(--dark-gray);line-height:1.5;margin-bottom:14px}
+.confirm-box .row{display:flex;gap:8px}.confirm-box button{flex:1;padding:12px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer}
 .setup-form{padding:16px;display:flex;flex-direction:column;gap:12px}
 .field{display:flex;flex-direction:column;gap:5px}
 .field label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--dark-gray)}
@@ -115,6 +126,12 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .note-input:focus{outline:none;border-color:var(--blue)}
 .photo-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .photo-thumb{width:64px;height:64px;border-radius:8px;object-fit:cover;cursor:pointer;border:2px solid var(--mid-gray)}
+.photo-thumb-wrap{position:relative;display:inline-block;line-height:0}
+.photo-up-badge{position:absolute;right:-4px;bottom:-4px;min-width:20px;height:20px;border-radius:10px;font-size:11px;line-height:20px;text-align:center;font-weight:800;padding:0 4px;box-shadow:0 1px 3px rgba(0,0,0,.3);border:none}
+.photo-up-badge.uploading{background:#1565C0;color:#fff}.photo-up-badge.done{background:#1a7a3f;color:#fff}.photo-up-badge.failed{background:#B00020;color:#fff;cursor:pointer}
+.photo-upload-status{margin:6px 12px 0;padding:8px 12px;border-radius:8px;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.photo-upload-status.uploading{background:#E3F2FD;color:#0d47a1}.photo-upload-status.failed{background:#FDECEA;color:#B00020}.photo-upload-status.done{background:#E8F5E9;color:#1a7a3f}
+.photo-upload-status button{border:none;border-radius:14px;padding:6px 12px;font-weight:700;background:#B00020;color:#fff;cursor:pointer}
 .photo-add,.photo-upload{width:64px;height:64px;border-radius:8px;border:2px dashed var(--mid-gray);background:white;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:var(--dark-gray);flex-shrink:0;text-align:center;padding:2px;box-sizing:border-box}
 .photo-add:active,.photo-upload:active{background:var(--gray)}
 .photo-add-ic{font-size:19px;line-height:1}
@@ -242,6 +259,17 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .dash-card{background:white;border-radius:var(--radius);padding:14px 16px;margin:0 16px 10px;box-shadow:var(--shadow)}
 /* Manager bottom nav button */
 #managerNavBtns{display:none}
+/* 2026-11-10: per-item extra fields + section notices */
+.item-field-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;padding:0 14px 10px 14px;font-size:12px}
+.item-field-lbl{font-weight:700;color:var(--dark-gray);font-size:11.5px}
+.item-field-input{padding:7px 8px;border:1px solid var(--mid-gray);border-radius:6px;font-size:13px;min-width:150px;flex:1;max-width:260px}
+.item-field-check{display:flex;align-items:center;gap:6px;cursor:pointer}
+.item-field-check input{width:18px;height:18px}
+.item-field-flag{font-size:11px;font-weight:700;padding:3px 8px;border-radius:10px;background:#eef1f5;color:var(--dark-gray)}
+.item-field-flag.ok{background:#E8F5E9;color:#1a7a3f}.item-field-flag.soon{background:#FFF3CD;color:#7A5000}.item-field-flag.over{background:#FDECEA;color:#B00020}
+.inv-item-card .item-field-row{padding:8px 0 0}
+.section-notice{margin:10px 14px 0;padding:9px 12px;border-radius:8px;background:#EEF4FB;color:#2a4a6b;font-size:12.5px;line-height:1.4}
+.section-notice.warn{background:#FFF3CD;color:#7A5000;border-left:3px solid #F0A500}
 </style>
 </head>
 <body>
@@ -304,6 +332,8 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
   <div id="draftsSection" style="display:none">
     <div class="section-label">Saved Drafts</div>
     <div class="drafts-list" id="draftsList"></div>
+    <button type="button" class="drafts-deleted-link" id="deletedDraftsLink" style="display:none" onclick="toggleDeletedDrafts()"></button>
+    <div class="drafts-list" id="deletedDraftsList" style="display:none"></div>
   </div>
 </div>
 
@@ -420,6 +450,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
     <label class="hide-done-label"><input type="checkbox" id="hideDoneToggle" onchange="toggleHideCompleted()"><span>Hide completed items</span></label>
     <span class="save-status" id="saveStatus"></span>
   </div>
+  <div class="photo-upload-status" id="photoUploadStatus" style="display:none"></div>
   <div class="checklist-search-bar">
     <div class="checklist-search-wrap">
       <span class="checklist-search-icon">&#128269;</span>
@@ -513,6 +544,8 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
   </div>
 </div>
 <div class="toast" id="toast"></div>
+<div class="undo-bar" id="undoBar"><span id="undoBarText"></span><button type="button" id="undoBarBtn">Undo</button></div>
+<div class="confirm-ov" id="confirmOv"><div class="confirm-box" role="dialog" aria-modal="true"><h3 id="confirmTitle"></h3><p id="confirmMsg"></p><div class="row"><button type="button" id="confirmCancel" style="background:white;border:1.5px solid var(--mid-gray);color:var(--text)">Cancel</button><button type="button" id="confirmOk" style="background:#B00020;border:none;color:white">Delete</button></div></div></div>
 
 <script>
 // ── Firebase Configuration ──
@@ -771,6 +804,8 @@ function uploadPhotosToStorage(inspectionId) {
   }
   var uploads = photos.map(function(p, i) {
     var dataUrl = p.dataUrl;
+    // Already uploaded while the draft was open — reuse the link, don't re-upload.
+    if (!isEmbeddedPhoto(dataUrl)) return Promise.resolve({ ok: true, key: p.key, url: dataUrl });
     var isJpg = dataUrl.indexOf('image/jpeg') >= 0 || dataUrl.indexOf('image/jpg') >= 0;
     var ext = isJpg ? 'jpg' : 'png';
     var fileName = 'photo_' + i + '.' + ext;
@@ -870,13 +905,16 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
         // snapshot (so the comment/photo isn't lost), but is NOT scored — a
         // comment never counts as OK or as an issue on its own.
         if (!hasCur && !hasNeed) {
+          var _invF0 = itemFieldDef(itemText); var _invFV0 = fieldValueText(_invF0, itm.field);
+          if (_invFV0) { inventoryItems.push({section:sec.title, item:itemText, current:'', needed:'', key:key, comment:invComment, photos:invPhotos, flagged:false, field:{label:_invF0.label, value:_invFV0}}); return; }
           if (invComment || invPhotos.length) inventoryItems.push({section:sec.title, item:itemText, current:'', needed:'', key:key, comment:invComment, photos:invPhotos, flagged:false});
           return;
         }
         var curN = hasCur ? (parseFloat(itm.value) || 0) : 0;
         var needN = hasNeed ? (parseFloat(itm.needed) || 0) : 0;
         var isShort = (needN > 0 && curN < needN);
-        inventoryItems.push({section:sec.title, item:itemText, current:hasCur?itm.value:'', needed:hasNeed?itm.needed:'', key:key, comment:invComment, photos:invPhotos, flagged:isShort});
+        var _invF = itemFieldDef(itemText); var _invFV = fieldValueText(_invF, itm.field);
+        inventoryItems.push({section:sec.title, item:itemText, current:hasCur?itm.value:'', needed:hasNeed?itm.needed:'', key:key, comment:invComment, photos:invPhotos, flagged:isShort, field: _invFV ? {label:_invF.label, value:_invFV} : null});
         if (isShort) {
           issues++;
           issueList.push({section:sec.title, text:itemText, notes:'Have '+(hasCur?itm.value:'0')+', need '+itm.needed, charge:0, photos:itemPhotos[key]||[], key:key, isSupply:false, comment:invComment});
@@ -894,15 +932,16 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
     if (state.formType === 'spring' || state.formType === 'fall') {
       _answerable.forEach(function(x){
         var it = x.item || {};
+        var _cf = itemFieldDef(x.text); var _cfv = fieldValueText(_cf, it.field);
         checklistItems.push({ key: x.key, section: x.section, item: x.text, status: it.status || '',
           notes: it.notes || '', qty: (it.qty !== undefined && it.qty !== '') ? it.qty : '',
-          photos: itemPhotos[x.key] || [] });
+          photos: itemPhotos[x.key] || [], field: _cfv ? {label:_cf.label, value:_cfv} : null });
       });
     }
     _answerable.forEach(function(x){
       var it = x.item || {};
       if (it.status==='ok') ok++;
-      else if (it.status==='issue') { issues++; charge+=it.charge||0; issueList.push({section:x.section,text:x.text,notes:it.notes||'',charge:it.charge||0,photos:itemPhotos[x.key]||[],key:x.key,isSupply:!!x.isSupply}); }
+      else if (it.status==='issue') { issues++; charge+=it.charge||0; var _if = itemFieldDef(x.text), _ifv = fieldValueText(_if, it.field); issueList.push({section:x.section,text:x.text,notes:(it.notes||'')+(_ifv?((it.notes?' — ':'')+_if.label+': '+_ifv):''),charge:it.charge||0,photos:itemPhotos[x.key]||[],key:x.key,isSupply:!!x.isSupply}); }
       else if (it.status==='na') na++;
       // Quantity fields (feature: "how many" questions) persist independently of
       // status — an item can have a quantity AND be OK/Issue/N-A/unanswered, and
@@ -963,6 +1002,12 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
     // `issues` so a quantity is never lost for an item that's OK/N-A/
     // unanswered; see the comment above where this is built.
     quantityItems: quantityItems,
+    // 2026-11-10: extra per-item fields (extinguisher / sprinkler / fire alarm service
+    // dates, coffee/espresso type, pillow size, emergency kit location, broom
+    // "needs replacing?") and the home's jurisdiction as used for this inspection.
+    itemFields: collectItemFields(),
+    jurisdiction: (function(){ var js=(sections||[]).filter(function(x){return x.jurisdiction;})[0]; return js ? js.jurisdiction : ''; })(),
+    jurisdictionMissing: (sections||[]).some(function(x){ return !!x.jurisdictionMissing; }),
     submittedAt:new Date().toISOString()
   };
   console.log('[PHOTO-DEBUG] Saving inspection record', { inspectionId: inspectionId, photoCount: docData.photoCount, photoUploadFailCount: docData.photoUploadFailCount, itemPhotoKeys: Object.keys(itemPhotos) });
@@ -1868,6 +1913,7 @@ function applyPropertyPrivate(list) {
     if (r.alarm) p.alarm = r.alarm;
     if (r.owner) p.owner = r.owner;
     if (r.checkinNotes && !p._trackNotes) p.checkinNotes = r.checkinNotes;
+    if (r.jurisdiction) p.jurisdiction = r.jurisdiction;
   });
 }
 function onSignedInLoads() {
@@ -1881,7 +1927,7 @@ function onSignedInLoads() {
   db.collection('property_private').get().then(function(snap) {
     var list = snap.docs.map(function(d) {
       var x = d.data() || {};
-      return { name: x.name || '', lockbox: x.lockbox || '', alarm: x.alarm || '', owner: x.owner || '', checkinNotes: x.checkinNotes || '' };
+      return { name: x.name || '', lockbox: x.lockbox || '', alarm: x.alarm || '', owner: x.owner || '', checkinNotes: x.checkinNotes || '', jurisdiction: x.jurisdiction || '' };
     });
     applyPropertyPrivate(list);
     try { localStorage.setItem(PRIVATE_CACHE_KEY, JSON.stringify({ savedAt: new Date().toISOString(), list: list })); } catch(e) {}
@@ -1985,7 +2031,7 @@ var SPRING_BEDROOM_ITEMS = [
 // fan -> space heater, item 6 ("Check under each bed") removed, hangers item now
 // "matching hangers". FALL_BEDROOM_ITEMS and SPRING_BEDROOM_ITEMS now differ.
 var FALL_BEDROOM_ITEMS = [
-  'Space heater in bedroom closet with neatly wrapped cord',
+  'Fan/heater in bedroom closet with neatly wrapped cord',
   'Pillows: 2 per sleeper on bed + 1 per sleeper in closet (with pillow case) check the condition/yellowing, odor etc',
   'Mattress comfortable (lay on it!)',
   'Duvets / shams — no stains, in good condition',
@@ -2006,7 +2052,9 @@ var SPRING_BATHROOM_ITEMS = [
   'Shower curtains / liners in good condition',
   'Blow dryer present in each full bathroom',
   'Glass, stone, or metal soap dispensers at each sink',
-  'Any d\xe9cor updates assessed'
+  'Any d\xe9cor updates assessed',
+  'Kleenex box with cover',
+  'Toilet scrubber and plunger'
 ];
 var FALL_BATHROOM_ITEMS = [
   'All drains flowing freely (sink, tub, shower) + faucets functioning (no leaks, easy to operate)',
@@ -2021,20 +2069,160 @@ var FALL_BATHROOM_ITEMS = [
   'Any d\xe9cor updates assessed'
 ];
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 2026-11-10 — per-item extra fields, jurisdiction items, Living Room section
+// ═══════════════════════════════════════════════════════════════════════════
+// ITEM_FIELDS adds ONE small extra input to specific checklist/inventory items,
+// matched by the item's exact text, so template items stay plain strings (every
+// existing reader of the templates keeps working unchanged). The value is saved
+// on state.items[key].field — it rides along with every draft save/reopen — and
+// is written to the submitted record as itemFields[] (plus inventoryItems[].field
+// for Kitchen/Linen). type: 'date' | 'text' | 'check'. annual:true shows an
+// "approaching / over 1 year" flag next to the date (display only — no automatic
+// deadlines are created; the servicing standard is still to be confirmed).
+var EXTINGUISHER_ITEM = 'Fire extinguisher — location noted + service date checked (flag for service/replacement as it nears 1 year); service/replacement documented in Track; receipt on file';
+var SPRINKLER_ITEM = 'Sprinkler system servicing — record last service date, findings, and any follow-up in notes';
+var FIRE_ALARM_ITEM = 'Fire alarm servicing — record last service date, findings, and any follow-up in notes';
+var BEAR_MAGNET_ITEM = 'STR bear bin magnet present (Placer / El Dorado County STR requirement)';
+var ITEM_FIELDS = {};
+ITEM_FIELDS[EXTINGUISHER_ITEM] = {type:'date', label:'Last service / replacement date', annual:true};
+ITEM_FIELDS[SPRINKLER_ITEM] = {type:'date', label:'Last service date'};
+ITEM_FIELDS[FIRE_ALARM_ITEM] = {type:'date', label:'Last service date'};
+ITEM_FIELDS['Coffee Maker'] = {type:'text', label:'Type', placeholder:'e.g. Drip, Keurig, Nespresso, French press'};
+ITEM_FIELDS['Espresso Machine (if present)'] = {type:'text', label:'Type', placeholder:'e.g. Breville, Nespresso, manual'};
+ITEM_FIELDS['Pillows (need: 2 per sleeper on bed + 1 extra per bed in closet)'] = {type:'text', label:'Size', placeholder:'Standard / Queen / King'};
+ITEM_FIELDS['Confirm the location and inventory of the emergency kit- try to keep in primary bedroom closet (if it is kept elsewhere, note the location)'] = {type:'text', label:'Location (if not in primary bedroom)', placeholder:'e.g. Hall closet'};
+ITEM_FIELDS['Confirm the location and inventory of the emergency kit- try to keep in primary bedroom closet — note the location in Track'] = {type:'text', label:'Location', placeholder:'e.g. Primary bedroom closet'};
+ITEM_FIELDS['Broom and dustpan'] = {type:'check', label:'Needs replacing?'};
+function itemFieldDef(it) { return ITEM_FIELDS[typeof it === 'string' ? it : (it && it.text)] || null; }
+// Returns {level:'ok'|'soon'|'over', text} for an annual-review date, or null.
+function annualDateFlag(ymd) {
+  if (!ymd) return null;
+  var d = new Date(ymd + 'T12:00:00'); if (isNaN(d)) return null;
+  var days = Math.floor((Date.now() - d.getTime()) / 86400000);
+  if (days >= 365) return {level:'over', text:'Over 1 year since service — service or replace'};
+  if (days >= 335) return {level:'soon', text:'Approaching 1 year — schedule service/replacement'};
+  return {level:'ok', text:'Within the year'};
+}
+function fieldValueText(def, v) {
+  if (!def) return '';
+  if (def.type === 'check') return v ? 'Yes' : '';
+  return (v === undefined || v === null) ? '' : String(v).trim();
+}
+// Small input row for an item's extra field. onChange(value) persists it.
+function makeItemFieldEl(def, saved, onChange) {
+  var wrap = document.createElement('div');
+  wrap.className = 'item-field-row';
+  var lbl = document.createElement('span'); lbl.className = 'item-field-lbl'; lbl.textContent = def.label;
+  var inp = document.createElement('input');
+  var flagEl = null;
+  if (def.type === 'check') {
+    inp.type = 'checkbox'; inp.checked = !!saved;
+    var l2 = document.createElement('label'); l2.className = 'item-field-check';
+    inp.onclick = function(e){ e.stopPropagation(); };
+    inp.onchange = function(){ onChange(inp.checked); };
+    l2.appendChild(inp); l2.appendChild(lbl); wrap.appendChild(l2);
+    return wrap;
+  }
+  inp.type = def.type === 'date' ? 'date' : 'text';
+  inp.className = 'item-field-input';
+  if (def.placeholder) inp.placeholder = def.placeholder;
+  inp.value = saved || '';
+  inp.onclick = function(e){ e.stopPropagation(); };
+  function paintFlag() {
+    if (!def.annual) return;
+    if (!flagEl) { flagEl = document.createElement('span'); flagEl.className = 'item-field-flag'; wrap.appendChild(flagEl); }
+    var f = annualDateFlag(inp.value);
+    flagEl.textContent = f ? f.text : 'Enter the date from the tag';
+    flagEl.className = 'item-field-flag' + (f ? ' ' + f.level : '');
+  }
+  inp.oninput = function(){ onChange(inp.value); paintFlag(); };
+  wrap.appendChild(lbl); wrap.appendChild(inp);
+  paintFlag();
+  return wrap;
+}
+// Every item that carries an extra field, flattened for the submitted record.
+function collectItemFields() {
+  var out = [];
+  var secs = state._sections || [];
+  var push = function(section, text, key) {
+    var def = itemFieldDef(text); if (!def) return;
+    var it = state.items[key] || {};
+    var val = fieldValueText(def, it.field);
+    if (!val) return;
+    var rec = {section: section, text: text, key: key, label: def.label, value: val, status: it.status || ''};
+    if (def.annual) { var f = annualDateFlag(it.field); if (f) rec.flag = f.level; }
+    out.push(rec);
+  };
+  if (state.formType === 'kitchen_inv' || state.formType === 'linen_inv') {
+    secs.forEach(function(sec, si){ (sec.items||[]).forEach(function(t, ii){ push(sec.title, itemLabel(t), si+'_'+ii); }); });
+  } else {
+    collectAllAnswerableItems().forEach(function(x){ push(x.section, x.text, x.key); });
+  }
+  return out;
+}
+
+// ── Jurisdiction (county) — read from property_private/{home}.jurisdiction (admin-
+// managed in Firebase, like lockbox codes). Never guessed from the address: when
+// it's missing the Spring/Fall walkthrough shows a review notice instead of any
+// county-specific item, and the record is saved with jurisdictionMissing:true.
+function normJurisdiction(j) {
+  var t = String(j || '').toLowerCase().replace(/county/g,'').trim();
+  if (!t) return '';
+  if (t.indexOf('placer') === 0) return 'Placer';
+  if (t.indexOf('el dorado') === 0 || t.indexOf('eldorado') === 0) return 'El Dorado';
+  if (t.indexOf('washoe') === 0) return 'Washoe';
+  if (t.indexOf('nevada') === 0) return 'Nevada';
+  if (t.indexOf('douglas') === 0) return 'Douglas';
+  if (t.indexOf('carson') === 0) return 'Carson City';
+  return String(j).trim();
+}
+function jurisdictionSection(prop) {
+  var j = normJurisdiction(prop && prop.jurisdiction);
+  if (!j) return {title:'Jurisdiction Compliance', jurisdictionMissing:true, items:[],
+    notice:'⚠ This home\'s jurisdiction (county) is not on file, so county-specific items (bear bin magnet, sprinkler / fire alarm servicing) are not shown. Flagged for office review — do not guess.'};
+  var items = [];
+  if (j === 'Placer' || j === 'El Dorado') items.push(BEAR_MAGNET_ITEM);
+  if (j === 'Washoe') { items.push(SPRINKLER_ITEM); items.push(FIRE_ALARM_ITEM); }
+  var sec = {title:'Jurisdiction Compliance — ' + j + (j === 'Carson City' ? '' : ' County'), jurisdiction:j, items:items};
+  if (!items.length) sec.notice = 'No county-specific items for ' + j + '. Record anything relevant with "+ Add Item".';
+  return sec;
+}
+
+// ── Living Room / Family Room (Spring & Fall). The starter list below is a
+// PROPOSAL awaiting office approval — until LIVING_ROOM_ITEMS_APPROVED is true the
+// section shows only a note plus "+ Add Item", so nothing becomes a required
+// standard before it's approved.
+var LIVING_ROOM_ITEMS_APPROVED = false;
+var LIVING_ROOM_PROPOSED_ITEMS = [
+  'Sofa / sectional and cushions clean — no stains, tears, or debris under cushions',
+  'Throw pillows and blankets clean and in good condition',
+  'Coffee and side tables in good condition (no scratches or water rings)',
+  'Lamps and overhead lighting working',
+  'Area rug clean and flat; flooring in good condition',
+  'TV, streaming device, and remotes working (this room)',
+  'Games, books, and décor in good condition and organized',
+  'Fireplace screen and tools present (if applicable)'
+];
+function LIVING_ROOM_SECTION() {
+  if (LIVING_ROOM_ITEMS_APPROVED) return {title:'Living Room / Family Room', items: LIVING_ROOM_PROPOSED_ITEMS.slice()};
+  return {title:'Living Room / Family Room', items:[], notice:'Use "+ Add Item" for anything in the living room / family room. (A standard checklist for this room is pending office approval.)'};
+}
+
 function getSections(type, prop) {
   /* ═══ KITCHEN / LINEN INVENTORY ═══ */
   if (type === 'kitchen_inv' || type === 'linen_inv') {
     var kitInv1 = {title:'Kitchen — Dishes & Glassware', items:['Bowls: Large / Soup (min. 1.5x occupancy)','Bowls: Small / Ice Cream','Dinner Plates (min. 1.5x occupancy)','Salad Plates (min. 1.5x occupancy)','Serving Bowls — 3 large sizes','Serving Plates — 3 (one large platter)','Coffee Mugs (min. 1.5x occupancy, matching)','Drinking Glasses — Large (min. 1.5x occupancy)','Drinking Glasses — Small (min. 1.5x occupancy)','Drinking Glasses — Plastic for Hot Tub','Pitcher — Large Water (glass or ceramic)','Wine Glasses (min. 1x occupancy, matching)','Champagne Flutes (optional, check present)']};
-    var kitInv2 = {title:'Kitchen — Silverware & Knives', items:['Spoons — Large (min. 1.5x occupancy)','Spoons — Small (min. 1.5x occupancy)','Forks — Dinner (min. 1.5x occupancy)','Forks — Salad / Dessert (min. 1.5x occupancy)','Knives — Dinner / Butter (min. 1.5x occupancy)','Knives — Steak (min. 1.5x occupancy)','Salad Servers','Serving Fork (flatware)','Serving Spoons (flatware) — min. 3','Paring Knife: 3.5"','Serrated Knife: 5"',"Chef's Knife: 8\"",'Bread Knife: 10"','Shears / Scissors','Knife Sharpener (optional)','Knife Block (optional)']};
+    var kitInv2 = {title:'Kitchen — Silverware & Knives', items:['Spoons — Large (min. 1.5x occupancy)','Spoons — Small (min. 1.5x occupancy)','Forks — Dinner (min. 1.5x occupancy)','Forks — Salad / Dessert (min. 1.5x occupancy)','Knives — Dinner / Butter (min. 1.5x occupancy)','Knives — Steak (min. 1 per person — 1x occupancy)','Salad Servers','Serving Fork (flatware)','Serving Spoons (flatware) — min. 3','Paring Knife: 3.5"','Serrated Knife: 5"',"Chef's Knife: 8\"",'Bread Knife: 10"','Shears / Scissors','Knife Sharpener (optional)','Knife Block (optional)']};
     var kitInv3 = {title:'Kitchen — Pots, Pans & Bakeware', items:['Stock Pot — large, for pasta','Saucepans with lids: 3 sizes (S, M, L)','Skillet / Frying Pan: 12" with lid','Skillet / Frying Pan: 8"','Skillet / Frying Pan: 6"','Colander — Large (metal or plastic)','Colander — Small mesh for straining','Broiler Pan','Baking Sheets — min. 3','Casserole Dishes (Pyrex ideally) — 3 sizes','Cooling Racks — min. 2','Loaf Pan','Measuring Cup — 2-cup glass','Measuring Cups — full set up to 1 cup','Measuring Spoons — full set up to 1 tbsp','Mixing Bowls — 3 varying sizes','Muffin Tin','Pie Pan','Roasting Pan — large','Tupperware Set — glass ideally, 6 sizes']};
-    var kitInv4 = {title:'Kitchen — Utensils & Misc', items:['BBQ Utensils (spatula, fork, tong, brush)','Bottle Opener','Can Opener (electric or manual)','Cooking Fork (14", 2 or 3 prong)','Cutting Boards — min. 2 (in great shape)','Grater — Large (cheese)','Ice Cream Scooper','Meat Thermometer','Pasta Spoon','Rolling Pin','Soup Ladle','Slotted Spoon','Spatula — for baking / scraping bowl','Spatula — for pancake flipping','Tongs (utility or scissor type)','Trivets — min. 2','Turkey Baster','Vegetable Peeler','Vegetable Steamer Basket','Wine Opener','Whisk','Wooden Spoons — min. 3 varying types','Cloth / Wood Placemats (min. 1.5x occupancy)','Cloth Napkins (min. 1.5x occupancy)','Dish Towels — min. 10 matching','Pot Holders — 2 glove & 2 flat','Salt and Pepper Shakers','Sink Drain Stopper']};
-    var kitInv5 = {title:'Kitchen — Small Appliances', items:['Blender','Microwave','Mixer (Hand or Stand)','Pancake Griddle','Toaster / Toaster Oven','Waffle Maker — 4-piece (not 2)','Coffee Maker (note type)','Espresso Machine (note type, if present)','Air Fryer (if present)','Instant Pot / Slow Cooker (if present)','Rice Cooker (if present)','Wine Fridge (note capacity, if present)']};
+    var kitInv4 = {title:'Kitchen — Utensils & Misc', items:['BBQ Utensils (spatula, fork, tong, brush)','Bottle Opener','Can Opener (electric or manual)','Cooking Fork (14", 2 or 3 prong)','Cutting Boards — min. 2 (in great shape)','Grater — Large (cheese)','Ice Cream Scooper','Meat Thermometer','Pasta Spoon','Rolling Pin','Soup Ladle','Slotted Spoon','Spatula — for baking / scraping bowl','Spatula — for pancake flipping','Tongs (utility or scissor type)','Trivets — min. 2','Turkey Baster','Vegetable Peeler','Vegetable Steamer Basket','Wine Opener','Whisk','Wooden Spoons — min. 3 varying types','Cloth / Wood Placemats (min. 1.5x occupancy)','Cloth Napkins (min. 1.5x occupancy)','Dish Towels — min. 10 matching','Pot Holders — 2 glove & 2 flat','Salt and Pepper Shakers','Sink Drain Stopper','Ice Trays','Drawer Organizers']};
+    var kitInv5 = {title:'Kitchen — Small Appliances', items:['Blender','Microwave','Mixer (Hand or Stand)','Pancake Griddle','Toaster / Toaster Oven','Waffle Maker — 4-piece (not 2)','Coffee Maker','Espresso Machine (if present)','Air Fryer (if present)','Instant Pot / Slow Cooker (if present)','Rice Cooker (if present)','Wine Fridge (note capacity, if present)']};
     var linInv1 = {title:'Linen — Sheets & Pillowcases', items:['King Sheet Sets','Queen Sheet Sets','Full / Double Sheet Sets','Twin Sheet Sets','Extra Pillow Cases (King)','Extra Pillow Cases (Queen / Standard)','Mattress Pads / Protectors (King)','Mattress Pads / Protectors (Queen)','Mattress Pads / Protectors (Full)','Mattress Pads / Protectors (Twin)']};
     var linInv2 = {title:'Linen — Blankets & Towels', items:['King Comforters / Duvets','Queen Comforters / Duvets','Full Comforters / Duvets','Twin Comforters / Duvets','Extra Blankets / Throws','Bath Towels (large)','Hand Towels','Washcloths','Pool Towels (if applicable)','Beach Towels (if applicable)','Bath Mats','Dish Towels']};
     if (type === 'kitchen_inv') return [kitInv1, kitInv2, kitInv3, kitInv4, kitInv5];
     // Linen: one section per bedroom + shared section
     var beds = parseInt((state && state.info && state.info.bedrooms) || 3);
-    var bedItems = ['Bed Size (King / Queen / Full / Twin)', 'Sheet Sets (need: 2 per bed)', 'Extra Pillow Cases (need: 2 extra per bed in closet)', 'Mattress Pad / Protector (need: 1 per bed)', 'Comforter / Duvet (need: 1 per bed minimum)', 'Extra Blanket / Throw (need: 1 per bed minimum)'];
+    var bedItems = ['Bed Size (King / Queen / Full / Twin)', 'Sheet Sets (need: 2 per bed)', 'Extra Pillow Cases (need: 2 extra per bed in closet)', 'Mattress Pad / Protector (need: 1 per bed)', 'Comforter / Duvet (need: 1 per bed minimum)', 'Extra Blanket / Throw (need: 1 per bed minimum)', 'Pillows (need: 2 per sleeper on bed + 1 extra per bed in closet)'];
     var linSecs = [];
     for (var b = 1; b <= beds; b++) { linSecs.push({title:'Bedroom ' + b, items:bedItems.slice()}); }
     linSecs.push({title:'Shared — Towels & Common Areas', items:['Bath Towels (need: 2 per person)','Hand Towels (need: 2 per person)','Washcloths (need: 2 per person)','Bath Mats (need: 1 per sink + 1 per shower/tub)','Pool / Beach Towels (need: 1 per person, matching)','Dish Towels (need: min. 10 matching)','Spare Blanket (need: 1 per bedroom closet minimum)','Throw Blankets (sufficient quantity)','Decorative Pillows (need: min. 2 per bed)','Pillow Shams (need: min. 2 per bed)']});
@@ -2049,135 +2237,10 @@ function getSections(type, prop) {
      matching every other inspection type's supply-section routing. ── */
   var supplyInv = {title:'Supply Inventory', isSupply:true, items: SUPPLY_LIST.slice()};
 
-  /* ── SHARED: Kitchen Inventory ── */
-  var kitchenDishes = {title:'Kitchen Inventory — Dishes & Glassware', items:[
-    'Bowls: Large / Soup (1.5 per person min.)',
-    'Bowls: Small / Ice Cream',
-    'Dinner Plates (1.5 per person min.)',
-    'Salad Plates (1.5 per person min.)',
-    'Serving Bowls — 3 large sizes',
-    'Serving Plates — 3 (one large platter)',
-    'Coffee Mugs (1.5 per person, matching)',
-    'Drinking Glasses — Large (1.5 per person)',
-    'Drinking Glasses — Small (1.5 per person)',
-    'Drinking Glasses — Plastic for Hot Tub',
-    'Pitcher — Large Water (glass or ceramic)',
-    'Wine Glasses (1 per person, matching)',
-    'Champagne Flutes (optional, check present)'
-  ]};
-
-  var kitchenSilver = {title:'Kitchen Inventory — Silverware & Knives', items:[
-    'Spoons — Large (1.5 per person)',
-    'Spoons — Small (1.5 per person)',
-    'Forks — Dinner (1.5 per person)',
-    'Forks — Salad / Dessert (1.5 per person)',
-    'Knives — Dinner / Butter (1.5 per person)',
-    'Knives — Steak (1.5 per person)',
-    'Salad Servers',
-    'Serving Fork (flatware)',
-    'Serving Spoons (flatware) — 3',
-    'Paring Knife: 3.5"',
-    'Serrated Knife: 5"',
-    "Chef's Knife: 8\"",
-    'Bread Knife: 10"',
-    'Shears / Scissors',
-    'Knife Sharpener (optional)',
-    'Knife Block (optional)'
-  ]};
-
-  var kitchenPots = {title:'Kitchen Inventory — Pots, Pans & Bakeware', items:[
-    'Stock Pot — large, for pasta',
-    'Saucepans with lids: 3 sizes (S, M, L)',
-    'Skillet / Frying Pan: 12" with lid',
-    'Skillet / Frying Pan: 8"',
-    'Skillet / Frying Pan: 6"',
-    'Colander — Large (metal or plastic)',
-    'Colander — Small mesh for straining',
-    'Broiler Pan',
-    'Baking Sheets — 3',
-    'Casserole Dishes (Pyrex ideally) — 3 sizes',
-    'Cooling Racks — 2',
-    'Loaf Pan',
-    'Measuring Cup — 2-cup glass',
-    'Measuring Cups — full set up to 1 cup',
-    'Measuring Spoons — full set up to 1 tbsp',
-    'Mixing Bowls — 3 varying sizes',
-    'Muffin Tin',
-    'Pie Pan',
-    'Roasting Pan — large',
-    'Tupperware Set — glass ideally, 6 sizes'
-  ]};
-
-  var kitchenUtensils = {title:'Kitchen Inventory — Utensils & Misc', items:[
-    'BBQ Utensils (spatula, fork, tong, brush)',
-    'Bottle Opener',
-    'Can Opener (electric or manual)',
-    'Cooking Fork (14", 2 or 3 prong)',
-    'Cutting Boards — 2 (in great shape)',
-    'Grater — Large (cheese)',
-    'Ice Cream Scooper',
-    'Meat Thermometer',
-    'Pasta Spoon',
-    'Rolling Pin',
-    'Soup Ladle',
-    'Slotted Spoon',
-    'Spatula — for baking / scraping bowl',
-    'Spatula — for pancake flipping',
-    'Tongs (utility or scissor type)',
-    'Trivets — 2',
-    'Turkey Baster',
-    'Vegetable Peeler',
-    'Vegetable Steamer Basket',
-    'Wine Opener',
-    'Whisk',
-    'Wooden Spoons — 3 varying types',
-    'Cloth / Wood Placemats (1.5 per person)',
-    'Cloth Napkins (1.5 per person)',
-    'Dish Towels — 10 matching',
-    'Fire Extinguisher (checked, in date)',
-    'Ice Trays',
-    'Matches or Wand Lighter',
-    'Paper Towel Holder',
-    'Pot Holders — 2 glove & 2 flat',
-    'Salt and Pepper Shakers',
-    'Sink Drain Stopper',
-    'Toothpicks'
-  ]};
-
-  var kitchenAppliances = {title:'Kitchen Inventory — Small Appliances', items:[
-    'Blender',
-    'Microwave',
-    'Mixer (Hand or Stand)',
-    'Pancake Griddle',
-    'Toaster / Toaster Oven',
-    'Waffle Maker — 4-piece (not 2)'
-  ]};
-
-  /* ── SHARED: Linen Inventory ── */
-  var linenSheets = {title:'Linen Inventory — Sheets & Pillows', items:[
-    'Twin Sheets: 2 sets per bed (fitted + flat)',
-    'Full Sheets: 2 sets per bed',
-    'Queen Sheets: 2 sets per bed',
-    'King Sheets: 2 sets per bed',
-    'Cal King Sheets: 2 sets per bed',
-    'Standard Pillows: 2 per sleeper on bed + 1 extra per bed in closet (with case)',
-    'King Pillows: 2 per sleeper on bed + 1 extra per bed in closet (with case)',
-    'Decorative Insert Pillows: min. 2 per bed',
-    'Shams: min. 2 per bed'
-  ]};
-
-  var linenBlankets = {title:'Linen Inventory — Blankets & Towels', items:[
-    'Spare Blanket: 1 per closet minimum',
-    'Throw Blankets: sufficient quantity',
-    'Comforter or Duvet Insert: 1 per bed minimum',
-    'Duvet Covers: 1 per bed (if duvet inserts used)',
-    'Bath Towels: 2 per person',
-    'Hand Towels: 2 per person',
-    'Wash Cloths: 2 per person',
-    'Black Makeup Towels (recommended)',
-    'Bath Mats: 1 per sink + 1 per shower/tub',
-    'Hot Tub / Beach Towels: 1 per person, matching'
-  ]};
+  /* (2026-11-10) The unused shared "Kitchen Inventory — …" / "Linen Inventory — …"
+     section blocks that used to sit here were never referenced by any template and
+     were removed so there is only one kitchen/linen inventory list (the kitInv, linInv and
+     bedItems lists above). ── */
 
   /* ═══════════════════════════════════════════════════════════
      SPRING INSPECTION
@@ -2190,10 +2253,10 @@ function getSections(type, prop) {
       'Hidden key location confirmed',
       'Battery change — all smoke / CO alarms scheduled',
       'Carpet cleaning scheduled',
-      'Seasonal deep clean scheduled',
+      'Seasonal Target Clean scheduled',
       'Patio furniture scheduled',
       'Window cleaning scheduled',
-      'Yard clean-up scheduled',
+      'Yard/DS Prep',
       'Large appliance annual check-up scheduled',
       'Buoy inspection scheduled (if applicable)'
     ]},
@@ -2205,12 +2268,12 @@ function getSections(type, prop) {
       'Cameras noted (quantity and location)',
       'Does the front door mat need to be replaced?',
       'Snow poles removed for season',
-      'Yard clean up scheduled— pine needles, cones, debris removed',
+      'Yard/DS Prep',
       'Do the eaves need to be cleaned',
       'Exterior condition of house & decks — staining / paint / power wash needed?',
       'Ice bucket, melt, and shovels stored away',
       'Screens installed and in good condition',
-      'Is the Bear Bin in good condtion, does it need to be cleaned, new cans needed?',
+      'Is the Bear Bin in good condition, does it need to be cleaned, new cans needed?',
       'Buoy inspection scheduled (if applicable)',
       'Dock depth checked (if applicable)- note in check',
       'All game / rec equipment in good working order',
@@ -2228,7 +2291,7 @@ function getSections(type, prop) {
       'All blinds in good working order',
       'Gas fireplace functional + hatch dust build up removed — remotes present and working',
       'Wood burning fireplace — charged fire extinguisher nearby + fire starter present',
-      'Carbon monoxide alarms present and functioning throughout house',
+      'CO & Smoke Detectors',
       'Furnace filters checked (replaced / cleaned as needed)',
       'All lights, lamps, outlets tested- replace or order bulbs as needed',
       'Picture frames straight',
@@ -2236,10 +2299,12 @@ function getSections(type, prop) {
       'Stereo equipment present with printed instructions',
       'Music playback working in all appropriate rooms',
       'All TVs working /streaming devicess working + remotes present',
-      'Confirm the location and inventory of the emergency kit- try to keep in master bedroom closet',
+      'Confirm the location and inventory of the emergency kit- try to keep in primary bedroom closet (if it is kept elsewhere, note the location)',
       'Garage clean and organized',
-      'Guest bikes, SUPs, watercraft, beach chairs documented in Track (if applicable)'
+      'Guest bikes, SUPs, watercraft, beach chairs documented in Track (if applicable)',
+      'Fire extinguisher — location noted + service date checked (flag for service/replacement as it nears 1 year); service/replacement documented in Track; receipt on file'
     ]},
+    LIVING_ROOM_SECTION(),
     {title:'Kitchen', items:[
       'Kitchen meets inventory requirements',
       'Drawers and cabinets organized',
@@ -2257,8 +2322,7 @@ function getSections(type, prop) {
       'All drains cleaned (bathtubs, sinks, etc.)',
       'Ice maker producing ice (or ample ice trays present)',
       'Sink caulking in good condition',
-      'Grout clean (if counter tile)',
-      'Fire extinguisher location and service date noted'
+      'Grout clean (if counter tile)'
     ], kitchenExtra:true},
     {title:'Bedrooms', items: SPRING_BEDROOM_ITEMS, dynamic:'bedroom'},
     {title:'Bathrooms', items: SPRING_BATHROOM_ITEMS, dynamic:'bathroom'},
@@ -2268,6 +2332,7 @@ function getSections(type, prop) {
       'Hot tub towels in good shape and sufficient (1 per person, matching)'
     ]},
     supplyInv,
+    jurisdictionSection(prop),
     {title:'Final Steps', items:[
       'All damages, repairs, or work to be done noted and photographed',
       'Damage report submitted to TLUXP office',
@@ -2289,7 +2354,7 @@ function getSections(type, prop) {
       'Hidden key location confirmed',
       'Battery change — all smoke / CO alarms scheduled',
       'Carpet cleaning scheduled',
-      'Seasonal deep clean scheduled',
+      'Seasonal Target Clean scheduled',
       'Patio furniture scheduled',
       'Window cleaning scheduled',
       'Has the landscaping and exterior been winterized (landscaping wrapped, irrigation off, etc.)?',
@@ -2308,10 +2373,9 @@ function getSections(type, prop) {
       'Do the eaves need to be cleaned',
       'Exterior condition of house & decks — staining / paint / power wash needed?',
       'Ice bucket, melt, and 2 shovels placed out',
-      'Screens removed/ in condition (if applicable)',
-      'Is the Bear Bin in good condtion, does it need to be cleaned, new cans needed?',
+      'Is the Bear Bin in good condition, does it need to be cleaned, new cans needed?',
       'All game / rec equipment in good working order and placed away',
-      'Patio furniture & umbrella placed away for season',
+      'Patio furniture & umbrella placed away for season — Scheduled?',
       'BBQ in good condition (no rust, all burners work) + Cover + 2 propane tanks present, or natural gas confirmed working (as applicable to this property)'
     ]},
     {title:'Interior Items', items:[
@@ -2324,16 +2388,19 @@ function getSections(type, prop) {
       'All blinds in good working order',
       'Gas fireplace functional + hatch dust build up removed — remotes present and working',
       'Wood burning fireplace — stock wood + fire starter present',
+      'CO & Smoke Detectors',
       'Furnace filters checked (replaced / cleaned as needed)',
       'All lights, lamps, outlets tested- replace or order bulbs as needed',
       'Picture frames straight',
       'Photo book present for cleaners. Does it need updating?',
       'Stereo equipment present with printed instructions',
-      'Confirm the location and inventory of the emergency kit- try to keep in master bedroom closet',
+      'Confirm the location and inventory of the emergency kit- try to keep in primary bedroom closet — note the location in Track',
       'Garage clean and organized',
       'Guest bikes, SUPs, watercraft, beach chairs documented in Track (if applicable) and put away',
-      'All drains cleaned (bathtubs, sinks, etc.)'
+      'All drains cleaned (bathtubs, sinks, etc.)',
+      'Fire extinguisher — location noted + service date checked (flag for service/replacement as it nears 1 year); service/replacement documented in Track; receipt on file'
     ]},
+    LIVING_ROOM_SECTION(),
     {title:'Kitchen', items:[
       'Drawers and cabinets organized (photos taken)',
       'Salt and pepper refilled',
@@ -2344,7 +2411,6 @@ function getSections(type, prop) {
       'Ice maker producing ice (or ice trays present)',
       'Sink caulking in good condition',
       'Grout clean (if counter tile)',
-      'Fire extinguisher location and service date noted',
       'Supplies present (foil, saran wrap, baggies)',
       'Small appliances in good condition and tested',
       'Pots and pans in good shape',
@@ -2360,6 +2426,7 @@ function getSections(type, prop) {
       'Hot tub towels in good shape and sufficient (1 per person, matching)'
     ]},
     supplyInv,
+    jurisdictionSection(prop),
     {title:'Final Steps', items:[
       'All damages, repairs, or work to be done noted and photographed',
       'Damage report submitted to TLUXP office',
@@ -2375,6 +2442,9 @@ function getSections(type, prop) {
      CHECK IN — SUMMER
   ═══════════════════════════════════════════════════════════ */
   if (type === 'checkin_summer') return [
+    {title:'Before Heading Out', items:[
+      'Check the home file before heading to the home.'
+    ]},
     {title:'Exterior', items:[
       'Check Bear Bin + Call if Trash Pick up is needed',
       'Blow Off all decks',
@@ -2461,7 +2531,7 @@ function getSections(type, prop) {
       'Speed Test performed + enter speed picture',
       'TLUXP welcome station set up: pad, pen RE flyer',
       'HOA passes present + Garage door remote(s)',
-      'Heat set to 55°F, A/C set to 70°F',
+      'Heat set to 55°F',
       'Bear Bin Note present',
       'Under couch and cushions checked for debris',
       'Game Tables are in good condtion: double check for all cues, paddles balls',
@@ -2741,7 +2811,12 @@ function getSections(type, prop) {
      Check and a Check-Out draft) never share object references.
   ═══════════════════════════════════════════════════════════ */
   if (type === 'qc_check') {
-    return JSON.parse(JSON.stringify(getSections('checkout_summer', prop)));
+    var qcSecs = JSON.parse(JSON.stringify(getSections('checkout_summer', prop)));
+    // 2026-11-10: QC #16 temperature instruction (QC only — Check-Out keeps its own wording).
+    qcSecs.forEach(function(sec){ sec.items = sec.items.map(function(it){
+      return it === 'Did you set heat temp to 55°F, A/C to 82°F?' ? 'Temperature set for the active system/season: 55°F heat (heating season) or 82°F A/C (cooling season)' : it;
+    }); });
+    return qcSecs;
   }
 
 
@@ -2788,7 +2863,8 @@ function getSections(type, prop) {
       'Did you lock ALL windows?',
       'Did you turn ALL lights off? (not for B2Bs)',
       'Did you set the alarm (if active)? (not for B2Bs)',
-      'Teams Chat updated, reservation notes added, HSK grid updated'
+      'Teams Chat updated, reservation notes added, HSK grid updated',
+      'Turn on bear wires/mats, if applicable.'
     ]},
     {title:'Supply Check', isSupply:true, items:[
       'Toilet Paper (Charmin preferred)',
@@ -2863,7 +2939,8 @@ function getSections(type, prop) {
       'Did you lock ALL windows?',
       'Did you turn ALL lights off? (not for B2Bs)',
       'Did you set the alarm (if active)? (not for B2Bs)',
-      'Teams Chat updated, reservation notes added, HSK grid updated'
+      'Teams Chat updated, reservation notes added, HSK grid updated',
+      'Turn on bear wires/mats, if applicable.'
     ]},
     {title:'Supply Check', isSupply:true, items:[
       'Toilet Paper (Charmin preferred)',
@@ -3027,7 +3104,7 @@ var SUPPLY_LIST = [
   'Paper Towels — Bounty preferred',
   'Kleenex — square box in cover',
   'Kitchen Bags 13 gal — unscented',
-  'Small Trash Bags — for bathrooms',
+  'Small Trash Bags (4 gal) — for bathrooms',
   'Large Black Contractor Bags',
   'Blue Sponges — individually wrapped (no green)',
   'Hand Soap Refill — clear/unscented',
@@ -3059,7 +3136,9 @@ var SUPPLY_LIST = [
   'Heater Air Filters — current sizes read and replaced if needed',
   'Ice Melt and Scoop in bucket',
   'Propane Spare Tank — if applicable',
-  'Wastebasket Bags 4 gal'
+  'Broom and dustpan',
+  'Vacuum (main floor-cleaning equipment — do not re-count the broom above)',
+  'Iron and ironing board'
 ];
 
 function getPhotosPayload() {
@@ -3206,6 +3285,10 @@ function loadOpenPropertyIssues(propertyName) {
     // duplicate checks elsewhere in this file.
     var open = snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); })
       .filter(function(x) { return x.status !== 'resolved' && x.status !== 'dismissed'; })
+      // 2026-11-10: supply needs live only in Supply Inventory — never in this
+      // open-issues box (records created before the 2026-09-28 routing change,
+      // e.g. Holly Hideaway's Supply Check items, were still showing here).
+      .filter(function(x) { if (x.isSupply) return false; var sec = String(x.section || '').trim(); return !/^Supply (Check|Inventory)( — Additional Item)?$/.test(sec); })
       .sort(function(a, b) { return (a.reportedAt || '').localeCompare(b.reportedAt || ''); });
     if (!open.length) return;
     var html = '<div class="prop-open-issues-hdr">&#9888;&#65039; ' + open.length + ' open follow-up issue' + (open.length !== 1 ? 's' : '') + ' at this property</div>';
@@ -3414,6 +3497,145 @@ function compressPhotoDataUrl(rawDataUrl, callback) {
   }
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Draft photos upload on capture (2026-11-10, rebuilds the 2026-11-05 design)
+// ═══════════════════════════════════════════════════════════════════════════
+// Why: the Ahwahnee fall walkthrough (Pat Hall, 11/5–11/6) lost ~8 of ~10 photos.
+// Photos used to live inside the draft as embedded images until final submit; when
+// the device's small per-site storage filled AND the cloud draft passed Firestore's
+// 1MB document limit, photos existed only in the open page's memory, so reopening
+// the draft the next day dropped them. Now every photo is uploaded to Firebase
+// Storage as soon as it's taken (inspections/insp_<draftId>/draft_<ts>_<rand>.jpg);
+// once uploaded, the draft keeps only the short link. Photos that can't upload yet
+// (offline, error) stay embedded — never discarded — and are retried on every
+// save, on reconnect, and when the draft is reopened. Each thumbnail shows its own
+// status (uploading / saved / failed — tap to retry), and a status bar shows the
+// totals, so inspectors can tell whether photos actually saved.
+var _photoUp = {};          // token -> 'uploading' | 'failed' | 'done'
+var _photoUpDataByToken = {};
+var _photoUpRetryAt = {};
+function isEmbeddedPhoto(src) { return typeof src === 'string' && src.indexOf('data:') === 0; }
+function photoToken(src) {
+  if (typeof src !== 'string') return '';
+  var h = 0, n = src.length, step = Math.max(1, Math.floor(n / 4000));
+  for (var i = 0; i < n; i += step) { h = ((h << 5) - h + src.charCodeAt(i)) | 0; }
+  return 'p' + n + '_' + (h >>> 0).toString(36);
+}
+function forEachDraftPhotoRef(st, fn) {
+  // fn(src, setter) for every photo slot in a state/draft object
+  Object.keys(st.items || {}).forEach(function(k){
+    var it = st.items[k]; if (!it || !it.photos) return;
+    it.photos.forEach(function(src, i){ fn(src, function(v){ it.photos[i] = v; }); });
+  });
+  Object.keys(st.photos || {}).forEach(function(k){ var src = st.photos[k]; if (src) fn(src, function(v){ st.photos[k] = v; }); });
+  (st.maintenanceNotesPhotos || []).forEach(function(src, i){ fn(src, function(v){ st.maintenanceNotesPhotos[i] = v; }); });
+}
+function replaceDraftPhoto(st, oldSrc, newUrl) {
+  var n = 0;
+  forEachDraftPhotoRef(st, function(src, set){ if (src === oldSrc) { set(newUrl); n++; } });
+  return n;
+}
+function countPendingDraftPhotos() {
+  var up = 0, failed = 0;
+  forEachDraftPhotoRef(state, function(src){
+    if (!isEmbeddedPhoto(src)) return;
+    if (_photoUp[photoToken(src)] === 'failed') failed++; else up++;
+  });
+  return {uploading: up, failed: failed};
+}
+function paintPhotoBadges(token) {
+  var stt = _photoUp[token];
+  document.querySelectorAll('.photo-up-badge[data-token="' + token + '"]').forEach(function(b){
+    b.className = 'photo-up-badge ' + (stt || 'uploading');
+    b.textContent = stt === 'done' ? '✓' : stt === 'failed' ? '!' : '↑';
+    b.title = stt === 'done' ? 'Photo saved' : stt === 'failed' ? 'Upload failed — tap to retry' : 'Uploading…';
+  });
+}
+function renderPhotoUploadStatus() {
+  var el = document.getElementById('photoUploadStatus'); if (!el) return;
+  var c = countPendingDraftPhotos();
+  if (!c.uploading && !c.failed) {
+    if (el.style.display !== 'none' && el.className.indexOf('done') === -1 && el.dataset.hadPending === '1') {
+      el.className = 'photo-upload-status done'; el.textContent = '✓ All photos saved to the cloud';
+      el.dataset.hadPending = '0';
+      clearTimeout(renderPhotoUploadStatus._t);
+      renderPhotoUploadStatus._t = setTimeout(function(){ el.style.display = 'none'; }, 4000);
+    } else if (el.className.indexOf('done') === -1) { el.style.display = 'none'; }
+    return;
+  }
+  clearTimeout(renderPhotoUploadStatus._t);
+  el.dataset.hadPending = '1';
+  el.style.display = 'flex';
+  if (c.failed) {
+    el.className = 'photo-upload-status failed';
+    el.innerHTML = '⚠ ' + c.failed + ' photo' + (c.failed !== 1 ? 's' : '') + ' not uploaded yet' + (c.uploading ? ' · ' + c.uploading + ' uploading…' : '') + ' — kept on this device. <button type="button" onclick="retryFailedDraftPhotos()">Retry now</button>';
+  } else {
+    el.className = 'photo-upload-status uploading';
+    el.textContent = '↑ Uploading ' + c.uploading + ' photo' + (c.uploading !== 1 ? 's' : '') + '… keep the app open until this finishes';
+  }
+}
+function uploadDraftPhoto(src) {
+  var token = photoToken(src);
+  if (_photoUp[token] === 'uploading' || _photoUp[token] === 'done') return;
+  if (!storage || !currentUser) { _photoUp[token] = 'failed'; paintPhotoBadges(token); renderPhotoUploadStatus(); return; }
+  var draftId = state.draftId;
+  _photoUp[token] = 'uploading'; _photoUpDataByToken[token] = src;
+  paintPhotoBadges(token); renderPhotoUploadStatus();
+  var isPng = src.indexOf('image/png') >= 0;
+  var path = 'inspections/insp_' + draftId + '/draft_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + (isPng ? '.png' : '.jpg');
+  var ref = storage.ref(path);
+  ref.putString(src, 'data_url').then(function(){ return ref.getDownloadURL(); }).then(function(url){
+    _photoUp[token] = 'done'; delete _photoUpDataByToken[token];
+    if (state.draftId === draftId && replaceDraftPhoto(state, src, url)) {
+      // swap the thumbnail's own src so a later tap opens the cloud copy
+      document.querySelectorAll('.photo-up-badge[data-token="' + token + '"]').forEach(function(b){
+        var img = b.parentNode && b.parentNode.querySelector('img'); if (img) img.src = url;
+      });
+      saveDraftSilent();
+    } else {
+      // The inspector left this draft before the upload finished: patch the copy
+      // saved on this device (and its cloud copy) so the link isn't lost.
+      var drafts = getDrafts(), d = drafts[draftId];
+      if (d && replaceDraftPhoto(d, src, url)) {
+        try { localStorage.setItem('tlp_drafts', JSON.stringify(drafts)); } catch (e) {}
+        if (db && currentUser) db.collection('drafts').doc(currentUser.id + '_' + draftId).set(d).catch(function(){});
+      }
+    }
+    paintPhotoBadges(token); renderPhotoUploadStatus();
+  }).catch(function(e){
+    console.warn('[PHOTO] draft photo upload failed — will retry', e && (e.code || e.message));
+    _photoUp[token] = 'failed'; _photoUpRetryAt[token] = Date.now();
+    paintPhotoBadges(token); renderPhotoUploadStatus();
+  });
+}
+// Uploads every photo in the open draft that is still embedded. Failed ones are
+// retried at most every 20s automatically (or immediately via "Retry now").
+function uploadPendingDraftPhotos(force) {
+  if (!state || !state.formType) return;
+  var seen = {};
+  forEachDraftPhotoRef(state, function(src){
+    if (!isEmbeddedPhoto(src)) return;
+    var t = photoToken(src); if (seen[t]) return; seen[t] = 1;
+    if (_photoUp[t] === 'failed' && !force && Date.now() - (_photoUpRetryAt[t] || 0) < 20000) return;
+    if (_photoUp[t] === 'failed' || _photoUp[t] === 'done') delete _photoUp[t];
+    uploadDraftPhoto(src);
+  });
+  renderPhotoUploadStatus();
+}
+function retryFailedDraftPhotos() { uploadPendingDraftPhotos(true); }
+window.addEventListener('online', function(){ uploadPendingDraftPhotos(true); });
+function makePhotoBadge(src) {
+  var b = document.createElement('span');
+  b.className = 'photo-up-badge';
+  var token = photoToken(src);
+  if (!isEmbeddedPhoto(src)) { b.className = 'photo-up-badge done'; b.textContent = '✓'; b.title = 'Photo saved'; b.style.display = 'none'; return b; }
+  b.dataset.token = token;
+  b.onclick = function(e){ e.stopPropagation(); if (_photoUp[token] === 'failed') retryFailedDraftPhotos(); };
+  setTimeout(function(){ paintPhotoBadges(token); }, 0);
+  return b;
+}
+
 // Optional per-item comment for Kitchen and Linen Inventory (2026-10-13). Stored on
 // state.items[key].comment, so it rides along with every draft save/reopen
 // (state.items is already persisted whole by saveDraftSilent/loadDraft) and is
@@ -3456,8 +3678,9 @@ function makePhotoBtn(key) {
     takeBtn.classList.add('has-photo');
     uploadBtn.classList.add('has-photo');
     var tw = document.getElementById('photo-thumb-' + key);
-    if (tw) { tw.style.display = ''; tw.innerHTML = ''; var img = document.createElement('img'); img.src = dataUrl; img.onclick=function(){window.open(dataUrl,'_blank');}; tw.appendChild(img); }
+    if (tw) { tw.style.display = ''; tw.innerHTML = ''; var pw = document.createElement('span'); pw.className = 'photo-thumb-wrap'; var img = document.createElement('img'); img.src = dataUrl; img.onclick=function(){window.open(img.src,'_blank');}; pw.appendChild(img); pw.appendChild(makePhotoBadge(dataUrl)); tw.appendChild(pw); }
     saveDraftSilent();
+    uploadDraftPhoto(dataUrl);
   }
   function makeHiddenInput(captureVal) {
     var inp = document.createElement('input');
@@ -3585,7 +3808,8 @@ function handleMaintNotesPhoto(e) {
       state.maintenanceNotesPhotos.push(src);
       var pr = document.getElementById('maintNotesPhotoRow');
       if (pr) addPhotoThumb(pr, src, 'maintNotesPhoto', state.maintenanceNotesPhotos.length-1);
-      saveDraftSilent(); showToast('Photo added');
+      saveDraftSilent(); showToast('Photo added — uploading…');
+      uploadDraftPhoto(src);
     });
   };
   reader.onerror = function() { showToast('⚠️ Photo could not be processed — please try again.', 5000); };
@@ -3603,7 +3827,7 @@ function handleMaintNotesPhoto(e) {
 function itemLabel(it) { return typeof it === 'string' ? it : it.text; }
 function itemHasQty(it) { return typeof it === 'object' && it !== null && !!it.qty; }
 
-function buildStandardItemRow(container, key, displayText, si, hasQty) {
+function buildStandardItemRow(container, key, displayText, si, hasQty, rawText) {
   var saved = state.items[key] || {};
   var row = document.createElement('div');
   row.className = 'item-row' + (saved.status ? ' ' + saved.status + '-row' : '');
@@ -3655,6 +3879,13 @@ function buildStandardItemRow(container, key, displayText, si, hasQty) {
   expandBtn.onclick = (function(k){return function(){toggleExtras(k);};})(key);
   main.appendChild(btns); main.appendChild(expandBtn);
   row.appendChild(main);
+  var _fdef = rawText ? itemFieldDef(rawText) : null;
+  if (_fdef) {
+    row.appendChild(makeItemFieldEl(_fdef, saved.field, function(v){
+      if (!state.items[key]) state.items[key] = {};
+      state.items[key].field = v; saveDraftSilent();
+    }));
+  }
   var extras = document.createElement('div');
   extras.className = 'item-extras';
   extras.id = 'extras-' + key;
@@ -3772,7 +4003,7 @@ function renderRoomInstances(block, section, si) {
     instWrap.appendChild(nameRow);
     section.items.forEach(function(itemText, ii) {
       var key = prefix + idx + '_' + ii;
-      buildStandardItemRow(instWrap, key, (ii+1) + '. ' + itemText, si);
+      buildStandardItemRow(instWrap, key, (ii+1) + '. ' + itemText, si, false, itemText);
     });
     block.appendChild(instWrap);
   });
@@ -3970,6 +4201,12 @@ function buildChecklist() {
     head.title = 'Tap to show/hide completed items in this section';
     head.onclick = (function(blk){ return function(){ blk.classList.toggle('force-show'); }; })(block);
     block.appendChild(head);
+    if (section.notice) {
+      var _note = document.createElement('div');
+      _note.className = 'section-notice' + (section.jurisdictionMissing ? ' warn' : '');
+      _note.textContent = section.notice;
+      block.appendChild(_note);
+    }
     if (section.isSupply) {
       var selAllWrap = document.createElement('label');
       selAllWrap.className = 'select-all-supplies';
@@ -4019,8 +4256,10 @@ function buildChecklist() {
         itemRow.appendChild(twoCol);
         itemRow.appendChild(makePhotoBtn(key));
         row.appendChild(itemRow);
+        var _kdef = itemFieldDef(itemText);
+        if (_kdef) row.appendChild(makeItemFieldEl(_kdef, saved.field, (function(kk){ return function(v){ if(!state.items[kk])state.items[kk]={}; state.items[kk].field=v; saveDraftSilent(); }; })(key)));
         var kitThumb = document.createElement('div'); kitThumb.className = 'inv-thumb'; kitThumb.id = 'photo-thumb-'+key; kitThumb.style.display=(state.photos&&state.photos[key]?'':'none');
-        if (state.photos&&state.photos[key]){var kt=document.createElement('img');kt.src=state.photos[key];kt.onclick=function(){window.open(state.photos[key],'_blank');};kitThumb.appendChild(kt);}
+        if (state.photos&&state.photos[key]){var kpw=document.createElement('span');kpw.className='photo-thumb-wrap';var kt=document.createElement('img');kt.src=state.photos[key];kt.onclick=function(){window.open(kt.src,'_blank');};kpw.appendChild(kt);kpw.appendChild(makePhotoBadge(state.photos[key]));kitThumb.appendChild(kpw);}
         row.appendChild(kitThumb);
         row.appendChild(makeInvCommentField(key));
         block.appendChild(row);
@@ -4056,14 +4295,16 @@ function buildChecklist() {
         }
         itemRow.appendChild(makePhotoBtn(key));
         row.appendChild(itemRow);
+        var _ldef = itemFieldDef(itemText);
+        if (_ldef) row.appendChild(makeItemFieldEl(_ldef, saved.field, (function(kk){ return function(v){ if(!state.items[kk])state.items[kk]={}; state.items[kk].field=v; saveDraftSilent(); }; })(key)));
         var linThumb = document.createElement('div'); linThumb.className = 'inv-thumb'; linThumb.id = 'photo-thumb-'+key; linThumb.style.display=(state.photos&&state.photos[key]?'':'none');
-        if (state.photos&&state.photos[key]){var lt=document.createElement('img');lt.src=state.photos[key];lt.onclick=function(){window.open(state.photos[key],'_blank');};linThumb.appendChild(lt);}
+        if (state.photos&&state.photos[key]){var lpw=document.createElement('span');lpw.className='photo-thumb-wrap';var lt=document.createElement('img');lt.src=state.photos[key];lt.onclick=function(){window.open(lt.src,'_blank');};lpw.appendChild(lt);lpw.appendChild(makePhotoBadge(state.photos[key]));linThumb.appendChild(lpw);}
         row.appendChild(linThumb);
         row.appendChild(makeInvCommentField(key));
         block.appendChild(row);
         return;
       }
-      buildStandardItemRow(block, key, numberedText, si, itemHasQty(itemText));
+      buildStandardItemRow(block, key, numberedText, si, itemHasQty(itemText), itemLabel(itemText));
     });
     // Universal "+ Add Item" — every category of every inspection type gets
     // it, except Kitchen/Linen Inventory (which has its own Current/Needed
@@ -4258,7 +4499,8 @@ function handlePhoto(e, key) {
       addPhotoThumb(pr, src, key, state.items[key].photos.length-1);
       var exp = document.getElementById('expand-'+key);
       if (exp) exp.classList.add('has-notes');
-      saveDraftSilent(); showToast('Photo added');
+      saveDraftSilent(); showToast('Photo added — uploading…');
+      uploadDraftPhoto(src);
     });
   };
   reader.onerror = function() { showToast('⚠️ Photo could not be processed — please try again.', 5000); };
@@ -4266,10 +4508,12 @@ function handlePhoto(e, key) {
 }
 
 function addPhotoThumb(container, src, key, idx) {
+  var wrap = document.createElement('span'); wrap.className = 'photo-thumb-wrap';
   var img = document.createElement('img');
   img.src = src; img.className = 'photo-thumb';
-  img.onclick = function(){openModal('Photo',src);};
-  container.insertBefore(img, container.querySelector('.photo-add'));
+  img.onclick = function(){openModal('Photo',img.src);};
+  wrap.appendChild(img); wrap.appendChild(makePhotoBadge(src));
+  container.insertBefore(wrap, container.querySelector('.photo-add'));
 }
 
 // Flattens EVERY answerable item in this inspection into one list — normal
@@ -4505,6 +4749,7 @@ function emailReport(onSuccess) {
           var cur2 = (itm2.value !== undefined && itm2.value !== '') ? itm2.value : '—';
           var ned2 = (itm2.needed !== undefined && itm2.needed !== '') ? itm2.needed : '—';
           body += '  ' + it + ': ' + cur2 + ' (current)  /  ' + ned2 + ' (needed)\n';
+          var _ef = itemFieldDef(it), _efv = fieldValueText(_ef, itm2.field); if (_efv) body += '      ' + _ef.label + ': ' + _efv + '\n';
           if (itm2.comment && itm2.comment.trim()) body += '      Comment: ' + itm2.comment.trim() + '\n';
           var nn2 = parseFloat(itm2.needed)||0;
           if (state.formType==='linen_inv' && nn2>0) { linNeedMap[it]=(linNeedMap[it]||0)+nn2; }
@@ -4596,6 +4841,9 @@ function emailReport(onSuccess) {
     });
     if ((state.formType==='checkout_summer'||state.formType==='checkout_winter')&&totalCharge>0) body+='\n'+div+'\nTOTAL ESTIMATED DAMAGE CHARGES: $'+totalCharge.toFixed(2)+'\n';
   }
+  var _flds = collectItemFields();
+  if (_flds.length) { body+='\nRECORDED DETAILS\n'; _flds.forEach(function(f){ body+='  - '+f.text+'\n    '+f.label+': '+f.value+(f.flag==='over'?'  (OVER 1 YEAR)':f.flag==='soon'?'  (APPROACHING 1 YEAR)':'')+'\n'; }); }
+  if ((state._sections||[]).some(function(x){return x.jurisdictionMissing;})) body+='\nJURISDICTION: not on file for this home — flagged for office review.\n';
   if (state.maintenanceNotes&&state.maintenanceNotes.trim()) body+='\nMAINTENANCE NOTES\n'+state.maintenanceNotes+'\n';
   if (state.managerNotes&&state.managerNotes.trim()) body+='\nMANAGER NOTES\n'+state.managerNotes+'\n';
   body+='\n--\nSent from TLUX Inspections';
@@ -5097,7 +5345,8 @@ function renderSupplyInvList() {
     chk.type = 'checkbox'; chk.style.cssText = 'width:19px;height:19px;flex-shrink:0';
     chk.checked = it.needed;
     chk.onchange = (function(i, c) { return function() { toggleSupplyItemNeeded(i, c.checked); }; })(idx, chk);
-    var lbl = document.createElement('span'); lbl.textContent = it.name;
+    var _sfd = itemFieldDef(it.name);
+    var lbl = document.createElement('span'); lbl.textContent = it.name + ((_sfd && _sfd.type === 'check') ? ' — ' + _sfd.label : '');
     top.appendChild(chk); top.appendChild(lbl);
     row.appendChild(top);
     if (it.needed) {
@@ -5194,7 +5443,7 @@ function renderSupplyInvPhotos() {
 }
 function _supplyInvSelectedItems() {
   var out = [];
-  siState.items.forEach(function(it) { if (it.needed) out.push({ name: it.name, qty: (it.qty || '').toString().trim(), isOther: false }); });
+  siState.items.forEach(function(it) { var _d = itemFieldDef(it.name); if (it.needed) out.push({ name: it.name + ((_d && _d.type === 'check') ? ' (needs replacing)' : ''), qty: (it.qty || '').toString().trim(), isOther: false }); });
   siState.others.forEach(function(o) { if ((o.name || '').trim()) out.push({ name: o.name.trim(), qty: (o.qty || '').toString().trim(), isOther: true }); });
   return out;
 }
@@ -5360,7 +5609,7 @@ function createSupplyRequestFromInspection(sections, inspectionId, docData) {
     if (!sec.isSupply) return;
     sec.items.forEach(function(itemText, ii) {
       var it = state.items[si + '_' + ii] || {};
-      if (it.status === 'issue') items.push({ name: itemText, qty: '', isOther: false, notes: it.notes || '' });
+      if (it.status === 'issue') { var _sd = itemFieldDef(itemText); items.push({ name: itemLabel(itemText) + ((_sd && _sd.type === 'check' && it.field) ? ' (needs replacing)' : ''), qty: '', isOther: false, notes: it.notes || '' }); }
     });
   });
   if (!items.length) return; // nothing flagged as needing restocking — no record to write
@@ -5863,6 +6112,7 @@ function voidInspection() {
 var _draftCloudChain = Promise.resolve();
 function saveDraftSilent() {
   if (!state.formType) return true;
+  setTimeout(function(){ uploadPendingDraftPhotos(false); }, 0);
   // Persist EVERY field needed to fully restore this inspection on reopen:
   // responses/checkboxes (items), photos, inspector notes (invNotes),
   // manager notes (managerNotes), maintenance notes (maintenanceNotes),
@@ -5890,6 +6140,7 @@ function saveDraftSilent() {
     startTime:state.startTime||null,
     endTime:state.endTime||null,
     _sections:state._sections||null,
+    deleted:false,
     savedAt:Date.now(),
     userId:currentUser?currentUser.id:null
   };
@@ -5915,9 +6166,10 @@ function saveDraftSilent() {
       var lightItems={};
       Object.keys(draftData.items||{}).forEach(function(k){
         var it=draftData.items[k];
-        lightItems[k]= it ? Object.assign({},it,{photos:[]}) : it;
+        lightItems[k]= it ? Object.assign({},it,{photos:(it.photos||[]).filter(function(x){return !isEmbeddedPhoto(x);})}) : it;
       });
-      var lightData=Object.assign({},draftData,{photos:{},items:lightItems,maintenanceNotesPhotos:[],_photosOmittedLocally:true});
+      var lightPhotos={}; Object.keys(draftData.photos||{}).forEach(function(k){ if(!isEmbeddedPhoto(draftData.photos[k])) lightPhotos[k]=draftData.photos[k]; });
+      var lightData=Object.assign({},draftData,{photos:lightPhotos,items:lightItems,maintenanceNotesPhotos:(draftData.maintenanceNotesPhotos||[]).filter(function(x){return !isEmbeddedPhoto(x);}),_photosOmittedLocally:true});
       var drafts2=getDrafts();
       drafts2[state.draftId]=lightData;
       localStorage.setItem('tlp_drafts',JSON.stringify(drafts2));
@@ -5990,8 +6242,10 @@ function loadCloudDrafts() {
   db.collection('drafts').where('userId','==',currentUser.id).orderBy('savedAt','desc').limit(50).get().then(function(snap){
     if (snap.empty) return;
     var local=getDrafts();
+    var _del=getDeletedDrafts();
     snap.docs.forEach(function(d){
       var data=d.data();
+      if (data.deleted || _del[data.id]) return;
       if (!local[data.id] || local[data.id].savedAt < data.savedAt) {
         local[data.id]=data;
       }
@@ -6066,7 +6320,7 @@ function loadDraft(id) {
           var ci = cloudData.items[k];
           if (ci && ci.photos && ci.photos.length) {
             state.items[k] = state.items[k] || {};
-            if (!state.items[k].photos || !state.items[k].photos.length) state.items[k].photos = ci.photos;
+            if (!state.items[k].photos || state.items[k].photos.length < ci.photos.length) state.items[k].photos = ci.photos;
           }
         });
       }
@@ -6103,37 +6357,120 @@ function countDraftProgress(d) {
   });
   return total>0?Math.round(done/total*100):0;
 }
+// Drafts are soft-deleted (2026-11-10): deleting a draft moves it to "Recently
+// deleted" on this device and marks the cloud copy {deleted:true} instead of
+// erasing it, so a mistaken delete can be undone or restored. Opening a draft is
+// the card's only action; deleting is a separate, labeled button that always asks
+// for confirmation first.
+var DELETED_DRAFTS_KEY = 'tlp_deleted_drafts';
+var DELETED_DRAFT_KEEP_DAYS = 30;
+function getDeletedDrafts() { try { return JSON.parse(localStorage.getItem(DELETED_DRAFTS_KEY) || '{}'); } catch(e) { return {}; } }
+function setDeletedDrafts(o) { try { localStorage.setItem(DELETED_DRAFTS_KEY, JSON.stringify(o)); } catch(e) { console.warn('Could not save recently-deleted drafts:', e); } }
+function purgeOldDeletedDrafts() {
+  var del = getDeletedDrafts(), cutoff = Date.now() - DELETED_DRAFT_KEEP_DAYS * 86400000, changed = false;
+  Object.keys(del).forEach(function(id){ if ((del[id].deletedAt || 0) < cutoff) { delete del[id]; changed = true; } });
+  if (changed) setDeletedDrafts(del);
+  return del;
+}
+function draftTitle(d) { return (d.info && d.info.property) || (d.selectedProp && d.selectedProp.name) || 'Unnamed'; }
+function askConfirm(title, msg, okLabel, onOk) {
+  var ov = document.getElementById('confirmOv');
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent = msg;
+  var ok = document.getElementById('confirmOk'), cancel = document.getElementById('confirmCancel');
+  ok.textContent = okLabel || 'OK';
+  function close() { ov.classList.remove('open'); ok.onclick = null; cancel.onclick = null; ov.onclick = null; }
+  ok.onclick = function(e){ e.stopPropagation(); close(); onOk(); };
+  cancel.onclick = function(e){ e.stopPropagation(); close(); };
+  ov.onclick = function(e){ if (e.target === ov) close(); };
+  ov.classList.add('open');
+}
+function showUndo(text, onUndo) {
+  var bar = document.getElementById('undoBar');
+  document.getElementById('undoBarText').textContent = text;
+  document.getElementById('undoBarBtn').onclick = function(){ bar.classList.remove('show'); clearTimeout(showUndo._t); onUndo(); };
+  bar.classList.add('show');
+  clearTimeout(showUndo._t);
+  showUndo._t = setTimeout(function(){ bar.classList.remove('show'); }, 8000);
+}
 function renderDrafts(draftsOverride) {
   // draftsOverride lets loadCloudDrafts() render the freshly-merged list
   // even when it couldn't also persist that merge to local storage (e.g.
   // device storage full) — see loadCloudDrafts().
-  var drafts=draftsOverride||getDrafts(), keys=Object.keys(drafts).sort(function(a,b){return drafts[b].savedAt-drafts[a].savedAt;});
+  var drafts=draftsOverride||getDrafts();
+  var deleted = purgeOldDeletedDrafts();
+  // A draft that is in "Recently deleted" never shows in the main list, even if an
+  // older cloud copy was merged back in before the cloud delete-mark reached it.
+  var keys=Object.keys(drafts).filter(function(id){ return !deleted[id] && !drafts[id].deleted; }).sort(function(a,b){return drafts[b].savedAt-drafts[a].savedAt;});
   var section=document.getElementById('draftsSection'), list=document.getElementById('draftsList');
-  if (keys.length===0){section.style.display='none';return;}
+  var delKeys = Object.keys(deleted);
+  if (keys.length===0 && delKeys.length===0){section.style.display='none';return;}
   section.style.display='block'; list.innerHTML='';
   keys.forEach(function(id){
     var d=drafts[id], meta=FORM_META[d.formType]; if (!meta) return;
     // Prefer the draft's own frozen section snapshot for the % preview so it
-    // matches what will actually be shown on reopen. Only fall back to
-    // regenerating (which can differ for QC Check's randomized item list) for
-    // legacy drafts saved before snapshots existed.
+    // matches what will actually be shown on reopen.
     var pct = countDraftProgress(d);
-    var el=document.createElement('div'); el.className='draft-card';
-    el.innerHTML='<div class="draft-icon">'+meta.icon+'</div><div class="draft-info"><div class="draft-name">'+esc((d.info&&d.info.property)||(d.selectedProp&&d.selectedProp.name)||'Unnamed')+'</div><div class="draft-meta">'+meta.name+' &bull; '+((d.info&&d.info.date)||'No date')+'</div></div><div class="draft-pct">'+pct+'%</div><button class="draft-delete" onclick="deleteDraft(event,\''+id+'\')">x</button>';
+    var row=document.createElement('div'); row.className='draft-row';
+    var el=document.createElement('div'); el.className='draft-card'; el.setAttribute('role','button');
+    el.setAttribute('aria-label','Open draft: '+draftTitle(d));
+    el.innerHTML='<div class="draft-icon">'+meta.icon+'</div><div class="draft-info"><div class="draft-name">'+esc(draftTitle(d))+'</div><div class="draft-meta">'+meta.name+' &bull; '+((d.info&&d.info.date)||'No date')+'</div></div><div style="text-align:right"><div class="draft-pct">'+pct+'%</div><div class="draft-open-lbl">Open &rsaquo;</div></div>';
     el.onclick=function(){startForm(d.formType,id);};
-    list.appendChild(el);
+    var del=document.createElement('button'); del.type='button'; del.className='draft-del-btn';
+    del.innerHTML='&#128465;&#65039;<br>Delete'; del.setAttribute('aria-label','Delete draft: '+draftTitle(d));
+    del.onclick=function(e){ deleteDraft(e, id); };
+    row.appendChild(el); row.appendChild(del);
+    list.appendChild(row);
   });
+  var link=document.getElementById('deletedDraftsLink'), dl=document.getElementById('deletedDraftsList');
+  if (link) {
+    link.style.display = delKeys.length ? '' : 'none';
+    link.textContent = 'Recently deleted drafts (' + delKeys.length + ') — ' + (dl && dl.style.display !== 'none' ? 'hide' : 'show / restore');
+  }
+  if (dl) {
+    dl.innerHTML='';
+    delKeys.sort(function(a,b){ return (deleted[b].deletedAt||0)-(deleted[a].deletedAt||0); }).forEach(function(id){
+      var d=deleted[id], meta=FORM_META[d.formType]||{name:d.formType,icon:''};
+      var r=document.createElement('div'); r.className='deleted-draft-row';
+      r.innerHTML='<div style="flex:1"><strong>'+esc(draftTitle(d))+'</strong><div style="font-size:11.5px;color:var(--dark-gray)">'+esc(meta.name)+' &bull; deleted '+new Date(d.deletedAt).toLocaleString()+'</div></div>';
+      var b=document.createElement('button'); b.type='button'; b.className='btn-outline'; b.style.cssText='padding:8px 12px;font-size:12px;width:auto';
+      b.textContent='Restore'; b.onclick=function(){ restoreDraft(id); };
+      r.appendChild(b); dl.appendChild(r);
+    });
+  }
+}
+function toggleDeletedDrafts() {
+  var dl=document.getElementById('deletedDraftsList'); if (!dl) return;
+  dl.style.display = dl.style.display === 'none' ? 'flex' : 'none';
+  renderDrafts();
 }
 function deleteDraft(e, id) {
-  e.stopPropagation();
-  var drafts=getDrafts();
-  delete drafts[id];
-  // Removing an entry only ever shrinks the stored JSON, so this should
-  // succeed even when storage was too full to save — but don't let a
-  // freak failure here block deleting from the cloud / refreshing the list.
-  try { localStorage.setItem('tlp_drafts',JSON.stringify(drafts)); } catch (e2) { console.warn('Could not update local drafts after delete:', e2); }
-  if (db && currentUser) { db.collection('drafts').doc(currentUser.id+'_'+id).delete().catch(function(){}); }
-  renderDrafts();
+  if (e) { e.stopPropagation(); if (e.preventDefault) e.preventDefault(); }
+  var drafts=getDrafts(), d=drafts[id]; if (!d) return;
+  askConfirm('Delete this draft?', draftTitle(d)+' — '+((FORM_META[d.formType]||{}).name||'')+'. It will move to "Recently deleted" on this device for '+DELETED_DRAFT_KEEP_DAYS+' days, where you can restore it.', 'Delete', function(){
+    var drafts2=getDrafts(), dd=drafts2[id]; if (!dd) return;
+    delete drafts2[id];
+    var del=getDeletedDrafts(); del[id]=Object.assign({}, dd, {deletedAt: Date.now()}); setDeletedDrafts(del);
+    // Removing an entry only ever shrinks the stored JSON, so this should succeed
+    // even when storage was too full to save.
+    try { localStorage.setItem('tlp_drafts',JSON.stringify(drafts2)); } catch (e2) { console.warn('Could not update local drafts after delete:', e2); }
+    if (db && currentUser) {
+      db.collection('drafts').doc(currentUser.id+'_'+id).set({deleted:true, deletedAt:Date.now(), deletedBy:currentUser.name||''}, {merge:true}).catch(function(err){ console.warn('Could not mark cloud draft deleted', err); });
+    }
+    renderDrafts();
+    showUndo('Draft deleted', function(){ restoreDraft(id); });
+  });
+}
+function restoreDraft(id) {
+  var del=getDeletedDrafts(), d=del[id]; if (!d) return;
+  delete del[id]; setDeletedDrafts(del);
+  var restored=Object.assign({}, d); delete restored.deletedAt; delete restored.deleted; delete restored.deletedBy;
+  var drafts=getDrafts(); drafts[id]=restored;
+  try { localStorage.setItem('tlp_drafts',JSON.stringify(drafts)); } catch (e2) { console.warn('Could not restore local draft:', e2); }
+  if (db && currentUser) {
+    db.collection('drafts').doc(currentUser.id+'_'+id).set({deleted:false, deletedAt:null, deletedBy:'', restoredAt:Date.now()}, {merge:true}).catch(function(err){ console.warn('Could not unmark cloud draft', err); });
+  }
+  renderDrafts(); showToast('Draft restored');
 }
 function confirmFinish() {
   // NOTE (2026-09-14 fix): this used to open a second confirm() dialog here
