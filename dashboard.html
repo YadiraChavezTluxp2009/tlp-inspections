@@ -1492,6 +1492,23 @@ function buildIssueStatusSummary(issueList,inspId){
   if(counts.historical)parts.push(counts.historical+' Historical (untracked)');
   return n+' issue'+(n!==1?'s':'')+(parts.length?': '+parts.join(', '):'');
 }
+// 2026-11-10: how many of an inspection's (non-supply) issues are still open — i.e.
+// not Resolved or Dismissed in their tied property_issues record. Used by the
+// Seasonal Inspections Overall Status badge, which previously showed the raw
+// issue count forever, even after every item was resolved. Untracked (historical)
+// issues count as open unless the whole inspection was marked resolved.
+function openIssueCount(insp){
+  if(!insp)return 0;
+  var open=0;
+  (insp.issues||[]).forEach(function(x,xi){
+    if(isSupplyIssueItem(x))return;
+    var tied=findTiedIssue(insp.id,x.key||('legacyidx_'+xi));
+    if(!tied){if(!insp.resolved)open++;return;}
+    var st=tied.status||'open';
+    if(st!=='resolved'&&st!=='dismissed')open++;
+  });
+  return open;
+}
 // Switches to the Open Issues tab and filters it down to the given property, so a
 // "View in Open Issues" link from a historical log's Details panel lands the viewer
 // on the right records instead of the unfiltered full list.
@@ -2843,7 +2860,15 @@ function renderSeasonal(){
     html+='<td style="text-align:center">'+( i.itemsOk||0)+'</td>';
     html+='<td style="text-align:center;color:'+(hasIssues?'var(--red)':'inherit')+';font-weight:'+(hasIssues?'700':'400')+'">'+( maintIssueCount(i)||0)+'</td>';
     html+='<td style="text-align:center">'+( i.naCount||0)+'</td>';
-    html+='<td><span class="badge '+(hasIssues?'b-issue':'b-clear')+'">'+(hasIssues?maintIssueCount(i)+' Issue'+(maintIssueCount(i)!==1?'s':''):'All Clear')+'</span></td>';
+    // 2026-11-10: Overall Status reflects follow-up — all resolved/dismissed shows blue
+    // "N Issues — Resolved" (same wording as the Check-Ins/Check-Outs Log); otherwise red,
+    // with "(X open)" when only some are still open.
+    var siTotal=maintIssueCount(i), siOpen=hasIssues?openIssueCount(i):0;
+    var siLabel=siTotal+' Issue'+(siTotal!==1?'s':'');
+    var siBadge=!hasIssues?'<span class="badge b-clear">All Clear</span>'
+      :siOpen===0?'<span class="badge b-clear">'+siLabel+' — Resolved</span>'
+      :'<span class="badge b-issue">'+siLabel+(siOpen<siTotal?' ('+siOpen+' open)':'')+'</span>';
+    html+='<td>'+siBadge+'</td>';
     if(hasDetails){
       html+='<td><button class="details-btn'+(hasIssues?'':' no-issues')+'" id="insp-btn-'+safeId+'" onclick="toggleInspDetail(\''+safeId+'\')"><span class="chev">&#9656;</span> Details</button></td>';
     } else {
