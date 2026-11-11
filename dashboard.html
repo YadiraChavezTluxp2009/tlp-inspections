@@ -632,7 +632,18 @@ body{background:var(--content-bg)}
 @media (prefers-reduced-motion:reduce){.sidebar{transition:none}}
 
 /* Seasonal overview (2026-11-10 redesign) */
-.sv-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.sv-filters{display:grid;grid-template-columns:minmax(0,1fr) 130px minmax(0,1.3fr) minmax(0,1.3fr);gap:14px;margin-bottom:12px}
+.sv-period{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;background:#EEF3FA;border:1px solid #CFDBEA;border-radius:12px;padding:10px 16px;margin-bottom:16px;font-size:14px;color:#1F2B3D}
+.sv-period b{font-size:20px;color:#14284B}
+.sv-period-lbl{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#5A6B82}
+.sv-period-cur{font-size:11px;font-weight:700;background:#14284B;color:white;border-radius:999px;padding:2px 8px}
+.sv-period-span{color:#5A6B82}
+.sv-period-req{flex-basis:100%;font-size:12.5px;color:#4A5568}
+.sv-rev summary{cursor:pointer;display:flex;flex-direction:column;gap:2px;list-style:none}
+.sv-rev summary::-webkit-details-marker{display:none}
+.sv-rev-t{font-weight:700;color:#8A4B00}
+.sv-rev-s{font-size:12.5px;color:#5A6B82}
+.sv-rev[open] summary{margin-bottom:10px}
 .sv-field{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:#4A5568}
 .sv-field select{height:48px;border:1px solid #C9D2DE;border-radius:10px;padding:0 14px;font-size:16px;background:white;color:#1F2B3D}
 .sv-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px}
@@ -661,6 +672,7 @@ body{background:var(--content-bg)}
 .sv-st{display:inline-block;padding:4px 12px;border-radius:8px;font-size:13px;font-weight:600}
 .sv-st.ok{background:#DDF3E4;color:#14532D}.sv-st.draft{background:#DCE9FB;color:#123F7A}.sv-st.prog{background:#FFF0D6;color:#7A4A00}
 @media (max-width:1100px){.sv-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:900px){.sv-filters{grid-template-columns:1fr 1fr}}
 @media (max-width:600px){.sv-filters{grid-template-columns:1fr}.sv-cards{grid-template-columns:1fr 1fr;gap:10px}.sv-card{padding:14px;gap:10px}.sv-num{font-size:30px}.sv-panel{padding:14px}}
 
 /* Still-missing box, compact (2026-11-10) */
@@ -878,12 +890,15 @@ body{background:var(--content-bg)}
       <!-- Seasonal overview (2026-11-10 redesign) — see renderSeasonOverview() -->
       <div class="sv-filters" role="group" aria-label="Seasonal Dashboard filters">
         <label class="sv-field"><span>Season</span><select id="sd-season" onchange="renderSeaDash()"></select></label>
+        <label class="sv-field"><span>Year</span><select id="sd-year" onchange="renderSeaDash()"></select></label>
         <label class="sv-field"><span>House</span><select id="sd-house" onchange="renderSeaDash()"><option value="">All Houses</option></select></label>
         <label class="sv-field"><span>Team member (Operations Contact)</span><select id="sd-mgr" onchange="renderSeaDash()"><option value="">All Operations Contacts</option></select></label>
       </div>
+      <div class="sv-period" id="sv-period" aria-live="polite"></div>
       <div class="sv-cards" id="sv-cards"></div>
       <div class="card sv-panel" id="sv-progress"></div>
       <div class="card sv-panel" id="sv-activity"></div>
+      <div class="card sv-panel" id="sv-review" style="display:none"></div>
       <!-- Still missing this season (added 2026-11-10) — see renderSeasonMissing() -->
       <div class="card" id="seasonMissingCard">
         <div class="card-hdr">
@@ -893,7 +908,7 @@ body{background:var(--content-bg)}
       </div>
       <div class="card">
         <div class="card-hdr">
-          <div><div class="card-title">📊 Seasonal Dashboard</div><div class="card-sub">Per home: the most recent submission of each type (any season), with open drafts shown as Draft / In Progress. Follows the House and Team member filters above.</div></div>
+          <div><div class="card-title" id="sd-table-title">📊 Seasonal Dashboard</div><div class="card-sub" id="sd-table-sub">Only records from the selected season and year.</div></div>
           <div class="spacer"></div>
           <div class="filters">
             <select id="sd-sort" onchange="renderSeaDash()"><option value="property">Sort: Property A–Z</option><option value="manager">Sort: Operations Contact A–Z</option></select>
@@ -4618,11 +4633,12 @@ function renderSeasonMissing(){
 //  • open drafts from openDrafts() (same list as Drafts & Progress: not voided,
 //    deleted or already submitted).
 // Season windows match the Still-missing box: Fall = Sep 1 – end of Feb,
-// Spring = Mar 1 – end of Aug. A HOME is Completed when that season's
-// walkthrough (Fall or Spring) was submitted inside the window; In Progress when
-// it wasn't but an open draft of it was saved inside the window; otherwise Not
-// Started. Cards count homes (each home once); Recent Activity lists individual
-// inspections and drafts.
+// Spring = Mar 1 – end of Aug. Season + Year selectors pick ONE period (e.g.
+// Fall 2026). A HOME is Complete when that season's walkthrough + kitchen
+// inventory + linen inventory were all submitted in the period; In Progress when
+// at least one is submitted or has an open draft in the period; else All Pending.
+// Records from other periods never count. Records whose season is unclear are
+// listed under "Needs review" and counted nowhere (see assignSeason()).
 var _seasonalAll=null, _seasonalAllError=null;
 var SEASONAL_TYPES=['spring','fall','kitchen_inv','linen_inv'];
 function loadSeasonalAll(){
@@ -4640,18 +4656,64 @@ function seasonRange(key){
   var end=type==='fall'?new Date(y+1,2,1):new Date(y,8,1);
   return {key:key,type:type,year:y,start:start,end:end,label:(type==='fall'?'Fall ':'Spring ')+y};
 }
+// ── Season & year assignment (2026-11-10) ──────────────────────────────────
+// Each seasonal record belongs to exactly ONE period (e.g. "fall-2026") or is
+// flagged for review — never counted toward two periods, never guessed.
+//  • Windows: Spring YYYY = Mar 1 – Aug 31 YYYY; Fall YYYY = Sep 1 YYYY – end of
+//    Feb YYYY+1 (same windows as the Still-missing box).
+//  • Submitted record: placed by submittedAt. If its inspection date ("date")
+//    falls in a different window, or a Spring/Fall walkthrough is dated in the
+//    other season's window, or there's no valid date → Needs review.
+//  • Open draft: placed by its last save; same checks with its inspection date.
+// Nothing stored is changed; this is display logic only.
+function seasonLabelFor(key){ return seasonRange(key).label; }
+function parseInspDate(s){
+  if(!s) return NaN;
+  var m=String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m?new Date(+m[1],+m[2]-1,+m[3],12).getTime():Date.parse(s);
+}
+function assignSeason(formType, primaryMs, inspDateStr, primaryWhat){
+  if(!primaryMs||isNaN(primaryMs)) return {review:'No valid '+primaryWhat+' date'};
+  var k=seasonKeyFor(new Date(primaryMs));
+  var dMs=parseInspDate(inspDateStr);
+  if(!isNaN(dMs)){
+    var k2=seasonKeyFor(new Date(dMs));
+    if(k2!==k) return {review:'Inspection date is in '+seasonLabelFor(k2)+' but it was '+primaryWhat+' in '+seasonLabelFor(k)};
+  }
+  if((formType==='spring'||formType==='fall')&&k.split('-')[0]!==formType){
+    return {review:(formType==='fall'?'Fall':'Spring')+' walkthrough dated in the '+seasonLabelFor(k)+' window'};
+  }
+  return {key:k};
+}
+function recordSeason(i){ return assignSeason(i.formType, Date.parse(i.submittedAt||''), i.date, 'submitted'); }
+function draftSeason(d){ return assignSeason(d.formType, Number(d.savedAt)||0, d.info&&d.info.date, 'last saved'); }
 function seasonalRecords(){
   var src=_seasonalAll||_insp;
-  return src.filter(function(i){return SEASONAL_TYPES.indexOf(i.formType)!==-1&&i.property&&i.submittedAt;});
+  return src.filter(function(i){return SEASONAL_TYPES.indexOf(i.formType)!==-1&&i.property;});
+}
+function seasonalDrafts(){
+  return (_draftsError?[]:openDrafts()).filter(function(d){return SEASONAL_TYPES.indexOf(d.formType)!==-1&&draftPropName(d);});
+}
+function selectedSeasonKey(){
+  var cur=seasonKeyFor(new Date()).split('-');
+  var t=(document.getElementById('sd-season')||{}).value||cur[0];
+  var y=(document.getElementById('sd-year')||{}).value||cur[1];
+  return t+'-'+y;
 }
 function populateSeasonSelect(){
-  var sel=document.getElementById('sd-season'); if(!sel) return;
-  var cur=seasonKeyFor(new Date()), keys=[cur], seen={}; seen[cur]=1;
-  seasonalRecords().forEach(function(i){ var t=Date.parse(i.submittedAt); if(isNaN(t)) return; var k=seasonKeyFor(new Date(t)); if(!seen[k]){seen[k]=1;keys.push(k);} });
-  keys.sort(function(a,b){return seasonRange(b).start-seasonRange(a).start;});
-  var keep=sel.value||cur;
-  sel.innerHTML=keys.map(function(k){return '<option value="'+k+'">'+esc(seasonRange(k).label)+(k===cur?' (current)':'')+'</option>';}).join('');
-  sel.value=keys.indexOf(keep)!==-1?keep:cur;
+  var sSel=document.getElementById('sd-season'), ySel=document.getElementById('sd-year'); if(!sSel||!ySel) return;
+  var cur=seasonKeyFor(new Date()).split('-'), curY=+cur[1];
+  if(!sSel.options.length){
+    sSel.innerHTML='<option value="spring">Spring (Mar – Aug)</option><option value="fall">Fall (Sep – Feb)</option>';
+    sSel.value=cur[0];
+  }
+  var years={}; years[curY]=1; years[curY+1]=1; years[2026]=1;
+  seasonalRecords().forEach(function(i){ var a=recordSeason(i); if(a.key) years[+a.key.split('-')[1]]=1; });
+  seasonalDrafts().forEach(function(d){ var a=draftSeason(d); if(a.key) years[+a.key.split('-')[1]]=1; });
+  var list=Object.keys(years).map(Number).sort(function(a,b){return b-a;});
+  var keep=ySel.value?+ySel.value:curY;
+  ySel.innerHTML=list.map(function(y){return '<option value="'+y+'">'+y+'</option>';}).join('');
+  ySel.value=String(list.indexOf(keep)!==-1?keep:curY);
 }
 function populateHouseSelect(){
   var sel=document.getElementById('sd-house'); if(!sel) return;
@@ -4659,22 +4721,45 @@ function populateHouseSelect(){
   sel.innerHTML='<option value="">All Houses</option>'+names.map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');
   if(keep&&names.indexOf(keep)!==-1) sel.value=keep;
 }
-function seasonOverviewModel(){
-  var S=seasonRange((document.getElementById('sd-season')||{}).value||seasonKeyFor(new Date()));
+// Per-home status for one period. Requirements: that season's walkthrough +
+// kitchen inventory + linen inventory, all submitted inside the period.
+function seasonPeriodModel(key){
+  var S=seasonRange(key), reqTypes=[S.type,'kitchen_inv','linen_inv'];
   var houseF=(document.getElementById('sd-house')||{}).value||'', mgrF=(document.getElementById('sd-mgr')||{}).value||'';
   var homes=PROPERTIES.filter(function(p){ return !p.inactive&&contactMatches(p.manager,mgrF)&&(!houseF||p.name===houseF); });
   var inScope={}; homes.forEach(function(p){inScope[p.name]=1;});
-  var s0=S.start.getTime(), s1=S.end.getTime();
-  var recs=seasonalRecords().filter(function(i){ var t=Date.parse(i.submittedAt); return inScope[i.property]&&t>=s0&&t<s1; });
-  var drafts=(_draftsError?[]:openDrafts()).filter(function(d){ var t=Number(d.savedAt)||0; return SEASONAL_TYPES.indexOf(d.formType)!==-1&&inScope[draftPropName(d)]&&t>=s0&&t<s1; });
-  function byType(type){
-    var done={}, prog={};
-    recs.forEach(function(i){ if(i.formType===type) done[i.property]=1; });
-    drafts.forEach(function(d){ if(d.formType===type&&!done[draftPropName(d)]) prog[draftPropName(d)]=1; });
-    return {done:Object.keys(done).length, prog:Object.keys(prog).length};
+  var recs=[], drafts=[], review=[];
+  seasonalRecords().forEach(function(i){
+    if(!inScope[i.property]) return;
+    var a=recordSeason(i);
+    if(a.review) review.push({kind:'Submitted',home:i.property,type:i.formType,when:i.submittedAt?new Date(Date.parse(i.submittedAt)):null,inspDate:i.date||'',by:i.inspector||'',reason:a.review,id:i.id});
+    else if(a.key===key) recs.push(i);
+  });
+  seasonalDrafts().forEach(function(d){
+    var n=draftPropName(d); if(!inScope[n]) return;
+    var a=draftSeason(d);
+    if(a.review) review.push({kind:'Draft',home:n,type:d.formType,when:d.savedAt?new Date(Number(d.savedAt)):null,inspDate:(d.info&&d.info.date)||'',by:draftInspector(d),reason:a.review,pr:draftProgress(d)});
+    else if(a.key===key) drafts.push(d);
+  });
+  var rows=homes.map(function(p){
+    var cells={}, submitted=0, started=0;
+    reqTypes.forEach(function(t){
+      var subs=recs.filter(function(i){return i.property===p.name&&i.formType===t;}).sort(function(a,b){return Date.parse(b.submittedAt)-Date.parse(a.submittedAt);});
+      var ds=drafts.filter(function(d){return draftPropName(d)===p.name&&d.formType===t;}).sort(function(a,b){return (Number(b.savedAt)||0)-(Number(a.savedAt)||0);});
+      cells[t]={rec:subs[0]||null,count:subs.length,draft:ds[0]||null,draftCount:ds.length};
+      if(subs.length) submitted++; else if(ds.length) started++;
+    });
+    var status=submitted===3?'Complete':(submitted||started)?'In Progress':'All Pending';
+    return {p:p,cells:cells,submitted:submitted,status:status};
+  });
+  function byType(t){
+    var done=0, prog=0;
+    rows.forEach(function(r){ if(r.cells[t].rec) done++; else if(r.cells[t].draft) prog++; });
+    return {done:done,prog:prog};
   }
-  var walk=byType(S.type);
-  return {S:S, total:homes.length, walk:walk, kitchen:byType('kitchen_inv'), linen:byType('linen_inv'), recs:recs, drafts:drafts};
+  var counts={Complete:0,'In Progress':0,'All Pending':0};
+  rows.forEach(function(r){counts[r.status]++;});
+  return {S:S,key:key,reqTypes:reqTypes,total:homes.length,rows:rows,counts:counts,walk:byType(S.type),kitchen:byType('kitchen_inv'),linen:byType('linen_inv'),recs:recs,drafts:drafts,review:review};
 }
 function svWhen(ms){
   var d=new Date(ms), now=new Date(), t=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
@@ -4683,27 +4768,34 @@ function svWhen(ms){
   if(diff===0) return 'Today, '+t; if(diff===1) return 'Yesterday, '+t;
   return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:d.getFullYear()===now.getFullYear()?undefined:'numeric'})+', '+t;
 }
+function seasonSpanText(S){
+  return S.start.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' – '+new Date(S.end-86400000).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+var _seasonModel=null;
 function renderSeasonOverview(){
   populateSeasonSelect(); populateHouseSelect();
-  var M=seasonOverviewModel(), S=M.S, T=M.total, w=M.walk, typeName=S.type==='fall'?'Fall':'Spring';
-  var notStarted=Math.max(0,T-w.done-w.prog);
+  var M=_seasonModel=seasonPeriodModel(selectedSeasonKey()), S=M.S, T=M.total, typeName=S.type==='fall'?'Fall':'Spring';
+  var cur=S.key===seasonKeyFor(new Date());
+  var pb=document.getElementById('sv-period');
+  if(pb) pb.innerHTML='<span class="sv-period-lbl">Viewing</span> <b>'+esc(S.label)+'</b>'+(cur?' <span class="sv-period-cur">current</span>':'')+' <span class="sv-period-span">'+esc(seasonSpanText(S))+'</span><span class="sv-period-req">Complete = '+typeName+' walkthrough + Kitchen inventory + Linen inventory, all submitted in '+esc(S.label)+'</span>';
   var card=function(icon,cls,label,num,sub){ return '<div class="sv-card '+cls+'"><span class="sv-ic">'+mhIcon(icon,30,'aria-hidden="true"')+'</span><div><div class="sv-lbl">'+label+'</div><div class="sv-num">'+num+'</div><div class="sv-sub">'+sub+'</div></div></div>'; };
   document.getElementById('sv-cards').innerHTML=
     card('home','','Total Homes',T,'active homes in this filter')+
-    card('checkCircle','ok','Completed',w.done,'homes · '+typeName+' walkthrough submitted')+
-    card('dashCircle','prog','In Progress',w.prog,'homes · draft saved, not submitted')+
-    card('circle','none','Not Started',notStarted,'homes · no submission or draft');
-  var pct=T?Math.round(w.done/T*100):0, ppct=T?Math.round(w.prog/T*100):0;
+    card('checkCircle','ok','Complete',M.counts.Complete,'homes · all 3 submitted')+
+    card('dashCircle','prog','In Progress',M.counts['In Progress'],'homes · started, not all 3 submitted')+
+    card('circle','none','All Pending',M.counts['All Pending'],'homes · nothing started');
+  var pct=T?Math.round(M.counts.Complete/T*100):0;
   var bar=function(label,b,big){
     var bp=T?b.done/T*100:0, ip=T?b.prog/T*100:0;
     return '<div class="sv-bar-row'+(big?' big':'')+'"><div class="sv-bar-head"><span>'+label+'</span><span class="sv-bar-num">'+b.done+' of '+T+' homes'+(b.prog?' · '+b.prog+' in progress':'')+'</span></div>'+
       '<div class="sv-bar" role="img" aria-label="'+esc(label)+': '+b.done+' of '+T+' homes complete, '+b.prog+' in progress"><span class="done" style="width:'+bp+'%"></span><span class="prog" style="width:'+ip+'%"></span></div></div>';
   };
+  var allBar={done:M.counts.Complete,prog:M.counts['In Progress']};
   var note=_seasonalAllError?'<div class="un-note">Couldn’t load every seasonal record, so these counts use the latest 500 inspections only.</div>':'';
-  document.getElementById('sv-progress').innerHTML='<div class="sv-panel-head"><div><h2 class="sv-h">Inspection Progress</h2><div class="sv-sub2">'+w.done+' of '+T+' homes have a submitted '+typeName+' walkthrough · '+esc(S.label)+' ('+S.start.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+new Date(S.end-86400000).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+')</div></div><div class="sv-pct">'+pct+'%</div></div>'+note+
-    bar(typeName+' walkthrough',w,true)+bar('Kitchen inventory',M.kitchen)+bar('Linen inventory',M.linen)+
-    '<div class="sv-legend"><span><i class="done"></i>Complete (submitted)</span><span><i class="prog"></i>In progress — draft saved, not counted as complete</span><span><i></i>Not started</span></div>';
-  // Recent Activity — individual inspections and drafts, newest first
+  document.getElementById('sv-progress').innerHTML='<div class="sv-panel-head"><div><h2 class="sv-h">Inspection Progress · '+esc(S.label)+'</h2><div class="sv-sub2">'+M.counts.Complete+' of '+T+' homes complete (all 3 submitted) · '+esc(seasonSpanText(S))+'</div></div><div class="sv-pct">'+pct+'%</div></div>'+note+
+    bar('All 3 requirements',allBar,true)+bar(typeName+' walkthrough',M.walk)+bar('Kitchen inventory',M.kitchen)+bar('Linen inventory',M.linen)+
+    '<div class="sv-legend"><span><i class="done"></i>Submitted in '+esc(S.label)+'</span><span><i class="prog"></i>Started — draft saved, not counted as complete</span><span><i></i>Not started</span></div>';
+  // Recent Activity — individual inspections and drafts of this period, newest first
   var rows=[];
   M.recs.forEach(function(i){ rows.push({home:i.property,type:i.formType,status:'Completed',ms:Date.parse(i.submittedAt),by:i.inspector||''}); });
   M.drafts.forEach(function(d){ var pr=draftProgress(d); rows.push({home:draftPropName(d),type:d.formType,status:pr.done>0?'In Progress':'Draft',ms:Number(d.savedAt)||0,by:draftInspector(d)}); });
@@ -4718,60 +4810,67 @@ function renderSeasonOverview(){
     h+='</tbody></table></div>';
   }
   document.getElementById('sv-activity').innerHTML=h;
+  renderSeasonReview(M);
+}
+// Records whose season is unclear — listed for review, counted nowhere.
+function renderSeasonReview(M){
+  var el=document.getElementById('sv-review'); if(!el) return;
+  if(!M.review.length){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='';
+  var list=M.review.slice().sort(function(a,b){return (b.when?b.when.getTime():0)-(a.when?a.when.getTime():0);});
+  var h='<details class="sv-rev"><summary><span class="sv-rev-t">🔎 Needs review — season unclear ('+list.length+')</span><span class="sv-rev-s">These aren’t counted toward any season or year until someone checks them. Nothing was changed.</span></summary>';
+  h+='<div class="tbl-wrap sv-tbl"><table><thead><tr><th>Home</th><th>Inspection</th><th>Kind</th><th>Dates</th><th>Why it’s flagged</th></tr></thead><tbody>';
+  list.forEach(function(r){
+    var tn=({fall:'Fall Walkthrough',spring:'Spring Walkthrough'})[r.type]||TYPE_LABELS[r.type]||r.type;
+    var kind=r.kind==='Draft'?'Open draft'+(r.pr?' · '+(r.pr.total?Math.round(r.pr.done/r.pr.total*100)+'%':r.pr.done+' answered'):''):'Submitted';
+    var dates=(r.when?(r.kind==='Draft'?'Saved ':'Submitted ')+r.when.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'No date')+(r.inspDate?'<div class="sv-by">Inspection date '+esc(String(r.inspDate).slice(0,10))+'</div>':'');
+    h+='<tr><td style="font-weight:700">'+esc(r.home)+'</td><td>'+esc(tn)+(r.by?'<div class="sv-by">'+esc(r.by)+'</div>':'')+'</td><td>'+esc(kind)+'</td><td>'+dates+'</td><td>'+esc(r.reason)+'</td></tr>';
+  });
+  h+='</tbody></table></div></details>';
+  el.innerHTML=h;
 }
 
 // ── SEASONAL DASHBOARD ────────────────────────────────────────────────────────
 function renderSeaDash(){
   try{renderSeasonOverview();}catch(e){console.error('[SEASON-OVERVIEW] render failed',e);}
   // "Still missing this season" is about the current season only.
-  var _smCard=document.getElementById('seasonMissingCard'), _selSeason=(document.getElementById('sd-season')||{}).value;
-  if(_smCard) _smCard.style.display=(!_selSeason||_selSeason===seasonKeyFor(new Date()))?'':'none';
+  var _smCard=document.getElementById('seasonMissingCard');
+  if(_smCard) _smCard.style.display=(selectedSeasonKey()===seasonKeyFor(new Date()))?'':'none';
   try{renderSeasonMissing();}catch(e){console.error('[SEASON-MISSING] render failed',e);}
-  var mgrF=document.getElementById('sd-mgr').value;
   var statusF=document.getElementById('sd-status').value;
   var propF=(document.getElementById('sd-prop').value||'').toLowerCase();
   var sortF=document.getElementById('sd-sort').value;
-  // Build lookup
-  var byPT={};
-  _insp.forEach(function(i){var k=i.property+'|'+i.formType;if(!byPT[k]||i.submittedAt>byPT[k].submittedAt)byPT[k]=i;});
-  var houseF=(document.getElementById('sd-house')||{}).value||'';
-  var props=PROPERTIES.filter(function(p){
-    if(p.inactive)return false;
-    if(!contactMatches(p.manager,mgrF))return false;
-    if(houseF&&p.name!==houseF)return false;
-    if(propF&&!p.name.toLowerCase().includes(propF))return false;
+  var M=_seasonModel||seasonPeriodModel(selectedSeasonKey()), S=M.S, typeName=S.type==='fall'?'Fall':'Spring';
+  var tt=document.getElementById('sd-table-title'); if(tt) tt.textContent='📊 Seasonal Dashboard — '+S.label;
+  var ts=document.getElementById('sd-table-sub'); if(ts) ts.textContent='Only records from '+S.label+' ('+seasonSpanText(S)+'). Complete = '+typeName+' walkthrough, Kitchen inventory and Linen inventory all submitted in this period. Open drafts show as Draft / In Progress. Follows the House and Team member filters above.';
+  var rows=M.rows.filter(function(r){
+    if(propF&&!r.p.name.toLowerCase().includes(propF)) return false;
+    if(statusF&&r.status!==statusF) return false;
     return true;
+  }).sort(function(a,b){
+    if(sortF==='manager')return (a.p.manager||'').localeCompare(b.p.manager||'')||a.p.name.localeCompare(b.p.name);
+    return a.p.name.localeCompare(b.p.name);
   });
-  props=props.slice().sort(function(a,b){
-    if(sortF==='manager')return (a.manager||'').localeCompare(b.manager||'')||a.name.localeCompare(b.name);
-    return a.name.localeCompare(b.name);
-  });
-  var html='<table><thead><tr><th>Property</th><th>Operations Contact</th><th>Spring</th><th>Fall</th><th>Kitchen Inv</th><th>Linen Inv</th><th>Status</th></tr></thead><tbody>';
-  var shown=0;
-  props.forEach(function(p){
-    var spring=byPT[p.name+'|spring'];
-    var fall=byPT[p.name+'|fall'];
-    var kitchen=byPT[p.name+'|kitchen_inv'];
-    var linen=byPT[p.name+'|linen_inv'];
-    var done=[spring,fall,kitchen,linen].filter(Boolean).length;
-    // Active drafts count toward progress (In Progress) but never as completed.
-    var drafting=['spring','fall','kitchen_inv','linen_inv'].filter(function(t){return !byPT[p.name+'|'+t]&&latestDraftFor(p.name,t);}).length;
-    var status=done===4?'Complete':(done===0&&!drafting)?'All Pending':'In Progress';
-    if(statusF&&status!==statusF)return;
-    shown++;
-    var sBadge=done===4?'b-done':(done===0&&!drafting)?'b-overdue':'b-pending';
-    html+='<tr>';
-    html+='<td style="font-weight:600">'+esc(p.name)+'</td><td>'+esc(p.manager)+'</td>';
-    ['spring','fall','kitchen_inv','linen_inv'].forEach(function(t){
-      var rec=byPT[p.name+'|'+t];
-      var dr=rec?null:latestDraftFor(p.name,t);
-      html+='<td>'+(rec?'<span class="badge b-done">'+rec.submittedAt.slice(0,10)+'</span>':dr?'<span class="badge b-pending" title="Saved '+esc(new Date(dr.savedAt).toLocaleString())+(dr.staff?' by '+esc(dr.staff):'')+'">'+(dr.status==='Draft'?'📝 Draft':'⏳ In Progress'+(dr.progress.pct!==null?' '+dr.progress.pct+'%':''))+'</span>':'<span class="badge b-never">Pending</span>')+'</td>';
+  if(!rows.length){document.getElementById('seaDashTable').innerHTML='<div class="empty">No properties match filters</div>';return;}
+  var html='<table><thead><tr><th>Property</th><th>Operations Contact</th><th>'+typeName+' Walkthrough</th><th>Kitchen Inventory</th><th>Linen Inventory</th><th>Overall Status</th></tr></thead><tbody>';
+  var colLbl={}; colLbl[S.type]=typeName+' Walkthrough'; colLbl.kitchen_inv='Kitchen Inventory'; colLbl.linen_inv='Linen Inventory';
+  rows.forEach(function(r){
+    var sBadge=r.status==='Complete'?'b-done':r.status==='All Pending'?'b-overdue':'b-pending';
+    html+='<tr><td style="font-weight:600" data-label="Property">'+esc(r.p.name)+'</td><td data-label="Operations Contact">'+esc(r.p.manager)+'</td>';
+    M.reqTypes.forEach(function(t){
+      var c=r.cells[t], cell;
+      if(c.rec){
+        var sd=new Date(Date.parse(c.rec.submittedAt));
+        cell='<span class="badge b-done" title="Submitted '+esc(sd.toLocaleString())+(c.rec.inspector?' by '+esc(c.rec.inspector):'')+'">✓ '+esc(sd.toLocaleDateString('en-CA'))+'</span>'+(c.count>1?'<div class="sv-by">'+c.count+' submitted this season</div>':'');
+      } else if(c.draft){
+        var pr=draftProgress(c.draft), pct=pr.total?Math.round(pr.done/pr.total*100):null, who=draftInspector(c.draft);
+        cell='<span class="badge b-pending" title="Saved '+esc(new Date(Number(c.draft.savedAt)).toLocaleString())+(who?' by '+esc(who):'')+'">'+(pr.done>0?'⏳ In Progress'+(pct!==null?' '+pct+'%':''):'📝 Draft')+'</span>'+(c.draftCount>1?'<div class="sv-by">'+c.draftCount+' drafts</div>':'');
+      } else cell='<span class="badge b-never">Pending</span>';
+      html+='<td data-label="'+esc(colLbl[t])+'">'+cell+'</td>';
     });
-    html+='<td><span class="badge '+sBadge+'">'+status+'</span></td>';
-    html+='</tr>';
+    html+='<td data-label="Overall Status"><span class="badge '+sBadge+'">'+r.status+'</span> <span class="sv-by" style="display:inline">'+r.submitted+'/3</span></td></tr>';
   });
   html+='</tbody></table>';
-  if(!shown){document.getElementById('seaDashTable').innerHTML='<div class="empty">No properties match filters</div>';return;}
   document.getElementById('seaDashTable').innerHTML=html;
 }
 
