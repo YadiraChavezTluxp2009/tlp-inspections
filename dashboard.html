@@ -4912,7 +4912,7 @@ function renderSeasonOverview(){
   var pct=T?Math.round(M.counts.Complete/T*100):0;
   var issBar=function(label,st){
     var n=st.reported, cp=n?st.closed/n*100:0, ip=n?st.in_progress/n*100:0;
-    return '<div class="sv-bar-row"><div class="sv-bar-head"><span>'+label+'</span><span class="sv-bar-num">'+(pendingIss?'loading…':(n?st.closed+' of '+n+' closed'+(st.in_progress?' · '+st.in_progress+' in progress':'')+' · '+st.stillOpen+' open':'no issues reported'))+'</span></div>'+
+    return '<div class="sv-bar-row"><div class="sv-bar-head"><span>'+label+'</span><span class="sv-bar-num">'+(pendingIss?'loading…':(n?st.closed+' of '+n+' closed'+(st.in_progress?' · '+st.in_progress+' in progress':'')+' · '+st.open+' open':'no issues reported'))+'</span></div>'+
       '<div class="sv-bar iss" role="img" aria-label="'+esc(label)+': '+st.closed+' of '+n+' closed, '+st.in_progress+' in progress"><span class="done" style="width:'+(pendingIss?0:cp)+'%"></span><span class="prog" style="width:'+(pendingIss?0:ip)+'%"></span></div></div>';
   };
   var bar=function(label,b,big){
