@@ -1536,10 +1536,26 @@ function loadData(){
   // rather than silently rendering with stale/partial data as if the refresh succeeded.
   // loadUnfinishedExtras() always resolves (its reads catch their own errors),
   // so a problem reading drafts can never break the rest of the dashboard.
-  return Promise.all([pInsp,pTrain,pIssues,pSupply,loadUnfinishedExtras(),loadSeasonalAll()]).then(function(){
+  // 2026-11-11 (speed): the page renders as soon as the core lists arrive (~2 s).
+  // Drafts (can be 10+ MB: older drafts carry their photos inline) and the full
+  // seasonal list load in the background; the views that need them show
+  // "Loading…" until then and are re-drawn when they land.
+  loadBackgroundExtras();
+  return Promise.all([pInsp,pTrain,pIssues,pSupply]).then(function(){
     renderAll();
     renderTraining();
   });
+}
+var _extrasPromise=null;
+function loadBackgroundExtras(){
+  if(_extrasPromise) return _extrasPromise;
+  _extrasPromise=Promise.all([loadUnfinishedExtras(),loadSeasonalAll()]).then(function(){
+    try{ renderSeaDash(); }catch(e){ console.error('[BG] seasonal render',e); }
+    try{ renderUnfinished(); }catch(e){ console.error('[BG] unfinished render',e); }
+    try{ renderMyHouses(); }catch(e){}
+    try{ updateNavBadges(); }catch(e){}
+  }).finally(function(){ _extrasPromise=null; });
+  return _extrasPromise;
 }
 function renderAll(){setTimeout(updateNavBadges,0);renderInspLog();renderSeasonal();renderSeaDash();renderQCDash();renderQCLog();renderOpenIssues();renderSupplyReqs();renderMyHouses();renderProductivity();renderUnfinished();}
 
@@ -4466,16 +4482,9 @@ function loadUnfinishedExtras(){
     console.warn('[UNFINISHED] could not read drafts',e);
     _draftsLoaded=true; _draftsError=e||{};
   });
-  // Dedicated query for this season's type so the "missing" list never depends
-  // on the 500-newest cap on the main inspections load.
-  var pS=db.collection('inspections').where('formType','==',season.type).get().then(function(snap){
-    _seasonInsp=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
-    _seasonInspError=null;
-  }).catch(function(e){
-    console.warn('[SEASON-MISSING] could not read '+season.type+' inspections',e);
-    _seasonInspError=e||{};
-  });
-  return Promise.all([pD,pS]);
+  // The "missing" list's own season query was folded into loadSeasonalAll()
+  // (2026-11-11): it was downloading every Fall inspection a second time.
+  return pD;
 }
 
 function draftPropName(d){return (d.info&&d.info.property)||(d.selectedProp&&d.selectedProp.name)||'';}
@@ -4746,11 +4755,20 @@ function renderSeasonMissing(){
 // listed under "Needs review" and counted nowhere (see assignSeason()).
 var _seasonalAll=null, _seasonalAllError=null;
 var SEASONAL_TYPES=['spring','fall','kitchen_inv','linen_inv'];
+var _seasonalReady=false;
 function loadSeasonalAll(){
   _seasonIssueCache={}; _seasonIssueLoaded={};
+  var season=currentSeasonInfo();
   return db.collection('inspections').where('formType','in',SEASONAL_TYPES).get().then(function(snap){
     _seasonalAll=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());}); _seasonalAllError=null;
-  }).catch(function(e){ console.warn('[SEASON-OVERVIEW] seasonal query failed — using the latest 500 inspections',e); _seasonalAll=null; _seasonalAllError=e||{}; });
+    _seasonInsp=_seasonalAll.filter(function(i){return i.formType===season.type;}); _seasonInspError=null;
+  }).catch(function(e){
+    console.warn('[SEASON-OVERVIEW] seasonal query failed — using the latest 500 inspections',e); _seasonalAll=null; _seasonalAllError=e||{};
+    // Fallback for the Still-missing box: just this season's walkthroughs.
+    return db.collection('inspections').where('formType','==',season.type).get().then(function(snap){
+      _seasonInsp=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());}); _seasonInspError=null;
+    }).catch(function(e2){ console.warn('[SEASON-MISSING] could not read '+season.type+' inspections',e2); _seasonInspError=e2||{}; });
+  }).then(function(){ _seasonalReady=true; });
 }
 function seasonKeyFor(d){
   var m=d.getMonth(), y=d.getFullYear();
@@ -4967,6 +4985,13 @@ function renderSeasonReview(M){
 
 // ── SEASONAL DASHBOARD ────────────────────────────────────────────────────────
 function renderSeaDash(){
+  if(!_seasonalReady){
+    populateSeasonSelect(); populateHouseSelect();
+    ['sv-cards','sv-progress','seaDashTable'].forEach(function(id){ var el=document.getElementById(id); if(el) el.innerHTML='<div class="loading">Loading seasonal data…</div>'; });
+    var a=document.getElementById('sv-activity'); if(a) a.innerHTML='';
+    var smb=document.getElementById('seasonMissingBody'); if(smb) smb.innerHTML='<div class="loading">Loading…</div>';
+    return;
+  }
   try{renderSeasonOverview();}catch(e){console.error('[SEASON-OVERVIEW] render failed',e);}
   // "Still missing this season" is about the current season only.
   var _smCard=document.getElementById('seasonMissingCard');
