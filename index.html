@@ -2031,7 +2031,7 @@ var SPRING_BEDROOM_ITEMS = [
 // fan -> space heater, item 6 ("Check under each bed") removed, hangers item now
 // "matching hangers". FALL_BEDROOM_ITEMS and SPRING_BEDROOM_ITEMS now differ.
 var FALL_BEDROOM_ITEMS = [
-  'Fan/heater in bedroom closet with neatly wrapped cord',
+  'Space heater in bedroom closet with neatly wrapped cord',
   'Pillows: 2 per sleeper on bed + 1 per sleeper in closet (with pillow case) check the condition/yellowing, odor etc',
   'Mattress comfortable (lay on it!)',
   'Duvets / shams — no stains, in good condition',
@@ -2090,7 +2090,6 @@ ITEM_FIELDS[SPRINKLER_ITEM] = {type:'date', label:'Last service date'};
 ITEM_FIELDS[FIRE_ALARM_ITEM] = {type:'date', label:'Last service date'};
 ITEM_FIELDS['Coffee Maker'] = {type:'text', label:'Type', placeholder:'e.g. Drip, Keurig, Nespresso, French press'};
 ITEM_FIELDS['Espresso Machine (if present)'] = {type:'text', label:'Type', placeholder:'e.g. Breville, Nespresso, manual'};
-ITEM_FIELDS['Pillows (need: 2 per sleeper on bed + 1 extra per bed in closet)'] = {type:'text', label:'Size', placeholder:'Standard / Queen / King'};
 ITEM_FIELDS['Confirm the location and inventory of the emergency kit- try to keep in primary bedroom closet (if it is kept elsewhere, note the location)'] = {type:'text', label:'Location (if not in primary bedroom)', placeholder:'e.g. Hall closet'};
 ITEM_FIELDS['Confirm the location and inventory of the emergency kit- try to keep in primary bedroom closet — note the location in Track'] = {type:'text', label:'Location', placeholder:'e.g. Primary bedroom closet'};
 ITEM_FIELDS['Broom and dustpan'] = {type:'check', label:'Needs replacing?'};
@@ -2193,7 +2192,7 @@ function jurisdictionSection(prop) {
 // PROPOSAL awaiting office approval — until LIVING_ROOM_ITEMS_APPROVED is true the
 // section shows only a note plus "+ Add Item", so nothing becomes a required
 // standard before it's approved.
-var LIVING_ROOM_ITEMS_APPROVED = false;
+var LIVING_ROOM_ITEMS_APPROVED = true;  // approved by Yadira 2026-11-10
 var LIVING_ROOM_PROPOSED_ITEMS = [
   'Sofa / sectional and cushions clean — no stains, tears, or debris under cushions',
   'Throw pillows and blankets clean and in good condition',
@@ -2220,13 +2219,22 @@ function getSections(type, prop) {
     var linInv1 = {title:'Linen — Sheets & Pillowcases', items:['King Sheet Sets','Queen Sheet Sets','Full / Double Sheet Sets','Twin Sheet Sets','Extra Pillow Cases (King)','Extra Pillow Cases (Queen / Standard)','Mattress Pads / Protectors (King)','Mattress Pads / Protectors (Queen)','Mattress Pads / Protectors (Full)','Mattress Pads / Protectors (Twin)']};
     var linInv2 = {title:'Linen — Blankets & Towels', items:['King Comforters / Duvets','Queen Comforters / Duvets','Full Comforters / Duvets','Twin Comforters / Duvets','Extra Blankets / Throws','Bath Towels (large)','Hand Towels','Washcloths','Pool Towels (if applicable)','Beach Towels (if applicable)','Bath Mats','Dish Towels']};
     if (type === 'kitchen_inv') return [kitInv1, kitInv2, kitInv3, kitInv4, kitInv5];
-    // Linen: one section per bedroom + shared section
-    var beds = parseInt((state && state.info && state.info.bedrooms) || 3);
-    var bedItems = ['Bed Size (King / Queen / Full / Twin)', 'Sheet Sets (need: 2 per bed)', 'Extra Pillow Cases (need: 2 extra per bed in closet)', 'Mattress Pad / Protector (need: 1 per bed)', 'Comforter / Duvet (need: 1 per bed minimum)', 'Extra Blanket / Throw (need: 1 per bed minimum)', 'Pillows (need: 2 per sleeper on bed + 1 extra per bed in closet)'];
-    var linSecs = [];
-    for (var b = 1; b <= beds; b++) { linSecs.push({title:'Bedroom ' + b, items:bedItems.slice()}); }
-    linSecs.push({title:'Shared — Towels & Common Areas', items:['Bath Towels (need: 2 per person)','Hand Towels (need: 2 per person)','Washcloths (need: 2 per person)','Bath Mats (need: 1 per sink + 1 per shower/tub)','Pool / Beach Towels (need: 1 per person, matching)','Dish Towels (need: min. 10 matching)','Spare Blanket (need: 1 per bedroom closet minimum)','Throw Blankets (sufficient quantity)','Decorative Pillows (need: min. 2 per bed)','Pillow Shams (need: min. 2 per bed)']});
-    return linSecs;
+    // Linen (2026-11-10): replaced with the office's "Linen Inventory / Inventario
+    // de Blancos" paper form — whole-house counts, same sections/order as the form,
+    // so a completed cleaner form can be typed straight in. Current/Needed, photos,
+    // comments, shortage flags, the emailed summary and the Mothership views/PDF all
+    // work as before. Item names repeat the category so totals never merge (e.g.
+    // "Flat Sheets — King" vs "Fitted Sheets — King"). Drafts started on the old
+    // per-bedroom list keep their own frozen list (_sections) until submitted.
+    return [
+      {title:'Flat Sheets', items:['Flat Sheets — King','Flat Sheets — Queen','Flat Sheets — Full','Flat Sheets — Twin']},
+      {title:'Fitted Sheets', items:['Fitted Sheets — King','Fitted Sheets — Queen','Fitted Sheets — Full','Fitted Sheets — Twin']},
+      {title:'Duvet Cover', items:['Duvet Cover — King','Duvet Cover — Queen','Duvet Cover — Full','Duvet Cover — Twin']},
+      {title:'Duvet Insert', items:['Duvet Insert — King','Duvet Insert — Queen','Duvet Insert — Full','Duvet Insert — Twin']},
+      {title:'Pillows', items:['Standard size pillows','Standard size pillowcases','King size pillows','King size pillowcases']},
+      {title:'Towels', items:['Bath towels','Hand towels','Washcloths','Hot tub towels']},
+      {title:'Bath Mats', items:['Bath mats']}
+    ];
   }
 
   /* ── SHARED: Supply Inventory — single source of truth is the top-level SUPPLY_LIST
@@ -2314,7 +2322,7 @@ function getSections(type, prop) {
       'All cabinet doors and drawers open / close properly',
       'Small appliances in good condition and tested',
       'Pots and pans in good shape',
-      'Dishtowels — at least 8 matching, good condition',
+      'Dishtowels — at least 10 matching, good condition',
       'Potholders — at least 2 glove + 2 flat, good condition',
       'Garbage disposal working',
       'All burners working properly',
@@ -2414,7 +2422,7 @@ function getSections(type, prop) {
       'Supplies present (foil, saran wrap, baggies)',
       'Small appliances in good condition and tested',
       'Pots and pans in good shape',
-      'Dishtowels — at least 8 matching, good condition',
+      'Dishtowels — at least 10 matching, good condition',
       'Potholders — at least 2 glove + 2 flat, good condition',
       'Dishwasher drain cleaned'
     ], kitchenExtra:true},
@@ -2504,7 +2512,7 @@ function getSections(type, prop) {
       'Kitchen drawers / cabinets organized and clean',
       'Potholders checked — replacement needed?',
       'Salt and pepper grinders filled, olive oil and coffee filters present',
-      'At least 8 kitchen towels that match'
+      'At least 10 kitchen towels that match'
     ]},
     {title:'Final Items', items:[
       'Lock up House',
@@ -2575,7 +2583,7 @@ function getSections(type, prop) {
       'Kitchen drawers / cabinets organized and clean',
       'Potholders checked — replacement needed?',
       'Salt and pepper grinders filled, olive oil and coffee filters present',
-      'At least 8 kitchen towels that match'
+      'At least 10 kitchen towels that match'
     ]},
     {title:'Final Items', items:[
       'Lock up House'
@@ -2646,7 +2654,7 @@ function getSections(type, prop) {
       'Kitchen drawers / cabinets organized and clean',
       'Potholders checked — replacement needed?',
       'Salt and pepper grinders filled, olive oil and coffee filters present',
-      'At least 8 kitchen towels that match'
+      'At least 10 kitchen towels that match'
     ]},
     {title:'Damage Assessment (if pet on reservation)', items:[
       'Was there a pet on the reservation? (Y/N)',
@@ -2752,7 +2760,7 @@ function getSections(type, prop) {
       'Kitchen drawers / cabinets organized and clean',
       'Potholders checked — replacement needed?',
       'Salt and pepper grinders filled, olive oil and coffee filters present',
-      'At least 8 kitchen towels that match'
+      'At least 10 kitchen towels that match'
     ]},
     {title:'Damage Assessment (if pet on reservation)', items:[
       'Was there a pet on the reservation? (Y/N)',
@@ -2907,10 +2915,8 @@ function getSections(type, prop) {
       'Bear Bin checked — pickup scheduled if full and guests arriving before next trash day',
       'Is the Dinghy and Oars + other water toys present/locked up',
       'Remove trash / debris from yard/ dog poop — look for cigarettes especially by hot tub',
-      'Did you close patio umbrellas and tie them?',
       'Make sure BBQ is closed and off. Do the propane tanks need to be filled?',
       'Do BBQ utensils need replacement?',
-      'Is there damage to patio furniture / cushions? Put patio furniture back in place',
       'Does hot tub have any damage? Need a dump & Scrub?',
       'Is hot tub temp set to 102°F?',
       'Is there trash in the garage? If needed schedule a pick up!',
@@ -3377,7 +3383,7 @@ function startForm(type, draftId) {
   if (saved) document.getElementById('fieldInspector').value = saved;
   document.getElementById('propSearch').value = '';
   document.getElementById('propCard').classList.remove('show');
-  document.getElementById('bedroomsField').style.display = (type === 'linen_inv') ? 'block' : 'none';
+  document.getElementById('bedroomsField').style.display = 'none'; // linen list is whole-house since 2026-11-10
   document.getElementById('fieldBedrooms').value = '';
   if (draftId) loadDraft(draftId);
   setHeader(meta.name, '', true);
