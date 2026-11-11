@@ -651,14 +651,23 @@ body{background:var(--content-bg)}
 .sv-field{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:#4A5568}
 .sv-field select{height:48px;border:1px solid #C9D2DE;border-radius:10px;padding:0 14px;font-size:16px;background:white;color:#1F2B3D}
 .sv-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:16px}
-.sv-card{background:white;border:1px solid var(--line);border-radius:12px;padding:18px 20px;display:flex;gap:14px;align-items:flex-start;box-shadow:0 1px 2px rgba(11,42,85,.05)}
+.sv-card{background:white;border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;gap:10px;align-items:center;box-shadow:0 1px 2px rgba(11,42,85,.05);cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s;text-align:left;font:inherit;color:inherit;width:100%}
+.sv-card:hover{border-color:#9FB6D6;box-shadow:0 4px 12px rgba(11,42,85,.10);transform:translateY(-1px)}
+.sv-card:focus-visible{outline:2px solid #2C6BC4;outline-offset:2px}
+.sv-card.active{border-color:#2C6BC4;box-shadow:0 0 0 2px rgba(44,107,196,.18)}
+.sv-card .sv-row{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
 .sv-card.issues .sv-ic{color:#B45309}.sv-card.issues{border-color:#F3D9B1}
-.sv-sub2nd{margin-top:4px;color:#5A6678}
+.sv-sub2nd{margin-top:1px;color:#5A6678}
+.sv-act summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px}
+.sv-act summary::-webkit-details-marker{display:none}
+.sv-act summary .sv-chev{margin-left:auto;font-size:13px;font-weight:600;color:#2C6BC4;white-space:nowrap}
+.sv-act[open] summary{margin-bottom:12px}
+.sv-act:not([open]) .sv-chev-open,.sv-act[open] .sv-chev-closed{display:none}
 .sv-iss-head{margin:18px 0 8px;padding-top:14px;border-top:1px solid var(--line);font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#5A6B82}
 .sv-ic{color:#0B2A55;display:flex}.sv-card.ok .sv-ic{color:var(--blue)}.sv-card.prog .sv-ic{color:var(--blue)}.sv-card.none .sv-ic{color:#5A6678}
-.sv-lbl{font-size:15px;font-weight:600;color:#4A5568}
-.sv-num{font-family:Georgia,'Times New Roman',serif;font-size:38px;font-weight:700;color:#0B2A55;line-height:1.1}
-.sv-sub{font-size:11.5px;color:#5A6678;margin-top:2px}
+.sv-lbl{font-size:13px;font-weight:600;color:#4A5568;white-space:nowrap}
+.sv-num{font-family:Georgia,'Times New Roman',serif;font-size:28px;font-weight:700;color:#0B2A55;line-height:1.05}
+.sv-sub{font-size:11.5px;color:#5A6678;line-height:1.3}
 .sv-panel{padding:18px 22px;margin-bottom:16px}
 .sv-panel-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
 .sv-panel-head>div:first-child{flex:1}
@@ -681,7 +690,7 @@ body{background:var(--content-bg)}
 @media (max-width:1400px){.sv-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:1100px){.sv-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:900px){.sv-filters{grid-template-columns:1fr 1fr}}
-@media (max-width:600px){.sv-filters{grid-template-columns:1fr}.sv-cards{grid-template-columns:1fr 1fr;gap:10px}.sv-card{padding:14px;gap:10px}.sv-num{font-size:30px}.sv-panel{padding:14px}}
+@media (max-width:600px){.sv-filters{grid-template-columns:1fr}.sv-cards{grid-template-columns:1fr 1fr;gap:10px}.sv-card{padding:10px;gap:8px}.sv-num{font-size:24px}.sv-panel{padding:14px}}
 
 /* Still-missing box, compact (2026-11-10) */
 #seasonMissingCard .card-hdr{padding-bottom:8px}
@@ -4869,6 +4878,18 @@ function seasonSpanText(S){
   return S.start.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' – '+new Date(S.end-86400000).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 }
 var _seasonModel=null;
+// Cards jump to their section: home cards filter + scroll to the per-home table;
+// the issues card scrolls to the Issue resolution bars.
+function svCardJump(status){
+  var sel=document.getElementById('sd-status'); if(sel){ sel.value=status||''; }
+  var pr=document.getElementById('sd-prop'); if(pr) pr.value='';
+  renderSeaDash();
+  var t=document.getElementById('seaDashTable'); if(t){ var c=t.closest('.card')||t; c.scrollIntoView({behavior:'smooth',block:'start'}); }
+}
+function svIssuesJump(){
+  var el=document.getElementById('sv-iss-head'); if(el) el.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function svActToggle(el){ try{ localStorage.setItem('mh_sv_act_open', el.open?'1':'0'); }catch(e){} }
 function renderSeasonOverview(){
   populateSeasonSelect(); populateHouseSelect();
   var M=_seasonModel=seasonPeriodModel(selectedSeasonKey()), S=M.S, T=M.total, typeName=S.type==='fall'?'Fall':'Spring';
@@ -4879,13 +4900,14 @@ function renderSeasonOverview(){
   var pendingIss=_seasonIssueLoading||M.recs.some(function(i){return !_seasonIssueLoaded[i.id];});
   var walkIss=seasonIssueStats(M.recs.filter(function(i){return i.formType===S.type;}));
   var invIss=seasonIssueStats(M.recs.filter(function(i){return i.formType==='kitchen_inv'||i.formType==='linen_inv';}));
-  var card=function(icon,cls,label,num,sub){ return '<div class="sv-card '+cls+'"><span class="sv-ic">'+mhIcon(icon,30,'aria-hidden="true"')+'</span><div><div class="sv-lbl">'+label+'</div><div class="sv-num">'+num+'</div><div class="sv-sub">'+sub+'</div></div></div>'; };
-  var issueCard='<div class="sv-card issues" title="Maintenance issues reported on '+esc(S.label)+' '+typeName+' walkthroughs that are still open or in progress (resolved and dismissed issues are closed). Supply items are not counted."><span class="sv-ic">'+mhIcon('alertTriangle',30,'aria-hidden="true"')+'</span><div><div class="sv-lbl">Seasonal Open Issues</div><div class="sv-num">'+(pendingIss?'…':walkIss.stillOpen)+'</div><div class="sv-sub">'+(pendingIss?'loading issue statuses…':typeName+' walkthroughs · '+walkIss.closed+' of '+walkIss.reported+' closed')+'</div>'+(pendingIss?'':'<div class="sv-sub sv-sub2nd">Inventories: '+invIss.stillOpen+' open of '+invIss.reported+'</div>')+'</div></div>';
+  var curStatus=(document.getElementById('sd-status')||{}).value||'';
+  var card=function(icon,cls,label,num,sub,status){ var act=(status!==undefined&&status===curStatus&&status!=='')?' active':''; return '<button type="button" class="sv-card '+cls+act+'" onclick="svCardJump(\''+(status||'')+'\')" title="'+(status?'Show '+esc(status)+' homes in the table below':'Show all homes in the table below')+'"><span class="sv-ic">'+mhIcon(icon,24,'aria-hidden="true"')+'</span><div><div class="sv-lbl">'+label+'</div><div class="sv-row"><span class="sv-num">'+num+'</span><span class="sv-sub">'+sub+'</span></div></div></button>'; };
+  var issueCard='<button type="button" class="sv-card issues" onclick="svIssuesJump()" title="Open and in-progress maintenance issues reported on '+esc(S.label)+' '+typeName+' walkthroughs (resolved and dismissed = closed; supply items not counted). Click to see the issue resolution bars."><span class="sv-ic">'+mhIcon('alertTriangle',24,'aria-hidden="true"')+'</span><div><div class="sv-lbl">Seasonal Open Issues</div><div class="sv-row"><span class="sv-num">'+(pendingIss?'…':walkIss.stillOpen)+'</span><span class="sv-sub">'+(pendingIss?'loading…':walkIss.closed+' of '+walkIss.reported+' closed')+'</span></div>'+(pendingIss?'':'<div class="sv-sub sv-sub2nd">Inventories: '+invIss.stillOpen+' open</div>')+'</div></button>';
   document.getElementById('sv-cards').innerHTML=
-    card('home','','Total Homes',T,'active homes in this filter')+
-    card('checkCircle','ok','Complete',M.counts.Complete,'homes · all 3 submitted')+
-    card('dashCircle','prog','In Progress',M.counts['In Progress'],'homes · started, not all 3 submitted')+
-    card('circle','none','All Pending',M.counts['All Pending'],'homes · nothing started')+
+    card('home','','Total Homes',T,'homes','')+
+    card('checkCircle','ok','Complete',M.counts.Complete,'homes · all 3 done','Complete')+
+    card('dashCircle','prog','In Progress',M.counts['In Progress'],'homes · started','In Progress')+
+    card('circle','none','All Pending',M.counts['All Pending'],'homes · not started','All Pending')+
     issueCard;
   var pct=T?Math.round(M.counts.Complete/T*100):0;
   var issBar=function(label,st){
@@ -4903,7 +4925,7 @@ function renderSeasonOverview(){
   document.getElementById('sv-progress').innerHTML='<div class="sv-panel-head"><div><h2 class="sv-h">Inspection Progress · '+esc(S.label)+'</h2><div class="sv-sub2">'+M.counts.Complete+' of '+T+' homes complete (all 3 submitted) · '+esc(seasonSpanText(S))+'</div></div><div class="sv-pct">'+pct+'%</div></div>'+note+
     bar('All 3 requirements',allBar,true)+bar(typeName+' walkthrough',M.walk)+bar('Kitchen inventory',M.kitchen)+bar('Linen inventory',M.linen)+
     '<div class="sv-legend"><span><i class="done"></i>Submitted in '+esc(S.label)+'</span><span><i class="prog"></i>Started — draft saved, not counted as complete</span><span><i></i>Not started</span></div>'+
-    '<div class="sv-iss-head">Issue resolution · '+esc(S.label)+(_seasonIssueError?' <span class="un-note" style="display:inline">(couldn’t load every issue status — some may show as open)</span>':'')+'</div>'+
+    '<div class="sv-iss-head" id="sv-iss-head">Issue resolution · '+esc(S.label)+(_seasonIssueError?' <span class="un-note" style="display:inline">(couldn’t load every issue status — some may show as open)</span>':'')+'</div>'+
     issBar(typeName+' walkthrough issues',walkIss)+issBar('Kitchen + linen inventory issues',invIss)+
     '<div class="sv-legend"><span><i class="done"></i>Closed (resolved or dismissed)</span><span><i class="prog"></i>In progress</span><span><i></i>Open</span></div>';
   // Recent Activity — individual inspections and drafts of this period, newest first
@@ -4913,13 +4935,15 @@ function renderSeasonOverview(){
   rows.sort(function(a,b){return b.ms-a.ms;});
   var shown=rows.slice(0,10);
   var badge={Completed:'sv-st ok',Draft:'sv-st draft','In Progress':'sv-st prog'};
-  var h='<div class="sv-panel-head"><div><h2 class="sv-h">Recent Activity</h2><div class="sv-sub2">Latest '+shown.length+' of '+rows.length+' seasonal inspections and drafts in '+esc(S.label)+' (individual inspections, not homes)</div></div></div>';
+  var actOpen=false; try{ actOpen=localStorage.getItem('mh_sv_act_open')==='1'; }catch(e){}
+  var h='<details class="sv-act" ontoggle="svActToggle(this)"'+(actOpen?' open':'')+'><summary><div><h2 class="sv-h">Recent Activity</h2><div class="sv-sub2">Latest '+shown.length+' of '+rows.length+' seasonal inspections and drafts in '+esc(S.label)+' (individual inspections, not homes)</div></div><span class="sv-chev"><span class="sv-chev-closed">Show ▾</span><span class="sv-chev-open">Hide ▴</span></span></summary>';
   if(!shown.length){ h+='<div class="empty">No seasonal inspections or drafts in '+esc(S.label)+' for this filter yet.</div>'; }
   else{
     h+='<div class="tbl-wrap sv-tbl"><table><thead><tr><th>Home</th><th>Inspection</th><th>Status</th><th>Last Updated</th></tr></thead><tbody>';
     shown.forEach(function(r){ h+='<tr><td style="font-weight:700">'+esc(r.home)+'</td><td>'+esc(({fall:'Fall Walkthrough',spring:'Spring Walkthrough'})[r.type]||TYPE_LABELS[r.type]||r.type)+(r.by?'<div class="sv-by">'+esc(r.by)+'</div>':'')+'</td><td><span class="'+badge[r.status]+'">'+r.status+'</span></td><td title="'+esc(new Date(r.ms).toLocaleString())+'">'+esc(svWhen(r.ms))+'</td></tr>'; });
     h+='</tbody></table></div>';
   }
+  h+='</details>';
   document.getElementById('sv-activity').innerHTML=h;
   renderSeasonReview(M);
 }
