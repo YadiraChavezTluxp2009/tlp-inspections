@@ -1823,7 +1823,9 @@ var PROPERTIES = [
 // the single Firestore doc track_sync/properties. On load we merge it in:
 //   Track wins:  active/inactive, check-in notes, occupancy, bedrooms,
 //                bathrooms, size, pets (unless Track's value is blank/0)
-//   App keeps:   name, address, contact, owner, lockbox, alarm, bear, email
+//   Track wins (2026-11-10): Operations Contact ("Operations Team Point of
+//                Contact") for every home, unless Track's field is blank
+//   App keeps:   name, address, owner, lockbox, alarm, bear, email
 // Inactive-in-Track homes stay in PROPERTIES (so old inspections still resolve
 // via PROPERTIES.find) but are flagged p.inactive and hidden from pickers.
 // Active+bookable Track homes missing from the list are added (codes blank).
@@ -1832,6 +1834,15 @@ var PROPERTIES = [
 var TRACK_SYNC = { loaded: false, trackToday: null, syncedAt: null, added: [], hidden: [] };
 function trackNameKey(n) { return String(n || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
 function activeProps() { return PROPERTIES.filter(function(p){ return !p.inactive; }); }
+// Match Track's contact to a name already used in the app when Track has a
+// longer variant (e.g. "Trevor Dimino-Simons" → "Trevor Dimino").
+function trackContactName(name) {
+  if (!name) return '';
+  var known = Array.from(new Set(PROPERTIES.map(function(p){ return p.contact; }).filter(Boolean)));
+  if (known.indexOf(name) !== -1) return name;
+  var hit = known.filter(function(k){ return name.indexOf(k) === 0; }).sort(function(a, b){ return b.length - a.length; })[0];
+  return hit || name;
+}
 function applyTrackData(doc) {
   var byKey = {};
   PROPERTIES.forEach(function(p){ byKey[trackNameKey(p.name)] = p; });
@@ -1848,6 +1859,10 @@ function applyTrackData(doc) {
       PROPERTIES.push(p); byKey[key] = p; TRACK_SYNC.added.push(r.name);
     }
     p.inactive = false;
+    if (r.contact) {
+      var tc = trackContactName(r.contact);
+      if (tc && tc !== p.contact) { p.builtInContact = p.contact; p.contact = tc; }
+    }
     if (r.checkinNotes && r.checkinNotes !== 'None') { p.checkinNotes = r.checkinNotes; p._trackNotes = true; }
     if (r.occupancy) p.occupancy = r.occupancy;
     if (r.bedrooms) p.bedrooms = r.bedrooms;

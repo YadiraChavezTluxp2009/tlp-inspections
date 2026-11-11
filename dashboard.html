@@ -1273,9 +1273,13 @@ var PROPERTIES=[{"name":"12th Tee At Northstar","manager":"Rachael Brigham","ala
 //   - active Track homes missing from this list are added; their manager is
 //     Track's "Operations Team Point of Contact", matched to an existing
 //     MANAGERS name when Track uses a longer variant (e.g. "Trevor Dimino-Simons")
-// Name, manager, owner and alarm for existing homes are never changed.
+//   - (2026-11-10) Operations Contact now comes from Track for EVERY home:
+//     Track's "Operations Team Point of Contact" replaces the built-in manager
+//     whenever Track has one; if Track's field is blank the built-in name stays.
+//     MANAGERS and the contact dropdowns are rebuilt after the merge.
+// Name, owner and alarm for existing homes are never changed.
 // If Firestore is unreachable nothing changes.
-var TRACK_SYNC={loaded:false,trackToday:null,added:[],hidden:[]};
+var TRACK_SYNC={loaded:false,trackToday:null,added:[],hidden:[],contactChanged:[],contactBlank:[]};
 function trackNameKey(n){return String(n||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
 function isActiveProp(p){return !p.inactive;}
 function trackManagerName(name){
@@ -1298,10 +1302,28 @@ function applyTrackData(doc){
       PROPERTIES.push(p);byKey[key]=p;TRACK_SYNC.added.push(r.name);
     }
     p.inactive=false;
+    if(r.contact){
+      var tm=trackManagerName(r.contact);
+      if(tm&&tm!==p.manager){ if(!p.fromTrack) TRACK_SYNC.contactChanged.push(p.name+': '+(p.manager||'—')+' → '+tm); p.builtInManager=p.manager; p.manager=tm; }
+    } else if(!p.fromTrack) TRACK_SYNC.contactBlank.push(p.name);
     p.track={unitId:r.trackUnitId,currentStay:r.currentStay||null,nextArrival:r.nextArrival||null,lastDeparture:r.lastDeparture||null};
   });
   PROPERTIES.sort(function(a,b){return a.name.localeCompare(b.name);});
   TRACK_SYNC.loaded=true;TRACK_SYNC.trackToday=doc.trackToday||null;
+  refreshContactLists();
+}
+// Rebuild the Operations Contact roster from the (now Track-updated) homes and
+// refresh every contact dropdown, keeping whatever each one had selected.
+var CONTACT_SELECT_IDS=['sd-mgr','qd-mgr','ql-mgr','cp-mgr','il-mgr','si-mgr','sup-mgr','pr-mgr','un-mgr'];
+function refreshContactLists(){
+  MANAGERS=Array.from(new Set(PROPERTIES.map(function(p){return p.manager;}).filter(Boolean))).sort().filter(function(m){return RETIRED_CONTACTS.indexOf(m)===-1;});
+  CONTACT_SELECT_IDS.forEach(function(id){
+    var el=document.getElementById(id); if(!el||el.options.length<=1) return;
+    var keep=el.value;
+    while(el.options.length>1) el.remove(1);
+    populateContactSelect(id);
+    if(keep&&[].some.call(el.options,function(o){return o.value===keep;})) el.value=keep;
+  });
 }
 function loadTrackProperties(){
   if(!db)return;
