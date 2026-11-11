@@ -662,6 +662,22 @@ body{background:var(--content-bg)}
 .sv-st.ok{background:#DDF3E4;color:#14532D}.sv-st.draft{background:#DCE9FB;color:#123F7A}.sv-st.prog{background:#FFF0D6;color:#7A4A00}
 @media (max-width:1100px){.sv-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:600px){.sv-filters{grid-template-columns:1fr}.sv-cards{grid-template-columns:1fr 1fr;gap:10px}.sv-card{padding:14px;gap:10px}.sv-num{font-size:30px}.sv-panel{padding:14px}}
+
+/* Still-missing box, compact (2026-11-10) */
+#seasonMissingCard .card-hdr{padding-bottom:8px}
+.sm-body{padding:10px 20px 14px}
+.sm-summary{margin-bottom:10px}
+.sm-chips{display:flex;flex-wrap:wrap;gap:6px}
+.sm-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#F7F9FC;border-radius:16px;padding:5px 11px;font-size:12.5px;font-weight:600;color:#1F2B3D;cursor:pointer}
+.sm-chip b{color:var(--red)}
+.sm-chip:hover{background:#EEF3F9}
+.sm-chip.on{background:var(--accent-bg,#DCE8F8);border-color:var(--blue);color:#0B2A55}
+.sm-chip-st{font-size:10.5px;font-weight:700;color:var(--orange);background:#FFF0D6;border-radius:8px;padding:1px 6px}
+.sm-open{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:#FBFCFE}
+.sm-open-head{padding:8px 12px 0;font-size:12.5px;font-weight:700;color:#0B2A55}
+.sm-homes{padding:8px 12px 10px;gap:5px}
+.sm-home{padding:4px 9px;font-size:12px}
+.sm-hint{margin-top:8px;font-size:11.5px;color:#5A6678}
 </style>
 </head>
 <body>
@@ -4512,6 +4528,8 @@ function renderUnfinished(){
   }
 }
 
+var _smOpen=null;
+function toggleSeasonMissingGroup(btn){ var m=btn.getAttribute('data-m'); _smOpen=(_smOpen===m)?null:m; renderSeasonMissing(); }
 function renderSeasonMissing(){
   var body=document.getElementById('seasonMissingBody'); if(!body) return;
   var season=currentSeasonInfo();
@@ -4554,27 +4572,39 @@ function renderSeasonMissing(){
     html+='<div class="sm-allclear">✓ Every home'+(mgrF||propF?' in this filter':'')+' has a submitted '+esc(t)+' inspection this season.</div>';
     body.innerHTML=html; return;
   }
-  // Early in a season most homes are missing — start the groups collapsed then
-  // (each header still shows its count) so the table below isn't pushed far down.
-  var openAttr=missing.length<=30?' open':'';
+  // Compact layout (2026-11-10): one small chip per Operations Contact with
+  // its count; tapping a chip lists that contact's missing homes underneath
+  // (one open at a time). Keeps the box a few lines tall even early in a season.
   var groups={};
   missing.forEach(function(p){var m=p.manager||'Unassigned';(groups[m]=groups[m]||[]).push(p);});
-  Object.keys(groups).sort(function(a,b){if(a==='Unassigned')return 1;if(b==='Unassigned')return -1;return a.localeCompare(b);}).forEach(function(m){
-    var list=groups[m].slice().sort(function(a,b){return a.name.localeCompare(b.name);});
-    html+='<details class="sm-group"'+openAttr+'><summary>'+esc(m)+'<span class="sm-cnt">'+list.length+' missing</span></summary><div class="sm-homes">';
+  var names=Object.keys(groups).sort(function(a,b){if(a==='Unassigned')return 1;if(b==='Unassigned')return -1;return a.localeCompare(b);});
+  if(_smOpen&&!groups[_smOpen]) _smOpen=null;
+  if(names.length===1) _smOpen=names[0];
+  html+='<div class="sm-chips" role="group" aria-label="Missing homes by Operations Contact">';
+  names.forEach(function(m){
+    var started=groups[m].filter(function(p){return draftsByProp[p.name];}).length;
+    var on=_smOpen===m;
+    html+='<button type="button" class="sm-chip'+(on?' on':'')+'" aria-expanded="'+on+'" onclick="toggleSeasonMissingGroup(this)" data-m="'+esc(m)+'">'+esc(m)+' <b>'+groups[m].length+'</b>'+(started?'<span class="sm-chip-st" title="'+started+' started, not submitted">'+started+' started</span>':'')+'</button>';
+  });
+  html+='</div>';
+  if(_smOpen){
+    var list=groups[_smOpen].slice().sort(function(a,b){return a.name.localeCompare(b.name);});
+    html+='<div class="sm-open"><div class="sm-open-head">'+esc(_smOpen)+' — '+list.length+' missing</div><div class="sm-homes">';
     list.forEach(function(p){
       var ds=draftsByProp[p.name];
       if(ds){
         var d=ds[0], pr=draftProgress(d);
         var prog=pr.total?Math.round(pr.done/pr.total*100)+'%':pr.done+' answered';
         var who=draftInspector(d);
-        html+='<div class="sm-home has-draft">'+esc(p.name)+'<small>📝 Started, not submitted · '+prog+(who?' · '+esc(who):'')+(ds.length>1?' · '+ds.length+' drafts':'')+'</small></div>';
+        html+='<div class="sm-home has-draft" title="Started, not submitted · '+esc(prog)+(who?' · '+esc(who):'')+'">'+esc(p.name)+'<small>📝 '+prog+(who?' · '+esc(who):'')+(ds.length>1?' · '+ds.length+' drafts':'')+'</small></div>';
       } else {
-        html+='<div class="sm-home">'+esc(p.name)+'<small>Not started</small></div>';
+        html+='<div class="sm-home">'+esc(p.name)+'</div>';
       }
     });
-    html+='</div></details>';
-  });
+    html+='</div></div>';
+  } else {
+    html+='<div class="sm-hint">Tap a name to see their homes. Orange = started, not submitted.</div>';
+  }
   body.innerHTML=html;
 }
 
