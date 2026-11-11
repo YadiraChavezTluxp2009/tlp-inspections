@@ -541,6 +541,27 @@ tr:hover td{background:#fafbfe}
 .lb-count{font-size:12px;color:var(--dark-gray)}
 .lb-dl-all{background:linear-gradient(135deg,var(--navy),var(--blue));color:white;border:none;border-radius:9px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer}
 .lb-dl-all:hover{opacity:.9}
+/* ── Unfinished inspections + Still missing this season (added 2026-11-10) ── */
+.un-navcount{display:inline-block;min-width:18px;padding:1px 6px;margin-left:4px;border-radius:9px;background:var(--red);color:white;font-size:10.5px;font-weight:800;line-height:16px;text-align:center}
+.un-navcount:empty{display:none}
+tr.un-stale td{background:#FFF5F5}
+tr.un-stale td:first-child{box-shadow:inset 4px 0 0 var(--red)}
+.un-prog{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.un-prog-bar{width:70px;height:6px;border-radius:3px;background:var(--mid-gray);overflow:hidden;flex-shrink:0}
+.un-prog-bar span{display:block;height:100%;background:var(--blue)}
+.un-note{margin:0 0 12px;font-size:11.5px;color:var(--dark-gray)}
+.un-err{margin:16px 20px;padding:12px 14px;border-radius:9px;background:#FDECEA;color:var(--red);font-size:13px;font-weight:600}
+.sm-body{padding:14px 20px 18px}
+.sm-summary{font-size:13px;color:var(--navy);margin-bottom:12px}
+.sm-group{border:1px solid var(--mid-gray);border-radius:9px;margin-bottom:8px;overflow:hidden}
+.sm-group summary{cursor:pointer;padding:9px 12px;font-weight:700;font-size:13px;color:var(--navy);background:#F7F9FC}
+.sm-group summary .sm-cnt{font-weight:600;color:var(--red);margin-left:6px}
+.sm-homes{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px}
+.sm-home{display:inline-flex;flex-direction:column;padding:6px 10px;border-radius:8px;background:#F2F4F7;border:1px solid var(--mid-gray);font-size:12.5px;font-weight:600;color:var(--navy);max-width:100%}
+.sm-home small{font-weight:500;font-size:11px;color:var(--dark-gray);margin-top:2px}
+.sm-home.has-draft{background:#FFF3E0;border-color:#F5C88A}
+.sm-home.has-draft small{color:var(--orange)}
+.sm-allclear{padding:10px 12px;border-radius:9px;background:#E8F5E9;color:#1B5E20;font-weight:700;font-size:13px}
 </style>
 </head>
 <body>
@@ -577,10 +598,10 @@ tr:hover td{background:#fafbfe}
   <div class="tab-nav" id="tabNav">
     <button class="tab-btn active" onclick="switchTab('insplog',this)">📋 Check-Ins/Check-Outs Log</button>
     <button class="tab-btn" onclick="switchTab('openissues',this)">🛠️ Open Issues</button>
+    <button class="tab-btn" onclick="switchTab('unfinished',this)">⏳ Unfinished<span class="un-navcount" id="un-navcount"></span></button>
     <button class="tab-btn" onclick="switchTab('supplyinv',this)">📦 Supply Inventory</button>
     <button class="tab-btn" onclick="switchTab('seasonal',this)">🌿 Seasonal Inspections</button>
     <button class="tab-btn" onclick="switchTab('seadash',this)">📊 Seasonal Dashboard</button>
-    <button class="tab-btn" onclick="switchTab('drafts',this)">📝 Drafts &amp; Progress</button>
     <button class="tab-btn" onclick="switchTab('qcdash',this)">🔍 QC Dashboard</button>
     <button class="tab-btn" onclick="switchTab('qclog',this)">📝 QC Log</button>
     <button class="tab-btn" onclick="switchTab('training',this)">🎓 Trainings</button>
@@ -609,6 +630,29 @@ tr:hover td{background:#fafbfe}
           </div>
         </div>
         <div class="tbl-wrap"><div id="inspLogTable"><div class="loading">Loading…</div></div></div>
+      </div>
+    </div>
+
+    <!-- UNFINISHED INSPECTIONS (added 2026-11-10) — read-only list of drafts
+         that were started in the app but never submitted. See renderUnfinished(). -->
+    <div class="tab-panel" id="tab-unfinished">
+      <div class="stats-row stats-row-compact">
+        <div class="stat-card"><div class="stat-num" id="un-total">—</div><div class="stat-lbl">Unfinished Inspections</div></div>
+        <div class="stat-card red"><div class="stat-num" id="un-stale">—</div><div class="stat-lbl">Not Saved in 12+ Hours</div></div>
+        <div class="stat-card orange"><div class="stat-num" id="un-homes">—</div><div class="stat-lbl">Homes Affected</div></div>
+        <div class="stat-card navy"><div class="stat-num" id="un-staff">—</div><div class="stat-lbl">Staff With Unfinished</div></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr">
+          <div><div class="card-title">⏳ Unfinished Inspections</div><div class="card-sub">Inspections started in the app but never submitted — they don't show anywhere else in the Mothership until they're submitted. Oldest first; red rows haven't been saved in 12+ hours. View only.</div></div>
+          <div class="spacer"></div>
+          <div class="filters">
+            <select id="un-type" onchange="renderUnfinished()"><option value="">All Types</option></select>
+            <select id="un-insp" onchange="renderUnfinished()"><option value="">All Inspectors</option></select>
+            <select id="un-mgr" onchange="renderUnfinished()"><option value="">All Operations Contacts</option></select>
+          </div>
+        </div>
+        <div class="tbl-wrap"><div id="unfinishedTable"><div class="loading">Loading…</div></div></div>
       </div>
     </div>
 
@@ -688,31 +732,15 @@ tr:hover td{background:#fafbfe}
       </div>
     </div>
 
-    <!-- DRAFTS & PROGRESS (2026-11-10) -->
-    <div class="tab-panel" id="tab-drafts">
-      <div class="stats-row stats-row-compact">
-        <div class="stat-card"><div class="stat-num" id="dr-draft">—</div><div class="stat-lbl">Draft (started, nothing answered)</div></div>
-        <div class="stat-card orange"><div class="stat-num" id="dr-progress">—</div><div class="stat-lbl">In Progress (saved, not submitted)</div></div>
-        <div class="stat-card navy"><div class="stat-num" id="dr-sub">—</div><div class="stat-lbl">Submitted — last 7 days</div></div>
-        <div class="stat-card red"><div class="stat-num" id="dr-stale">—</div><div class="stat-lbl">Not saved in 7+ days</div></div>
-      </div>
-      <div class="card">
-        <div class="card-hdr">
-          <div><div class="card-title">📝 Drafts &amp; Progress</div><div class="card-sub">Inspections saved in the app but not yet submitted. Drafts count toward progress (Seasonal Dashboard shows them as In Progress) but never as completed. Submitted/completed inspections are in the logs.</div></div>
-          <div class="spacer"></div>
-          <div class="filters">
-            <select id="dr-type" onchange="renderDrafts()"><option value="">All Types</option></select>
-            <select id="dr-status" onchange="renderDrafts()"><option value="">Draft + In Progress</option><option value="Draft">Draft</option><option value="In Progress">In Progress</option></select>
-            <input id="dr-prop" oninput="renderDrafts()" placeholder="🔍 Property…" style="width:170px">
-            <select id="dr-mgr" onchange="renderDrafts()"><option value="">All Operations Contacts</option></select>
-          </div>
-        </div>
-        <div class="tbl-wrap"><div id="draftsTable"><div class="loading">Loading…</div></div></div>
-      </div>
-    </div>
-
     <!-- SEASONAL DASHBOARD -->
     <div class="tab-panel" id="tab-seadash">
+      <!-- Still missing this season (added 2026-11-10) — see renderSeasonMissing() -->
+      <div class="card" id="seasonMissingCard">
+        <div class="card-hdr">
+          <div><div class="card-title" id="sm-title">⚠️ Still missing this season</div><div class="card-sub" id="sm-sub">Homes with no submitted seasonal inspection yet this season, grouped by Operations Contact. Follows the Operations Contact and Property filters below.</div></div>
+        </div>
+        <div class="sm-body" id="seasonMissingBody"><div class="loading">Loading…</div></div>
+      </div>
       <div class="card">
         <div class="card-hdr">
           <div><div class="card-title">📊 Seasonal Dashboard</div><div class="card-sub">Spring · Fall · Kitchen · Linen completion status per property</div></div>
@@ -1232,7 +1260,7 @@ function refreshDashProfile(user){
 function doLogout(){clearSession();staffSignOut().then(function(){location.reload();});}
 
 // ── SHOW APP ──────────────────────────────────────────────────────────────────
-var _insp=[], _trainings={}, _propIssues=[], _supplyReqs=[], _drafts=[], _draftsError='';
+var _insp=[], _trainings={}, _propIssues=[], _supplyReqs=[];
 var _trackLoadStarted=false;
 function showApp(){
   if(!_trackLoadStarted){_trackLoadStarted=true;loadTrackProperties();}
@@ -1242,6 +1270,7 @@ function showApp(){
   // Populate Operations Contact filter dropdowns — every tab's filter uses the
   // same live contact list (see MANAGERS/populateContactSelect above).
   ['sd-mgr','qd-mgr','ql-mgr','cp-mgr','il-mgr','si-mgr','sup-mgr','pr-mgr'].forEach(populateContactSelect);
+  populateContactSelect('un-mgr');
   initMyHousesTab();
   initProductivityTab();
   loadData().then(function(){
@@ -1291,97 +1320,29 @@ function loadData(){
   // that's intentional. A failed collection must fail the whole Promise.all so
   // refreshDashboardData() can show a real error and skip updating "Last synced",
   // rather than silently rendering with stale/partial data as if the refresh succeeded.
-  // Active drafts (2026-11-10). A drafts read problem must not block the rest of the
-  // dashboard, so this one is caught and shown as a message on the Drafts tab.
-  var pDrafts=db.collection('drafts').orderBy('savedAt','desc').limit(400).get().then(function(snap){
-    _drafts=snap.docs.map(function(d){return Object.assign({_docId:d.id},d.data());}); _draftsError='';
-  }).catch(function(e){ console.warn('[DRAFTS] could not load drafts',e); _drafts=[]; _draftsError=(e&&(e.code||e.message))||'error'; });
-  return Promise.all([pInsp,pTrain,pIssues,pSupply,pDrafts]).then(function(){
+  // loadUnfinishedExtras() always resolves (its reads catch their own errors),
+  // so a problem reading drafts can never break the rest of the dashboard.
+  return Promise.all([pInsp,pTrain,pIssues,pSupply,loadUnfinishedExtras()]).then(function(){
     renderAll();
     renderTraining();
   });
 }
-function renderAll(){renderDrafts();renderInspLog();renderSeasonal();renderSeaDash();renderQCDash();renderQCLog();renderOpenIssues();renderSupplyReqs();renderMyHouses();renderProductivity();}
+function renderAll(){renderInspLog();renderSeasonal();renderSeaDash();renderQCDash();renderQCLog();renderOpenIssues();renderSupplyReqs();renderMyHouses();renderProductivity();renderUnfinished();}
 
-
-// ── DRAFTS & PROGRESS (2026-11-10) ───────────────────────────────────────────
-// Reads the same `drafts` docs the app saves (drafts/{userId}_{draftId}). Status
-// uses the app's own vocabulary: "Draft" = saved but nothing answered yet,
-// "In Progress" = at least one item answered; once submitted it is an inspection
-// record (Submitted/Completed) and the draft is removed by the app. Soft-deleted
-// drafts ({deleted:true}) and drafts whose inspection was already submitted are
-// left out.
-function draftProgress(d){
-  var secs=(d._sections&&d._sections.length)?d._sections:[]; var items=d.items||{};
-  var total=0,done=0;
-  secs.forEach(function(sec,si){
-    if(sec.dynamic==='bedroom'||sec.dynamic==='bathroom'){
-      var pre=sec.dynamic==='bedroom'?'bedI':'bathI';
-      var inst=(d[sec.dynamic+'Instances']&&d[sec.dynamic+'Instances'].length)?d[sec.dynamic+'Instances']:[{}];
-      inst.forEach(function(_,idx){(sec.items||[]).forEach(function(_,ii){total++;if((items[pre+idx+'_'+ii]||{}).status)done++;});});
-      return;
-    }
-    (sec.items||[]).forEach(function(_,ii){
-      total++; var it=items[si+'_'+ii]||{};
-      if(it.status||(it.value!==undefined&&it.value!==''))done++;
-    });
-  });
-  Object.keys(d.extraItems||{}).forEach(function(si){(d.extraItems[si]||[]).forEach(function(_,idx){total++;if((items['extra_'+si+'_'+idx]||{}).status)done++;});});
-  return {total:total,done:done,pct:total?Math.round(done/total*100):0};
-}
-function activeDrafts(){
-  var submitted={}; _insp.forEach(function(i){submitted[i.id]=1;});
-  return _drafts.filter(function(d){
-    if(d.deleted) return false;
-    if(!d.formType||!TYPE_LABELS[d.formType]) return false;
-    if(submitted['insp_'+d.id]) return false;
-    return true;
-  }).map(function(d){
-    var pr=draftProgress(d);
-    var prop=(d.info&&d.info.property)||(d.selectedProp&&d.selectedProp.name)||'';
-    return {d:d,property:prop,type:d.formType,staff:(d.info&&d.info.inspector)||'',savedAt:d.savedAt||0,progress:pr,status:pr.done>0?'In Progress':'Draft'};
-  });
-}
-function fmtAgo(ms){
-  if(!ms)return '—'; var m=Math.floor((Date.now()-ms)/60000);
-  if(m<1)return 'just now'; if(m<60)return m+' min ago'; var h=Math.floor(m/60); if(h<24)return h+' hr ago';
-  var dd=Math.floor(h/24); return dd+' day'+(dd!==1?'s':'')+' ago';
-}
-function renderDrafts(){
-  var el=document.getElementById('draftsTable'); if(!el)return;
-  var typeSel=document.getElementById('dr-type');
-  if(typeSel&&typeSel.options.length<=1){Object.keys(TYPE_LABELS).forEach(function(t){if(t==='spot_check')return;var o=document.createElement('option');o.value=t;o.textContent=TYPE_LABELS[t];typeSel.appendChild(o);});}
-  populateContactSelect('dr-mgr');
-  var all=activeDrafts();
-  var wk=_insp.filter(function(i){return i.submittedAt&&(Date.now()-new Date(i.submittedAt))<7*86400000;}).length;
-  document.getElementById('dr-draft').textContent=all.filter(function(x){return x.status==='Draft';}).length;
-  document.getElementById('dr-progress').textContent=all.filter(function(x){return x.status==='In Progress';}).length;
-  document.getElementById('dr-sub').textContent=wk;
-  document.getElementById('dr-stale').textContent=all.filter(function(x){return Date.now()-x.savedAt>7*86400000;}).length;
-  if(_draftsError){el.innerHTML='<div class="empty">Drafts could not be loaded ('+esc(_draftsError)+'). Use Refresh to try again.</div>';return;}
-  var tF=document.getElementById('dr-type').value, sF=document.getElementById('dr-status').value;
-  var pF=(document.getElementById('dr-prop').value||'').toLowerCase(), mF=document.getElementById('dr-mgr').value;
-  var list=all.filter(function(x){
-    if(tF&&x.type!==tF)return false; if(sF&&x.status!==sF)return false;
-    if(pF&&x.property.toLowerCase().indexOf(pF)===-1)return false;
-    if(mF){var pr=PROPERTIES.find(function(p){return p.name===x.property;}); if(!contactMatches(pr?pr.manager:'',mF))return false;}
-    return true;
-  }).sort(function(a,b){return b.savedAt-a.savedAt;});
-  if(!list.length){el.innerHTML='<div class="empty">No active drafts match these filters</div>';return;}
-  var h='<table><thead><tr><th>Property</th><th>Inspection Type</th><th>Staff Member</th><th>Status</th><th>Progress</th><th>Last Saved</th></tr></thead><tbody>';
-  list.forEach(function(x){
-    var stale=Date.now()-x.savedAt>7*86400000;
-    h+='<tr><td style="font-weight:600">'+esc(x.property||'—')+'</td><td>'+esc(TYPE_LABELS[x.type]||x.type)+'</td><td>'+esc(x.staff||'—')+'</td>';
-    h+='<td><span class="badge '+(x.status==='Draft'?'b-never':'b-pending')+'">'+(x.status==='Draft'?'📝 Draft':'⏳ In Progress')+'</span></td>';
-    h+='<td>'+(x.progress.total?x.progress.pct+'% <span style="color:var(--dark-gray);font-size:11px">('+x.progress.done+'/'+x.progress.total+')</span>':'—')+'</td>';
-    h+='<td title="'+esc(new Date(x.savedAt).toLocaleString())+'">'+esc(fmtDateTime(new Date(x.savedAt).toISOString()))+'<div style="font-size:11px;color:'+(stale?'var(--red)':'var(--dark-gray)')+'">'+fmtAgo(x.savedAt)+(stale?' — stale':'')+'</div></td></tr>';
-  });
-  h+='</tbody></table>';
-  el.innerHTML=h;
-}
-// Draft lookup for the Seasonal Dashboard: newest active draft per property|type.
+// Draft markers in the Seasonal Dashboard table (2026-11-10): newest open draft
+// per home + type, from the same openDrafts() list the Unfinished tab uses (so
+// voided, soft-deleted and already-submitted drafts never show).
 function latestDraftFor(prop,type){
-  var best=null; activeDrafts().forEach(function(x){ if(x.property===prop&&x.type===type&&(!best||x.savedAt>best.savedAt))best=x; }); return best;
+  if(_draftsError) return null;
+  var best=null;
+  openDrafts().forEach(function(d){
+    if(draftPropName(d)!==prop||d.formType!==type) return;
+    if(!best||(Number(d.savedAt)||0)>(Number(best.savedAt)||0)) best=d;
+  });
+  if(!best) return null;
+  var pr=draftProgress(best);
+  return {savedAt:Number(best.savedAt)||0, staff:draftInspector(best), status:pr.done>0?'In Progress':'Draft',
+          progress:{done:pr.done,total:pr.total,pct:pr.total?Math.round(pr.done/pr.total*100):null}};
 }
 
 // ── MAINTENANCE NOTES ADDED AFTER SUBMISSION (2026-11-10) ────────────────────
@@ -4144,8 +4105,269 @@ function rptPdfBuild(cfg,imgs){
   return {doc:doc,filename:filename,missing:missing};
 }
 
+// ── UNFINISHED INSPECTIONS + STILL MISSING THIS SEASON (added 2026-11-10) ─────
+// Why: on 2026-11-10 a Reflections - Lakeview kitchen inventory sat as a draft
+// for a day without anyone noticing (drafts never reach `inspections`, so the
+// Mothership never showed it), and a fall walkthrough for the same home was
+// never started at all. These two views close both gaps.
+//
+// READ-ONLY. Nothing here writes to Firestore. Drafts are read from the
+// `drafts` collection that the app already saves to (doc id userId_draftId).
+// A draft is listed when it is not voided (isVoided), not soft-deleted
+// (deleted:true, used by a later build), and not already submitted (an
+// inspections doc 'insp_'+draftId exists — the app deletes the draft on
+// submit, but that delete can fail silently).
+var _drafts=[], _draftsLoaded=false, _draftsError=null;
+var _seasonInsp=null, _seasonInspError=null;
+var UNFINISHED_STALE_HOURS=12;
+
+// Season windows (assumption, 2026-11-10): Fall = Sep 1 - Dec 31, Spring =
+// Mar 1 - Jun 30. In Jan-Feb the current seasonal type is still last Fall;
+// in Jul-Aug it is still Spring. "This season" = submitted on/after start.
+function currentSeasonInfo(now){
+  now=now||new Date();
+  var m=now.getMonth(), y=now.getFullYear(), type, start;
+  if(m>=8){type='fall';start=new Date(y,8,1);}
+  else if(m<=1){type='fall';start=new Date(y-1,8,1);}
+  else {type='spring';start=new Date(y,2,1);}
+  var startLabel=start.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  return {type:type,start:start,startLabel:startLabel,label:(TYPE_LABELS[type]||type)+' '+start.getFullYear()};
+}
+
+function loadUnfinishedExtras(){
+  var season=currentSeasonInfo();
+  var pD=db.collection('drafts').orderBy('savedAt','desc').limit(500).get().then(function(snap){
+    _drafts=snap.docs.map(function(d){return Object.assign({},d.data(),{_docId:d.id});});
+    _draftsLoaded=true; _draftsError=null;
+  }).catch(function(e){
+    console.warn('[UNFINISHED] could not read drafts',e);
+    _draftsLoaded=true; _draftsError=e||{};
+  });
+  // Dedicated query for this season's type so the "missing" list never depends
+  // on the 500-newest cap on the main inspections load.
+  var pS=db.collection('inspections').where('formType','==',season.type).get().then(function(snap){
+    _seasonInsp=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    _seasonInspError=null;
+  }).catch(function(e){
+    console.warn('[SEASON-MISSING] could not read '+season.type+' inspections',e);
+    _seasonInspError=e||{};
+  });
+  return Promise.all([pD,pS]);
+}
+
+function draftPropName(d){return (d.info&&d.info.property)||(d.selectedProp&&d.selectedProp.name)||'';}
+function draftInspector(d){return (d.info&&d.info.inspector)||'';}
+// draftId is Date.now() at the moment the inspection was started in the app.
+function draftStartedMs(d){
+  var n=Number(d.id); if(n>1e12&&n<4e12) return n;
+  if(d.startTime){var t=Date.parse(d.startTime); if(!isNaN(t)) return t;}
+  return null;
+}
+// Same counting rule as the app's countDraftProgress(), using the draft's own
+// frozen question list (_sections). Older drafts without one only get an
+// "answered" count (total unknown).
+function draftProgress(d){
+  var items=d.items||{};
+  function has(k){return !!(items[k]&&items[k].status);}
+  var secs=d._sections;
+  if(!secs||!secs.length){
+    var a=0; Object.keys(items).forEach(function(k){if(has(k))a++;});
+    return {done:a,total:null};
+  }
+  var total=0, done=0;
+  secs.forEach(function(sec,si){
+    var its=sec.items||[];
+    if(sec.dynamic==='bedroom'||sec.dynamic==='bathroom'){
+      var prefix=sec.dynamic==='bedroom'?'bedI':'bathI';
+      var inst=(d[sec.dynamic+'Instances']&&d[sec.dynamic+'Instances'].length)?d[sec.dynamic+'Instances']:[{name:''}];
+      inst.forEach(function(_i,idx){its.forEach(function(_,ii){total++;if(has(prefix+idx+'_'+ii))done++;});});
+      return;
+    }
+    its.forEach(function(_,ii){total++;if(has(si+'_'+ii))done++;});
+  });
+  (d.kitchenExtraItems||[]).forEach(function(_,idx){total++;if(has('kitx'+idx))done++;});
+  Object.keys(d.extraItems||{}).forEach(function(si){
+    (d.extraItems[si]||[]).forEach(function(_,idx){total++;if(has('extra_'+si+'_'+idx))done++;});
+  });
+  return {done:done,total:total};
+}
+function draftIsSubmitted(d){
+  var id='insp_'+d.id;
+  return _insp.some(function(i){return i.id===id;})||(_seasonInsp||[]).some(function(i){return i.id===id;});
+}
+// Every open (non-voided, non-deleted, not-yet-submitted) draft.
+function openDrafts(){
+  return _drafts.filter(function(d){
+    if(!d||!d.formType) return false;
+    if(d.isVoided||d.deleted===true) return false;
+    if(draftIsSubmitted(d)) return false;
+    return true;
+  });
+}
+function fmtIdle(ms){
+  var h=Math.floor(ms/3600000);
+  if(h<1) return Math.max(1,Math.floor(ms/60000))+' min';
+  if(h<48) return h+' hr'+(h!==1?'s':'');
+  var dd=Math.floor(h/24); return dd+' days';
+}
+function propManagerFor(name){
+  var rec=PROPERTIES.find(function(p){return p.name===name;});
+  return rec?(rec.manager||''):'';
+}
+function fillSelectKeep(id,firstLabel,values,labelFn){
+  var el=document.getElementById(id); if(!el) return;
+  var cur=el.value;
+  var html='<option value="">'+esc(firstLabel)+'</option>';
+  values.forEach(function(v){html+='<option value="'+esc(v)+'">'+esc(labelFn?labelFn(v):v)+'</option>';});
+  el.innerHTML=html;
+  if(cur&&values.indexOf(cur)!==-1) el.value=cur;
+}
+
+function renderUnfinished(){
+  try{
+    var wrap=document.getElementById('unfinishedTable'); if(!wrap) return;
+    var navCnt=document.getElementById('un-navcount');
+    if(!_draftsLoaded){wrap.innerHTML='<div class="loading">Loading…</div>';return;}
+    if(_draftsError){
+      ['un-total','un-stale','un-homes','un-staff'].forEach(function(id){document.getElementById(id).textContent='—';});
+      if(navCnt) navCnt.textContent='';
+      var perm=_draftsError.code==='permission-denied';
+      wrap.innerHTML='<div class="un-err">Couldn’t read unfinished inspections'+(perm?' — the database refused access (Firestore rules need to let signed-in staff read “drafts”).':' — check your connection and press Refresh.')+'</div>';
+      return;
+    }
+    var all=openDrafts();
+    if(navCnt) navCnt.textContent=all.length?String(all.length):'';
+    // Filter dropdowns are built from what's actually open, keeping the current choice.
+    var types=[], insps=[];
+    all.forEach(function(d){
+      if(types.indexOf(d.formType)===-1) types.push(d.formType);
+      var n=draftInspector(d); if(n&&insps.indexOf(n)===-1) insps.push(n);
+    });
+    types.sort(function(a,b){return (TYPE_LABELS[a]||a).localeCompare(TYPE_LABELS[b]||b);});
+    insps.sort();
+    fillSelectKeep('un-type','All Types',types,function(t){return TYPE_LABELS[t]||t;});
+    fillSelectKeep('un-insp','All Inspectors',insps);
+    var typeF=document.getElementById('un-type').value;
+    var inspF=document.getElementById('un-insp').value;
+    var mgrF=document.getElementById('un-mgr').value;
+    var now=Date.now(), staleMs=UNFINISHED_STALE_HOURS*3600000;
+    var rows=all.filter(function(d){
+      if(typeF&&d.formType!==typeF) return false;
+      if(inspF&&draftInspector(d)!==inspF) return false;
+      if(!contactMatches(propManagerFor(draftPropName(d)),mgrF)) return false;
+      return true;
+    }).map(function(d){
+      var saved=Number(d.savedAt)||0;
+      return {d:d,prop:draftPropName(d),mgr:propManagerFor(draftPropName(d)),saved:saved,started:draftStartedMs(d),idle:saved?now-saved:null,stale:!saved||(now-saved)>=staleMs,prog:draftProgress(d)};
+    });
+    // Oldest first = the one nobody has touched the longest (least recently saved).
+    rows.sort(function(a,b){return (a.saved||0)-(b.saved||0);});
+    var homes={}, staff={}, staleN=0;
+    rows.forEach(function(r){if(r.prop)homes[r.prop]=1; var n=draftInspector(r.d)||r.d.userId; if(n)staff[n]=1; if(r.stale)staleN++;});
+    document.getElementById('un-total').textContent=rows.length;
+    document.getElementById('un-stale').textContent=staleN;
+    document.getElementById('un-homes').textContent=Object.keys(homes).length;
+    document.getElementById('un-staff').textContent=Object.keys(staff).length;
+    if(!rows.length){
+      wrap.innerHTML='<div class="empty">'+(all.length?'No unfinished inspections match these filters':'No unfinished inspections — everything started has been submitted 🎉')+'</div>';
+      return;
+    }
+    var html='<table><thead><tr><th>Home</th><th>Type</th><th>Inspector</th><th>Operations Contact</th><th>Started</th><th>Last Saved</th><th>Idle</th><th>Status</th><th>Progress</th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      var p=r.prog, progHtml;
+      if(p.total){
+        var pct=Math.round(p.done/p.total*100);
+        progHtml='<div class="un-prog"><div class="un-prog-bar"><span style="width:'+pct+'%"></span></div>'+p.done+' / '+p.total+' ('+pct+'%)</div>';
+      } else {
+        progHtml=p.done+' answered';
+      }
+      html+='<tr class="'+(r.stale?'un-stale':'')+'">';
+      html+='<td data-label="Home" style="font-weight:600">'+esc(r.prop||'(no home picked yet)')+'</td>';
+      html+='<td data-label="Type"><span class="badge b-ok">'+esc(TYPE_LABELS[r.d.formType]||r.d.formType)+'</span></td>';
+      html+='<td data-label="Inspector">'+esc(draftInspector(r.d)||'—')+'</td>';
+      html+='<td data-label="Operations Contact">'+esc(r.mgr||'—')+'</td>';
+      html+='<td data-label="Started" style="white-space:nowrap">'+(r.started?esc(fmtDateTime(new Date(r.started).toISOString())):'—')+'</td>';
+      html+='<td data-label="Last Saved" style="white-space:nowrap">'+(r.saved?esc(fmtDateTime(new Date(r.saved).toISOString())):'—')+'</td>';
+      html+='<td data-label="Idle">'+(r.idle===null?'—':(r.stale?'<span class="badge b-overdue">⚠ '+fmtIdle(r.idle)+'</span>':'<span class="badge b-pending">'+fmtIdle(r.idle)+'</span>'))+'</td>';
+      // Draft = saved but nothing answered yet; In Progress = at least one answer.
+      html+='<td data-label="Status">'+(p.done>0?'<span class="badge b-pending">⏳ In Progress</span>':'<span class="badge b-never">📝 Draft</span>')+'</td>';
+      html+='<td data-label="Progress">'+progHtml+'</td>';
+      html+='</tr>';
+    });
+    html+='</tbody></table>';
+    wrap.innerHTML=html;
+  }catch(e){
+    console.error('[UNFINISHED] render failed',e);
+  }
+}
+
+function renderSeasonMissing(){
+  var body=document.getElementById('seasonMissingBody'); if(!body) return;
+  var season=currentSeasonInfo();
+  var t=TYPE_LABELS[season.type]||season.type;
+  document.getElementById('sm-title').textContent='⚠️ Still missing this season — '+season.label;
+  var src=_seasonInsp, note='';
+  if(src===null&&!_seasonInspError){body.innerHTML='<div class="loading">Loading…</div>';return;}
+  if(_seasonInspError){
+    src=_insp.filter(function(i){return i.formType===season.type;});
+    note='<div class="un-note">Couldn’t load every '+esc(t)+' record, so this uses the latest 500 inspections only.</div>';
+  }
+  var startMs=season.start.getTime();
+  var done={};
+  src.forEach(function(i){
+    if(i.formType!==season.type||!i.property) return;
+    var ts=Date.parse(i.submittedAt||''); if(!isNaN(ts)&&ts>=startMs) done[i.property]=1;
+  });
+  // Open drafts of this season's type, by home (newest save first).
+  var draftsByProp={};
+  if(!_draftsError){
+    openDrafts().filter(function(d){return d.formType===season.type;}).sort(function(a,b){return (b.savedAt||0)-(a.savedAt||0);}).forEach(function(d){
+      var n=draftPropName(d); if(!n) return; (draftsByProp[n]=draftsByProp[n]||[]).push(d);
+    });
+  }
+  var mgrF=(document.getElementById('sd-mgr')||{}).value||'';
+  var propF=((document.getElementById('sd-prop')||{}).value||'').toLowerCase();
+  var props=PROPERTIES.filter(function(p){
+    if(p.inactive) return false;
+    if(!contactMatches(p.manager,mgrF)) return false;
+    if(propF&&!p.name.toLowerCase().includes(propF)) return false;
+    return true;
+  });
+  var missing=props.filter(function(p){return !done[p.name];});
+  var withDraft=missing.filter(function(p){return draftsByProp[p.name];}).length;
+  var html=note;
+  html+='<div class="sm-summary"><b>'+missing.length+'</b> of '+props.length+' home'+(props.length!==1?'s':'')+' have no submitted '+esc(t)+' inspection since '+esc(season.startLabel)+(missing.length?' · <b>'+withDraft+'</b> of them have one started but not submitted, <b>'+(missing.length-withDraft)+'</b> not started at all':'')+'.</div>';
+  if(!missing.length){
+    html+='<div class="sm-allclear">✓ Every home'+(mgrF||propF?' in this filter':'')+' has a submitted '+esc(t)+' inspection this season.</div>';
+    body.innerHTML=html; return;
+  }
+  // Early in a season most homes are missing — start the groups collapsed then
+  // (each header still shows its count) so the table below isn't pushed far down.
+  var openAttr=missing.length<=30?' open':'';
+  var groups={};
+  missing.forEach(function(p){var m=p.manager||'Unassigned';(groups[m]=groups[m]||[]).push(p);});
+  Object.keys(groups).sort(function(a,b){if(a==='Unassigned')return 1;if(b==='Unassigned')return -1;return a.localeCompare(b);}).forEach(function(m){
+    var list=groups[m].slice().sort(function(a,b){return a.name.localeCompare(b.name);});
+    html+='<details class="sm-group"'+openAttr+'><summary>'+esc(m)+'<span class="sm-cnt">'+list.length+' missing</span></summary><div class="sm-homes">';
+    list.forEach(function(p){
+      var ds=draftsByProp[p.name];
+      if(ds){
+        var d=ds[0], pr=draftProgress(d);
+        var prog=pr.total?Math.round(pr.done/pr.total*100)+'%':pr.done+' answered';
+        var who=draftInspector(d);
+        html+='<div class="sm-home has-draft">'+esc(p.name)+'<small>📝 Started, not submitted · '+prog+(who?' · '+esc(who):'')+(ds.length>1?' · '+ds.length+' drafts':'')+'</small></div>';
+      } else {
+        html+='<div class="sm-home">'+esc(p.name)+'<small>Not started</small></div>';
+      }
+    });
+    html+='</div></details>';
+  });
+  body.innerHTML=html;
+}
+
 // ── SEASONAL DASHBOARD ────────────────────────────────────────────────────────
 function renderSeaDash(){
+  try{renderSeasonMissing();}catch(e){console.error('[SEASON-MISSING] render failed',e);}
   var mgrF=document.getElementById('sd-mgr').value;
   var statusF=document.getElementById('sd-status').value;
   var propF=(document.getElementById('sd-prop').value||'').toLowerCase();
@@ -4182,7 +4404,7 @@ function renderSeaDash(){
     ['spring','fall','kitchen_inv','linen_inv'].forEach(function(t){
       var rec=byPT[p.name+'|'+t];
       var dr=rec?null:latestDraftFor(p.name,t);
-      html+='<td>'+(rec?'<span class="badge b-done">'+rec.submittedAt.slice(0,10)+'</span>':dr?'<span class="badge b-pending" title="Saved '+esc(new Date(dr.savedAt).toLocaleString())+(dr.staff?' by '+esc(dr.staff):'')+'">'+(dr.status==='Draft'?'📝 Draft':'⏳ In Progress '+dr.progress.pct+'%')+'</span>':'<span class="badge b-never">Pending</span>')+'</td>';
+      html+='<td>'+(rec?'<span class="badge b-done">'+rec.submittedAt.slice(0,10)+'</span>':dr?'<span class="badge b-pending" title="Saved '+esc(new Date(dr.savedAt).toLocaleString())+(dr.staff?' by '+esc(dr.staff):'')+'">'+(dr.status==='Draft'?'📝 Draft':'⏳ In Progress'+(dr.progress.pct!==null?' '+dr.progress.pct+'%':''))+'</span>':'<span class="badge b-never">Pending</span>')+'</td>';
     });
     html+='<td><span class="badge '+sBadge+'">'+status+'</span></td>';
     html+='</tr>';

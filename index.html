@@ -270,6 +270,19 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .inv-item-card .item-field-row{padding:8px 0 0}
 .section-notice{margin:10px 14px 0;padding:9px 12px;border-radius:8px;background:#EEF4FB;color:#2a4a6b;font-size:12.5px;line-height:1.4}
 .section-notice.warn{background:#FFF3CD;color:#7A5000;border-left:3px solid #F0A500}
+/* Unfinished-inspection reminder (added 2026-11-10) */
+.unf-banner{margin:14px 16px 14px;border-radius:12px;background:var(--orange-light);border:1.5px solid #F2B66B;box-shadow:var(--shadow);overflow:hidden}
+.unf-head{display:flex;align-items:flex-start;gap:10px;padding:12px 12px 8px 14px}
+.unf-icon{font-size:20px;line-height:1.2}
+.unf-title{font-size:15px;font-weight:800;color:#8A4500}
+.unf-sub{font-size:12px;color:#8A4500;opacity:.85;margin-top:2px;line-height:1.35}
+.unf-x{margin-left:auto;background:none;border:none;font-size:22px;line-height:1;color:#8A4500;cursor:pointer;padding:2px 6px;border-radius:6px}
+.unf-list{display:flex;flex-direction:column;gap:6px;padding:0 12px 12px}
+.unf-item{display:flex;align-items:center;gap:10px;background:white;border-radius:10px;padding:10px 12px}
+.unf-info{flex:1;min-width:0}
+.unf-home{font-size:14px;font-weight:700;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.unf-meta{font-size:12px;color:var(--dark-gray);margin-top:2px}
+.unf-open{flex-shrink:0;background:var(--orange);color:white;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer}
 </style>
 </head>
 <body>
@@ -307,6 +320,8 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
     <div class="home-title">Property Inspections</div>
     <div class="home-sub">Lake Tahoe &amp; Truckee</div>
   </div>
+  <!-- Unfinished-inspection reminder (added 2026-11-10) — see renderUnfinishedBanner() -->
+  <div class="unf-banner" id="unfinishedBanner" style="display:none"></div>
   <div class="form-grid">
     <div class="form-card spring" onclick="startForm('spring')"><span class="icon">&#127800;</span><div class="label">Spring Inspection</div><div class="count">Season opening</div></div>
     <div class="form-card fall" onclick="startForm('fall')"><span class="icon">&#127810;</span><div class="label">Fall Inspection</div><div class="count">Season prep</div></div>
@@ -703,6 +718,8 @@ function doLogin() {
   if (!username || !pin) { showLoginError('Please enter username and PIN'); return; }
   if (!isValidPinFormat(pin)) { showLoginError('Invalid username or PIN'); return; }
   if (!db || !auth) { showLoginError('App not configured yet. Contact your admin.'); return; }
+  // A fresh login always brings back the unfinished-inspection reminder.
+  try { sessionStorage.removeItem(UNFINISHED_DISMISS_KEY); } catch(e) {}
   var btn = document.getElementById('loginBtn');
   btn.disabled = true; btn.textContent = 'Logging in...';
   staffSignIn(username, pin).then(function(p) {
@@ -6250,6 +6267,10 @@ function loadCloudDrafts() {
     var local=getDrafts();
     var _del=getDeletedDrafts();
     snap.docs.forEach(function(d){
+      var dd=d.data();
+      if (_del[dd.id] && !dd.deleted) db.collection('drafts').doc(d.id).set({deleted:true, deletedAt:_del[dd.id].deletedAt||Date.now(), deletedBy:currentUser.name||''},{merge:true}).catch(function(){});
+    });
+    snap.docs.forEach(function(d){
       var data=d.data();
       if (data.deleted || _del[data.id]) return;
       if (!local[data.id] || local[data.id].savedAt < data.savedAt) {
@@ -6403,6 +6424,7 @@ function renderDrafts(draftsOverride) {
   // draftsOverride lets loadCloudDrafts() render the freshly-merged list
   // even when it couldn't also persist that merge to local storage (e.g.
   // device storage full) — see loadCloudDrafts().
+  try { renderUnfinishedBanner(draftsOverride); } catch (eUnf) { console.warn('Unfinished reminder failed:', eUnf); }
   var drafts=draftsOverride||getDrafts();
   var deleted = purgeOldDeletedDrafts();
   // A draft that is in "Recently deleted" never shows in the main list, even if an
@@ -6449,6 +6471,83 @@ function toggleDeletedDrafts() {
   var dl=document.getElementById('deletedDraftsList'); if (!dl) return;
   dl.style.display = dl.style.display === 'none' ? 'flex' : 'none';
   renderDrafts();
+}
+// ── Unfinished-inspection reminder (added 2026-11-10) ──
+// After login, if the signed-in person has any open (not voided, not deleted)
+// drafts, the home screen shows "You have N unfinished inspection(s)" with an
+// Open button per draft. It runs off the same merged local + cloud draft list
+// as Saved Drafts (renderDrafts() calls it, so it refreshes whenever that list
+// does). Dismissing it hides it for this browser session only
+// (sessionStorage); it comes back on the next login or when the app is
+// reopened, for as long as the drafts are still open. Read-only: it never
+// changes or deletes a draft.
+var UNFINISHED_DISMISS_KEY = 'tlp_unfinished_banner_dismissed';
+function myOpenDrafts(draftsOverride) {
+  if (!currentUser) return [];
+  var drafts = draftsOverride || getDrafts();
+  var _delLocal = (typeof getDeletedDrafts === 'function') ? getDeletedDrafts() : {};
+  return Object.keys(drafts).map(function(k){ return {key:k, d:drafts[k]}; }).filter(function(x){
+    var d = x.d;
+    if (_delLocal[x.key]) return false; // deleted on this device (safe delete), until restored
+    if (!d || !FORM_META[d.formType]) return false;
+    if (d.isVoided || d.deleted === true) return false;
+    if (_unfSubmitted[String(d.id)] === true) return false;
+    return d.userId === currentUser.id;
+  }).sort(function(a, b){ return unfinishedStartedMs(a.d) - unfinishedStartedMs(b.d); });
+}
+// The app deletes a draft when its inspection is submitted, but that delete can
+// fail quietly. Check once per draft (per page load) whether inspections/insp_<id>
+// already exists and, if so, leave it out of the reminder. Offline or on any
+// error the draft simply stays listed.
+var _unfSubmitted = {};
+function checkUnfinishedSubmitted(list) {
+  if (!db) return;
+  list.forEach(function(x){
+    var id = String(x.d.id);
+    if (_unfSubmitted[id] !== undefined) return;
+    _unfSubmitted[id] = 'checking';
+    db.collection('inspections').doc('insp_' + id).get().then(function(snap){
+      _unfSubmitted[id] = !!(snap && snap.exists);
+      if (_unfSubmitted[id]) renderUnfinishedBanner();
+    }).catch(function(){ _unfSubmitted[id] = false; });
+  });
+}
+function unfinishedStartedMs(d) {
+  var n = Number(d.id); if (n > 1e12 && n < 4e12) return n;
+  var t = Date.parse(d.startTime || ''); if (!isNaN(t)) return t;
+  return Number(d.savedAt) || 0;
+}
+function renderUnfinishedBanner(draftsOverride) {
+  var el = document.getElementById('unfinishedBanner'); if (!el) return;
+  var list = myOpenDrafts(draftsOverride);
+  checkUnfinishedSubmitted(list);
+  var dismissed = false;
+  try { dismissed = !!currentUser && sessionStorage.getItem(UNFINISHED_DISMISS_KEY) === String(currentUser.id); } catch(e) {}
+  if (!list.length || dismissed) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  var n = list.length;
+  var h = '<div class="unf-head"><div class="unf-icon">&#9203;</div><div><div class="unf-title">You have ' + n + ' unfinished inspection' + (n !== 1 ? 's' : '') + '</div>'
+        + '<div class="unf-sub">Started but not submitted &mdash; ' + (n !== 1 ? 'they' : 'it') + ' won&rsquo;t reach the office until submitted.</div></div>'
+        + '<button class="unf-x" aria-label="Dismiss" onclick="dismissUnfinishedBanner()">&times;</button></div><div class="unf-list">';
+  list.forEach(function(x){
+    var d = x.d, meta = FORM_META[d.formType];
+    var home = (d.info && d.info.property) || (d.selectedProp && d.selectedProp.name) || 'No home picked yet';
+    var ms = unfinishedStartedMs(d);
+    var started = ms ? new Date(ms).toLocaleString('en-US', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
+    h += '<div class="unf-item"><div class="unf-info"><div class="unf-home">' + esc(home) + '</div>'
+       + '<div class="unf-meta">' + meta.icon + ' ' + esc(meta.name) + (started ? ' &bull; Started ' + esc(started) : '') + '</div></div>'
+       + '<button class="unf-open" data-key="' + esc(x.key) + '" data-type="' + esc(d.formType) + '" onclick="openUnfinishedDraft(this)">Open</button></div>';
+  });
+  el.innerHTML = h + '</div>';
+  el.style.display = 'block';
+}
+function dismissUnfinishedBanner() {
+  try { if (currentUser) sessionStorage.setItem(UNFINISHED_DISMISS_KEY, String(currentUser.id)); } catch(e) {}
+  var el = document.getElementById('unfinishedBanner'); if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+}
+function openUnfinishedDraft(btn) {
+  var key = btn.getAttribute('data-key'), type = btn.getAttribute('data-type');
+  if (!key || !FORM_META[type]) return;
+  startForm(type, key); // same as tapping the draft under Saved Drafts
 }
 function deleteDraft(e, id) {
   if (e) { e.stopPropagation(); if (e.preventDefault) e.preventDefault(); }
