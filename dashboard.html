@@ -1559,7 +1559,32 @@ function loadBackgroundExtras(){
   }).finally(function(){ _extrasPromise=null; });
   return _extrasPromise;
 }
-function renderAll(){setTimeout(updateNavBadges,0);renderInspLog();renderSeasonal();renderSeaDash();renderQCDash();renderQCLog();renderOpenIssues();renderSupplyReqs();renderMyHouses();renderProductivity();renderUnfinished();}
+// 2026-11-11 (speed): the page on screen is drawn first; the hidden pages are
+// drawn right after, one per task, so the first view appears ~1 s sooner.
+var RENDER_BY_TAB={insplog:'renderInspLog',seasonal:'renderSeasonal',seadash:'renderSeaDash',qcdash:'renderQCDash',qclog:'renderQCLog',openissues:'renderOpenIssues',supplyinv:'renderSupplyReqs',myhouses:'renderMyHouses',productivity:'renderProductivity',unfinished:'renderUnfinished'};
+var _renderQueue=[];
+function renderAll(){
+  setTimeout(updateNavBadges,0);
+  var act=(document.querySelector('.tab-panel.active')||{id:''}).id.slice(4);
+  var order=['renderInspLog','renderSeasonal','renderSeaDash','renderQCDash','renderQCLog','renderOpenIssues','renderSupplyReqs','renderMyHouses','renderProductivity','renderUnfinished'];
+  var first=RENDER_BY_TAB[act];
+  if(first){ try{ window[first](); }catch(e){ console.error('[RENDER] '+first,e); } }
+  var rest=order.filter(function(f){return f!==first;});
+  var wasIdle=!_renderQueue.length;
+  _renderQueue=rest;
+  if(wasIdle) (function step(){
+    var f=_renderQueue.shift(); if(!f) return;
+    try{ window[f](); }catch(e){ console.error('[RENDER] '+f,e); }
+    setTimeout(step,0);
+  })();
+}
+// A page that's opened before its queued draw ran is drawn right away.
+function renderTabNow(tab){
+  var f=RENDER_BY_TAB[tab]; if(!f) return;
+  var i=_renderQueue.indexOf(f); if(i===-1) return;
+  _renderQueue.splice(i,1);
+  try{ window[f](); }catch(e){ console.error('[RENDER] '+f,e); }
+}
 
 // Draft markers in the Seasonal Dashboard table (2026-11-10): newest open draft
 // per home + type, from the same openDrafts() list the Unfinished tab uses (so
@@ -1946,6 +1971,7 @@ function fmtDateTime(iso){
   return y+'-'+mo+'-'+da+' '+time;
 }
 function switchTab(name,btn){
+  try{ renderTabNow(arguments[0]); }catch(e){}
   setTimeout(function(){if(typeof invdFit==='function')invdFit();},0);
   // Belt-and-suspenders gate (the Productivity tab button is only ever inserted
   // into the DOM for a manager or admin in the first place — see showApp() —
