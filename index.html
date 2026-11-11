@@ -825,7 +825,7 @@ function uploadPhotosToStorage(inspectionId) {
     if (!isEmbeddedPhoto(dataUrl)) return Promise.resolve({ ok: true, key: p.key, url: dataUrl });
     var isJpg = dataUrl.indexOf('image/jpeg') >= 0 || dataUrl.indexOf('image/jpg') >= 0;
     var ext = isJpg ? 'jpg' : 'png';
-    var fileName = 'photo_' + i + '.' + ext;
+    var fileName = 'photo_' + i + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6) + '.' + ext;
     var path = 'inspections/' + inspectionId + '/' + fileName;
     var ref = storage.ref(path);
     console.log('[PHOTO-DEBUG] Uploading photo', { itemKey: p.key, fileName: fileName, path: path });
@@ -6577,6 +6577,7 @@ function restoreDraft(id) {
   }
   renderDrafts(); showToast('Draft restored');
 }
+var _finishingDraftId = null;
 function confirmFinish() {
   // NOTE (2026-09-14 fix): this used to open a second confirm() dialog here
   // ("Mark this inspection complete and clear the draft?") AFTER the report
@@ -6589,6 +6590,12 @@ function confirmFinish() {
   // has already gone out, so there is nothing left to meaningfully "cancel."
   var draftId = state.draftId;
   var inspectionId = 'insp_' + draftId;
+  // 2026-11-10: never run two finishes of the same inspection at once. On a slow
+  // connection a second Submit could start a second photo upload that overwrote
+  // the files the first run had just linked, leaving the saved links stale
+  // ("Photo unavailable" on the Mothership — 5 reports, 18 photos found).
+  if (_finishingDraftId === draftId) { showToast('Already submitting this inspection — please wait…'); return; }
+  _finishingDraftId = draftId;
   var photoCount = collectAllPhotos().length;
   showToast(photoCount > 0 ? 'Uploading ' + photoCount + ' photo' + (photoCount!==1?'s':'') + '...' : 'Saving inspection...');
   uploadPhotosToStorage(inspectionId).then(function(uploadResult) {
@@ -6608,8 +6615,10 @@ function confirmFinish() {
     } else {
       showToast('Inspection submitted!');
     }
+    _finishingDraftId = null;
     resetToHome();
   }).catch(function(e) {
+    _finishingDraftId = null;
     console.warn('[PHOTO-DEBUG] Unexpected error finishing inspection', e);
     showToast('Something went wrong saving this inspection. Please try again.', 6000);
   });

@@ -3778,6 +3778,7 @@ function invpdfLoadImage(url){
   var p;
   if(/^data:image\//.test(url)) p=fromSrc(url,false);
   else p=fetch(url,{mode:'cors',cache:'force-cache'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.blob();})
+        .catch(function(e){ if(!storagePathFromUrl(url)) throw e; return freshPhotoUrl(url).then(function(f){ return fetch(f,{mode:'cors'}); }).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.blob();}); })
         .then(function(b){return fromSrc(URL.createObjectURL(b),true);})
         .catch(function(e){console.warn('[INVPDF] Photo could not be embedded',{url:url,error:e&&e.message});return null;});
   _invpdfImgCache[url]=p;
@@ -6404,7 +6405,37 @@ function openLb(inspId){
 }
 function closeLb(){document.getElementById('lbOverlay').classList.remove('open');}
 function closeLbIfBg(e){if(e.target===document.getElementById('lbOverlay'))closeLb();}
+
+// ── STALE PHOTO LINK RECOVERY (2026-11-10) ───────────────────────────────────
+// A few reports (5 found, 18 photos) saved photo links whose file was later
+// overwritten by a second upload of the same submit, so the saved link stopped
+// working although the photo is still in Storage. When a Firebase Storage photo
+// fails to load anywhere on the Mothership, ask Storage for a fresh link to the
+// same file and show that instead. Nothing stored is changed.
+var _freshPhotoCache={};
+function storagePathFromUrl(u){ var m=String(u||'').match(/^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/[^/]+\/o\/([^?]+)/); return m?decodeURIComponent(m[1]):null; }
+function freshPhotoUrl(u){
+  var path=storagePathFromUrl(u); if(!path||typeof firebase==='undefined'||!firebase.storage) return Promise.reject(new Error('not a storage link'));
+  if(!_freshPhotoCache[path]) _freshPhotoCache[path]=firebase.storage().ref(path).getDownloadURL().catch(function(e){ delete _freshPhotoCache[path]; throw e; });
+  return _freshPhotoCache[path];
+}
+document.addEventListener('error',function(e){
+  var img=e.target; if(!img||img.tagName!=='IMG'||img.dataset.freshTried) return;
+  var old=img.getAttribute('src'); if(!storagePathFromUrl(old)) return;
+  img.dataset.freshTried='1';
+  e.stopPropagation(); // hold the page's own "unavailable" handler until the retry is known
+  freshPhotoUrl(old).then(function(fresh){
+    if(fresh===old){ throw new Error('same link'); }
+    // also point any open/download buttons beside this photo at the fresh link
+    var scope=img.parentNode||img;
+    [img].concat([].slice.call(scope.querySelectorAll('[onclick]'))).forEach(function(el){ var a=el.getAttribute('onclick'); if(a&&a.indexOf(old)!==-1) el.setAttribute('onclick',a.split(old).join(fresh)); });
+    if(typeof _lbPhotos!=='undefined'){ for(var k=0;k<_lbPhotos.length;k++){ if(_lbPhotos[k]===old) _lbPhotos[k]=fresh; } }
+    img.src=fresh;
+  }).catch(function(){ img.dispatchEvent(new Event('error')); });
+},true);
+
 function dlPhoto(url,num){
+  if(storagePathFromUrl(url)&&!dlPhoto._fresh){ return freshPhotoUrl(url).then(function(f){ dlPhoto._fresh=true; try{ dlPhoto(f,num); } finally { dlPhoto._fresh=false; } }).catch(function(){ dlPhoto._fresh=true; try{ dlPhoto(url,num); } finally { dlPhoto._fresh=false; } }); }
   var a=document.createElement('a');
   a.href=url; a.download='inspection-photo-'+num+'.jpg'; a.target='_blank';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
