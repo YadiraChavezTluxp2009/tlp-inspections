@@ -650,8 +650,11 @@ body{background:var(--content-bg)}
 .sv-rev[open] summary{margin-bottom:10px}
 .sv-field{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:#4A5568}
 .sv-field select{height:48px;border:1px solid #C9D2DE;border-radius:10px;padding:0 14px;font-size:16px;background:white;color:#1F2B3D}
-.sv-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.sv-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:16px}
 .sv-card{background:white;border:1px solid var(--line);border-radius:12px;padding:18px 20px;display:flex;gap:14px;align-items:flex-start;box-shadow:0 1px 2px rgba(11,42,85,.05)}
+.sv-card.issues .sv-ic{color:#B45309}.sv-card.issues{border-color:#F3D9B1}
+.sv-sub2nd{margin-top:4px;color:#5A6678}
+.sv-iss-head{margin:18px 0 8px;padding-top:14px;border-top:1px solid var(--line);font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#5A6B82}
 .sv-ic{color:#0B2A55;display:flex}.sv-card.ok .sv-ic{color:var(--blue)}.sv-card.prog .sv-ic{color:var(--blue)}.sv-card.none .sv-ic{color:#5A6678}
 .sv-lbl{font-size:15px;font-weight:600;color:#4A5568}
 .sv-num{font-family:Georgia,'Times New Roman',serif;font-size:38px;font-weight:700;color:#0B2A55;line-height:1.1}
@@ -675,6 +678,7 @@ body{background:var(--content-bg)}
 .sv-by{font-size:11.5px;color:#5A6678}
 .sv-st{display:inline-block;padding:4px 12px;border-radius:8px;font-size:13px;font-weight:600}
 .sv-st.ok{background:#DDF3E4;color:#14532D}.sv-st.draft{background:#DCE9FB;color:#123F7A}.sv-st.prog{background:#FFF0D6;color:#7A4A00}
+@media (max-width:1400px){.sv-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:1100px){.sv-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:900px){.sv-filters{grid-template-columns:1fr 1fr}}
 @media (max-width:600px){.sv-filters{grid-template-columns:1fr}.sv-cards{grid-template-columns:1fr 1fr;gap:10px}.sv-card{padding:14px;gap:10px}.sv-num{font-size:30px}.sv-panel{padding:14px}}
@@ -1793,7 +1797,39 @@ function maintNotesPhotosHtml(insp){
   return html;
 }
 function findTiedIssue(inspId,issueKey){
-  return _propIssues.find(function(p){return p.sourceInspectionId===inspId&&p.sourceIssueKey===issueKey;});
+  return _propIssues.find(function(p){return p.sourceInspectionId===inspId&&p.sourceIssueKey===issueKey;})
+    || _seasonIssueCache[inspId+'|'+issueKey];
+}
+// 2026-11-11: _propIssues holds only the newest 1000 issue records, so issues from
+// earlier in a season can look "untracked". The Seasonal Dashboard loads the issue
+// records for the period's own inspections (read-only, 30 ids per query) into this
+// cache; findTiedIssue() falls back to it. Cleared on every refresh.
+var _seasonIssueCache={}, _seasonIssueLoaded={}, _seasonIssueLoading=false, _seasonIssueError=null;
+function ensureSeasonIssues(recs){
+  var ids=recs.map(function(i){return i.id;}).filter(function(id){return id&&!_seasonIssueLoaded[id];});
+  if(!ids.length||_seasonIssueLoading) return;
+  _seasonIssueLoading=true;
+  var chunks=[]; for(var k=0;k<ids.length;k+=30) chunks.push(ids.slice(k,k+30));
+  Promise.all(chunks.map(function(c){ return db.collection('property_issues').where('sourceInspectionId','in',c).get().then(function(snap){
+    snap.docs.forEach(function(d){ var r=Object.assign({id:d.id},d.data()); _seasonIssueCache[r.sourceInspectionId+'|'+r.sourceIssueKey]=r; });
+    c.forEach(function(id){_seasonIssueLoaded[id]=true;});
+  }); })).then(function(){ _seasonIssueError=null; }).catch(function(e){ console.warn('[SEASON-ISSUES] load failed',e); _seasonIssueError=e||{}; ids.forEach(function(id){_seasonIssueLoaded[id]=true;}); })
+  .then(function(){ _seasonIssueLoading=false; if(document.getElementById('tab-seadash')&&document.getElementById('tab-seadash').classList.contains('active')) renderSeaDash(); });
+}
+// Open/closed counts of the maintenance issues reported on a set of seasonal
+// inspections (supply items excluded). Closed = resolved or dismissed.
+function seasonIssueStats(recs){
+  var st={reported:0,open:0,in_progress:0,closed:0};
+  recs.forEach(function(i){
+    (i.issues||[]).forEach(function(x,xi){
+      if(isSupplyIssueItem(x)) return;
+      st.reported++;
+      var t=findTiedIssue(i.id,x.key||('legacyidx_'+xi)), s=t?(t.status||'open'):(i.resolved?'resolved':'open');
+      if(s==='resolved'||s==='dismissed') st.closed++; else if(s==='in_progress') st.in_progress++; else st.open++;
+    });
+  });
+  st.stillOpen=st.open+st.in_progress;
+  return st;
 }
 // 2026-10-26: flagged supply/inventory items live only in the Supply Inventory
 // tab — they're left out of every Details issue list and every displayed issue
@@ -4702,6 +4738,7 @@ function renderSeasonMissing(){
 var _seasonalAll=null, _seasonalAllError=null;
 var SEASONAL_TYPES=['spring','fall','kitchen_inv','linen_inv'];
 function loadSeasonalAll(){
+  _seasonIssueCache={}; _seasonIssueLoaded={};
   return db.collection('inspections').where('formType','in',SEASONAL_TYPES).get().then(function(snap){
     _seasonalAll=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());}); _seasonalAllError=null;
   }).catch(function(e){ console.warn('[SEASON-OVERVIEW] seasonal query failed — using the latest 500 inspections',e); _seasonalAll=null; _seasonalAllError=e||{}; });
@@ -4838,13 +4875,24 @@ function renderSeasonOverview(){
   var cur=S.key===seasonKeyFor(new Date());
   var pb=document.getElementById('sv-period');
   if(pb) pb.innerHTML='<span class="sv-period-lbl">Viewing</span> <b>'+esc(S.label)+'</b>'+(cur?' <span class="sv-period-cur">current</span>':'')+' <span class="sv-period-span">'+esc(seasonSpanText(S))+'</span><span class="sv-period-req">Complete = '+typeName+' walkthrough + Kitchen inventory + Linen inventory, all submitted in '+esc(S.label)+'</span>';
+  ensureSeasonIssues(M.recs);
+  var pendingIss=_seasonIssueLoading||M.recs.some(function(i){return !_seasonIssueLoaded[i.id];});
+  var walkIss=seasonIssueStats(M.recs.filter(function(i){return i.formType===S.type;}));
+  var invIss=seasonIssueStats(M.recs.filter(function(i){return i.formType==='kitchen_inv'||i.formType==='linen_inv';}));
   var card=function(icon,cls,label,num,sub){ return '<div class="sv-card '+cls+'"><span class="sv-ic">'+mhIcon(icon,30,'aria-hidden="true"')+'</span><div><div class="sv-lbl">'+label+'</div><div class="sv-num">'+num+'</div><div class="sv-sub">'+sub+'</div></div></div>'; };
+  var issueCard='<div class="sv-card issues" title="Maintenance issues reported on '+esc(S.label)+' '+typeName+' walkthroughs that are still open or in progress (resolved and dismissed issues are closed). Supply items are not counted."><span class="sv-ic">'+mhIcon('alertTriangle',30,'aria-hidden="true"')+'</span><div><div class="sv-lbl">Seasonal Open Issues</div><div class="sv-num">'+(pendingIss?'…':walkIss.stillOpen)+'</div><div class="sv-sub">'+(pendingIss?'loading issue statuses…':typeName+' walkthroughs · '+walkIss.closed+' of '+walkIss.reported+' closed')+'</div>'+(pendingIss?'':'<div class="sv-sub sv-sub2nd">Inventories: '+invIss.stillOpen+' open of '+invIss.reported+'</div>')+'</div></div>';
   document.getElementById('sv-cards').innerHTML=
     card('home','','Total Homes',T,'active homes in this filter')+
     card('checkCircle','ok','Complete',M.counts.Complete,'homes · all 3 submitted')+
     card('dashCircle','prog','In Progress',M.counts['In Progress'],'homes · started, not all 3 submitted')+
-    card('circle','none','All Pending',M.counts['All Pending'],'homes · nothing started');
+    card('circle','none','All Pending',M.counts['All Pending'],'homes · nothing started')+
+    issueCard;
   var pct=T?Math.round(M.counts.Complete/T*100):0;
+  var issBar=function(label,st){
+    var n=st.reported, cp=n?st.closed/n*100:0, ip=n?st.in_progress/n*100:0;
+    return '<div class="sv-bar-row"><div class="sv-bar-head"><span>'+label+'</span><span class="sv-bar-num">'+(pendingIss?'loading…':(n?st.closed+' of '+n+' closed'+(st.in_progress?' · '+st.in_progress+' in progress':'')+' · '+st.stillOpen+' open':'no issues reported'))+'</span></div>'+
+      '<div class="sv-bar iss" role="img" aria-label="'+esc(label)+': '+st.closed+' of '+n+' closed, '+st.in_progress+' in progress"><span class="done" style="width:'+(pendingIss?0:cp)+'%"></span><span class="prog" style="width:'+(pendingIss?0:ip)+'%"></span></div></div>';
+  };
   var bar=function(label,b,big){
     var bp=T?b.done/T*100:0, ip=T?b.prog/T*100:0;
     return '<div class="sv-bar-row'+(big?' big':'')+'"><div class="sv-bar-head"><span>'+label+'</span><span class="sv-bar-num">'+b.done+' of '+T+' homes'+(b.prog?' · '+b.prog+' in progress':'')+'</span></div>'+
@@ -4854,7 +4902,10 @@ function renderSeasonOverview(){
   var note=_seasonalAllError?'<div class="un-note">Couldn’t load every seasonal record, so these counts use the latest 500 inspections only.</div>':'';
   document.getElementById('sv-progress').innerHTML='<div class="sv-panel-head"><div><h2 class="sv-h">Inspection Progress · '+esc(S.label)+'</h2><div class="sv-sub2">'+M.counts.Complete+' of '+T+' homes complete (all 3 submitted) · '+esc(seasonSpanText(S))+'</div></div><div class="sv-pct">'+pct+'%</div></div>'+note+
     bar('All 3 requirements',allBar,true)+bar(typeName+' walkthrough',M.walk)+bar('Kitchen inventory',M.kitchen)+bar('Linen inventory',M.linen)+
-    '<div class="sv-legend"><span><i class="done"></i>Submitted in '+esc(S.label)+'</span><span><i class="prog"></i>Started — draft saved, not counted as complete</span><span><i></i>Not started</span></div>';
+    '<div class="sv-legend"><span><i class="done"></i>Submitted in '+esc(S.label)+'</span><span><i class="prog"></i>Started — draft saved, not counted as complete</span><span><i></i>Not started</span></div>'+
+    '<div class="sv-iss-head">Issue resolution · '+esc(S.label)+(_seasonIssueError?' <span class="un-note" style="display:inline">(couldn’t load every issue status — some may show as open)</span>':'')+'</div>'+
+    issBar(typeName+' walkthrough issues',walkIss)+issBar('Kitchen + linen inventory issues',invIss)+
+    '<div class="sv-legend"><span><i class="done"></i>Closed (resolved or dismissed)</span><span><i class="prog"></i>In progress</span><span><i></i>Open</span></div>';
   // Recent Activity — individual inspections and drafts of this period, newest first
   var rows=[];
   M.recs.forEach(function(i){ rows.push({home:i.property,type:i.formType,status:'Completed',ms:Date.parse(i.submittedAt),by:i.inspector||''}); });
