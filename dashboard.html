@@ -1540,10 +1540,12 @@ function loadData(){
   // Drafts (can be 10+ MB: older drafts carry their photos inline) and the full
   // seasonal list load in the background; the views that need them show
   // "Loading…" until then and are re-drawn when they land.
-  loadBackgroundExtras();
   return Promise.all([pInsp,pTrain,pIssues,pSupply]).then(function(){
     renderAll();
     renderTraining();
+    // Start the heavy background reads only once the main pages are on screen,
+    // so they don't compete with the core lists for bandwidth and parsing time.
+    setTimeout(loadBackgroundExtras,0);
   });
 }
 var _extrasPromise=null;
