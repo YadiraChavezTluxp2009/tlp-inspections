@@ -1838,6 +1838,22 @@ function quantityItemsOnlyHtml(insp){
 // Notes" box (index.html's maintenanceNotesPhotos, uploaded to Storage and saved as
 // maintenanceNotesPhotoUrls). Returns '' when there are none, so callers can append
 // this straight after their Maintenance Notes text block unconditionally.
+// Notes the inspector typed on items that weren't flagged as issues (2026-11-13).
+// From insp.itemNotes (saved from 2026-11-13 for every type except Kitchen/Linen),
+// or Spring/Fall's checklistItems on older records. '' when there are none.
+function itemNotesHtml(insp){
+  var notes=Array.isArray(insp.itemNotes)?insp.itemNotes:(Array.isArray(insp.checklistItems)?insp.checklistItems.filter(function(c){return c.status!=='issue'&&(c.notes||'').trim();}):[]);
+  if(!notes.length) return '';
+  var lbl={ok:'OK',na:'N/A'};
+  var html='<div class="insp-detail-heading">&#128221; Item Notes ('+notes.length+')</div><div class="insp-notes-block">';
+  notes.forEach(function(n,ix){
+    html+='<div style="'+(ix?'margin-top:6px;padding-top:6px;border-top:1px solid var(--mid-gray);':'')+'"><strong>'+esc(n.item||'')+'</strong>'
+      +(n.section?' <span style="color:var(--dark-gray);font-size:11.5px">· '+esc(n.section)+'</span>':'')
+      +(lbl[n.status]?' <span style="font-size:11px;font-weight:700;color:'+(n.status==='ok'?'var(--green)':'var(--dark-gray)')+'">'+lbl[n.status]+'</span>':'')
+      +'<br>'+esc(n.notes||'').replace(/\n/g,'<br>')+'</div>';
+  });
+  return html+'</div>';
+}
 function maintNotesPhotosHtml(insp){
   var urls=insp.maintenanceNotesPhotoUrls||[];
   if(!urls.length) return '';
@@ -2701,7 +2717,7 @@ function myHousesQCSectionHtml(list){
       }
       if(mgrNotes) inner+='<div class="insp-detail-heading">&#128221; Manager Notes</div><div class="insp-notes-block">'+esc(mgrNotes).replace(/\n/g,'<br>')+'</div>';
       if(maintNotes) inner+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
-      inner+=maintNotesPhotosHtml(i);
+      inner+=maintNotesPhotosHtml(i)+itemNotesHtml(i);
       inner+=postSubmitNotesHtml(i);
       inner+=opsMaintenanceBlockHtml(i);
       inner+=quantityItemsBlockHtml(i);
@@ -2833,7 +2849,7 @@ function myHousesSeasonalSectionHtml(list){
       }
       if(mgrNotes) inner+='<div class="insp-detail-heading">&#128221; Manager Notes</div><div class="insp-notes-block">'+esc(mgrNotes).replace(/\n/g,'<br>')+'</div>';
       if(maintNotes) inner+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
-      inner+=maintNotesPhotosHtml(i);
+      inner+=maintNotesPhotosHtml(i)+itemNotesHtml(i);
       inner+=postSubmitNotesHtml(i);
       inner+=opsMaintenanceBlockHtml(i);
       inner+=quantityItemsBlockHtml(i);
@@ -3264,7 +3280,7 @@ function renderInspLog(){
       if(maintNotes){
         html+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
       }
-      html+=maintNotesPhotosHtml(i);
+      html+=maintNotesPhotosHtml(i)+itemNotesHtml(i);
       html+=postSubmitNotesHtml(i);
       html+=opsMaintenanceBlockHtml(i);
       html+=readyEmailStatusHtml(i);
@@ -3405,7 +3421,7 @@ function renderSeasonal(){
       if(maintNotes){
         html+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
       }
-      html+=maintNotesPhotosHtml(i);
+      html+=maintNotesPhotosHtml(i)+itemNotesHtml(i);
       html+=postSubmitNotesHtml(i);
       html+=opsMaintenanceBlockHtml(i);
       html+=quantityItemsBlockHtml(i);
@@ -5188,7 +5204,7 @@ function renderQCLog(){
       if(maintNotes){
         html+='<div class="insp-detail-heading">&#128295; Maintenance Notes</div><div class="insp-notes-block">'+esc(maintNotes).replace(/\n/g,'<br>')+'</div>';
       }
-      html+=maintNotesPhotosHtml(i);
+      html+=maintNotesPhotosHtml(i)+itemNotesHtml(i);
       html+=postSubmitNotesHtml(i);
       html+=opsMaintenanceBlockHtml(i);
       html+=quantityItemsBlockHtml(i);

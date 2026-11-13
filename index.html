@@ -883,6 +883,7 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
   // of having to dig up the original email.
   var inventoryItems = [];
   var checklistItems = [];
+  var itemNotes = [];
   if (state.formType === 'kitchen_inv' || state.formType === 'linen_inv') {
     // Kitchen/Linen Inventory items record a Current count vs. a Needed count —
     // there's no OK/Issue/N-A status field on them at all, so running them through
@@ -959,6 +960,14 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
           photos: itemPhotos[x.key] || [], field: _cfv ? {label:_cf.label, value:_cfv} : null });
       });
     }
+    // Item notes (2026-11-13, additive): every item's note is saved, whatever its
+    // status. Before this only Issue items (and Spring/Fall's checklistItems) kept
+    // their note, so a note on an OK or N/A item in a Check-In/Check-Out/B2B/QC was
+    // seen on screen and in the email but never saved to the record.
+    _answerable.forEach(function(x){
+      var it = x.item || {};
+      if (it.status !== 'issue' && (it.notes||'').trim()) itemNotes.push({ key: x.key, section: x.section, item: x.text, status: it.status || '', notes: it.notes.trim() });
+    });
     _answerable.forEach(function(x){
       var it = x.item || {};
       if (it.status==='ok') ok++;
@@ -999,6 +1008,8 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
     inventoryItems: inventoryItems,
     // Spring/Fall full checklist (see checklistItems above). Empty for every other type.
     checklistItems: checklistItems,
+    // Notes on non-Issue items, every inspection type except Kitchen/Linen (see above).
+    itemNotes: itemNotes,
     // Maintenance Notes photos (2026-09-24) — uploaded like every other photo
     // (see collectAllPhotos()'s 'maintNotes' key), viewable in the Dashboard
     // record alongside the notes text itself.
@@ -1192,6 +1203,26 @@ function applyMyFilter() {
   });
   renderMyInspections(list);
 }
+// Notes on items that weren't flagged as issues (OK / N/A / unanswered).
+// Uses itemNotes (saved from 2026-11-13), or Spring/Fall's checklistItems on older records.
+function savedItemNotes(insp) {
+  if (Array.isArray(insp.itemNotes)) return insp.itemNotes;
+  if (Array.isArray(insp.checklistItems)) return insp.checklistItems.filter(function(c){ return c.status!=='issue' && (c.notes||'').trim(); });
+  return [];
+}
+function myItemNotesHtml(insp) {
+  var notes = savedItemNotes(insp);
+  if (!notes.length) return '';
+  var lbl = {ok:'OK', na:'N/A'};
+  var h='<div style="margin-top:10px"><div style="font-size:11px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">&#128221; Item Notes ('+notes.length+')</div>';
+  notes.forEach(function(n){
+    h+='<div style="background:var(--light-gray);border-radius:6px;padding:6px 8px;margin-bottom:4px">';
+    h+='<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px"><span style="color:var(--dark-gray)">'+esc(n.section||'')+' &mdash; <span style="color:var(--text)">'+esc(n.item||'')+'</span></span>';
+    if (lbl[n.status]) h+='<span style="font-size:11px;font-weight:700;color:'+(n.status==='ok'?'var(--green)':'var(--dark-gray)')+';flex-shrink:0">'+lbl[n.status]+'</span>';
+    h+='</div><div style="font-size:12px;color:var(--text);margin-top:3px;white-space:pre-wrap">'+esc(n.notes||'')+'</div></div>';
+  });
+  return h+'</div>';
+}
 function myInventoryDetailHtml(insp) {
   var items = (insp.inventoryItems||[]).filter(function(it){
     var hv=function(v){return v!==undefined&&v!==null&&v!=='';};
@@ -1315,6 +1346,7 @@ function renderMyInspections(inspections) {
     if ((insp.formType==='kitchen_inv'||insp.formType==='linen_inv') && ((insp.inventoryItems&&insp.inventoryItems.length)||(insp.invNotes||'').trim())) {
       html+=myInventoryDetailHtml(insp);
     }
+    html+=myItemNotesHtml(insp);
     html+='</div>';
     html+='</div>';
     if(insp.photoUrls&&insp.photoUrls.length>0){
