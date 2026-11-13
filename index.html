@@ -892,8 +892,8 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
     // "21 current / 15 needed" bug: a fully-stocked item and a real shortfall both
     // showed up identically as nothing checked on the Dashboard. Score these two
     // types by comparing Current to Needed per item instead:
-    //   - Current entered and (no Needed set, or Current >= Needed) -> OK
-    //   - A Needed amount is set and Current falls short of it -> Issue. This also
+    //   - Current entered and no Needed amount (or Needed 0) -> OK
+    //   - Any Needed amount > 0 (= how many more are needed) -> Issue. This also
     //     creates a property_issues record via createPropertyIssues() below (same
     //     as any other flagged item), so a real shortfall shows up on the
     //     Dashboard's Seasonal Inspections detail / Open Issues like normal.
@@ -929,12 +929,16 @@ function saveInspectionToFirebase(uploadResult, inspectionId) {
         }
         var curN = hasCur ? (parseFloat(itm.value) || 0) : 0;
         var needN = hasNeed ? (parseFloat(itm.needed) || 0) : 0;
-        var isShort = (needN > 0 && curN < needN);
+        // 2026-11-13: staff use "Needed" as HOW MANY MORE the home needs (the Review
+        // screen and the emailed report already read it that way), not as a target
+        // count. Any Needed > 0 is a shortfall and becomes an issue. Before this,
+        // "14 current / 1 needed" was scored as fully stocked and silently dropped.
+        var isShort = (needN > 0);
         var _invF = itemFieldDef(itemText); var _invFV = fieldValueText(_invF, itm.field);
         inventoryItems.push({section:sec.title, item:itemText, current:hasCur?itm.value:'', needed:hasNeed?itm.needed:'', key:key, comment:invComment, photos:invPhotos, flagged:isShort, field: _invFV ? {label:_invF.label, value:_invFV} : null});
         if (isShort) {
           issues++;
-          issueList.push({section:sec.title, text:itemText, notes:'Have '+(hasCur?itm.value:'0')+', need '+itm.needed, charge:0, photos:itemPhotos[key]||[], key:key, isSupply:false, comment:invComment});
+          issueList.push({section:sec.title, text:itemText, notes:'Need '+itm.needed+' more (have '+(hasCur?itm.value:'0')+')', charge:0, photos:itemPhotos[key]||[], key:key, isSupply:false, comment:invComment});
         } else {
           ok++;
         }
@@ -1188,6 +1192,34 @@ function applyMyFilter() {
   });
   renderMyInspections(list);
 }
+function myInventoryDetailHtml(insp) {
+  var items = (insp.inventoryItems||[]).filter(function(it){
+    var hv=function(v){return v!==undefined&&v!==null&&v!=='';};
+    return hv(it.current)||hv(it.needed)||(it.comment||'').trim()||(it.field&&it.field.value)||(it.photos&&it.photos.length);
+  });
+  var h='<div style="margin-top:10px">';
+  h+='<div style="font-size:11px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">&#128203; Full Inventory ('+items.length+' item'+(items.length!==1?'s':'')+')</div>';
+  var lastSec=null;
+  items.forEach(function(it){
+    if (it.section!==lastSec) { lastSec=it.section; h+='<div style="font-size:11px;font-weight:700;color:var(--dark-gray);margin:8px 0 2px">'+esc(it.section||'')+'</div>'; }
+    var needN=parseFloat(it.needed)||0;
+    var cur=(it.current!==undefined&&it.current!=='')?String(it.current):'—';
+    h+='<div style="background:var(--light-gray);border-radius:6px;padding:6px 8px;margin-bottom:4px;'+(needN>0?'border-left:3px solid var(--red);':'')+'">';
+    h+='<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px"><span style="color:var(--text)">'+esc(it.item||'')+'</span>';
+    h+='<span style="white-space:nowrap;flex-shrink:0"><strong style="color:var(--navy)">'+esc(cur)+'</strong>'+(needN>0?' <span style="color:var(--red);font-weight:700">· need '+esc(String(it.needed))+'</span>':'')+'</span></div>';
+    if (it.field&&it.field.value) h+='<div style="font-size:11px;color:var(--dark-gray);margin-top:2px">'+esc(it.field.label||'')+': '+esc(String(it.field.value))+'</div>';
+    if ((it.comment||'').trim()) h+='<div style="font-size:12px;color:var(--text);margin-top:3px">&#128172; '+esc(it.comment.trim())+'</div>';
+    if (it.photos&&it.photos.length) {
+      h+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">';
+      it.photos.forEach(function(url){ if(typeof url==='string'&&url) h+='<img src="'+esc(url)+'" style="width:40px;height:40px;border-radius:5px;object-fit:cover;cursor:pointer" onclick="window.open(this.src,\'_blank\')">'; });
+      h+='</div>';
+    }
+    h+='</div>';
+  });
+  if ((insp.invNotes||'').trim()) h+='<div style="font-size:11px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 4px">Additional Notes</div><div style="font-size:12px;white-space:pre-wrap;background:var(--light-gray);border-radius:6px;padding:6px 8px">'+esc(insp.invNotes)+'</div>';
+  h+='</div>';
+  return h;
+}
 function renderMyInspections(inspections) {
   var el = document.getElementById('myInspectionsList');
   if (!inspections.length) { el.innerHTML='<div style="text-align:center;padding:40px;color:var(--dark-gray)">No inspections found</div>'; return; }
@@ -1235,6 +1267,7 @@ function renderMyInspections(inspections) {
         }
         html+='</div>';
         if (is.notes) html+='<div style="font-size:12px;color:var(--text);margin-top:4px"><em>'+esc(is.notes)+'</em></div>';
+        if (is.comment && String(is.comment).trim()) html+='<div style="font-size:12px;color:var(--text);margin-top:4px">&#128172; '+esc(String(is.comment).trim())+'</div>';
         if (is.charge>0) html+='<div style="font-size:12px;color:var(--red);font-weight:700;margin-top:4px">$'+Number(is.charge).toFixed(2)+' charge</div>';
         if (is.photos && is.photos.length) {
           html+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">';
@@ -1274,6 +1307,13 @@ function renderMyInspections(inspections) {
         }
         html+='</div>';
       });
+    }
+    // Kitchen/Linen Inventory (2026-11-13): show every counted item with its
+    // Current / Needed counts and the inspector's comment, plus Additional Notes.
+    // Before this, My Inspections listed only flagged issues, so inventory
+    // comments were saved but never visible to the person who wrote them.
+    if ((insp.formType==='kitchen_inv'||insp.formType==='linen_inv') && ((insp.inventoryItems&&insp.inventoryItems.length)||(insp.invNotes||'').trim())) {
+      html+=myInventoryDetailHtml(insp);
     }
     html+='</div>';
     html+='</div>';

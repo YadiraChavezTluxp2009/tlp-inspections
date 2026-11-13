@@ -3510,7 +3510,7 @@ function invdModel(insp){
     // field; fall back to the same Current-vs-Needed shortfall rule the app uses.
     if(!r.flagKnown&&!r.issue&&invdHasVal(r.needed)){
       var n=parseFloat(r.needed)||0,c=parseFloat(r.current)||0;
-      if(n>0&&c<n)r.flagged=true;
+      if(n>0)r.flagged=true; // Needed = how many more are needed (2026-11-13)
     }
     r.photos=photosFor(r.rk,r.key,r.photoSrc);
     r.counted=invdHasVal(r.current)||invdHasVal(r.needed);
