@@ -283,6 +283,64 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .unf-home{font-size:14px;font-weight:700;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .unf-meta{font-size:12px;color:var(--dark-gray);margin-top:2px}
 .unf-open{flex-shrink:0;background:var(--orange);color:white;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer}
+/* ── Seasonal Maintenance (2026-11-24) ── */
+.form-card.maint{border-top:4px solid #5D4037}
+.mt-wrap{padding:16px;display:flex;flex-direction:column;gap:14px}
+.mt-card{background:white;border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px}
+.mt-row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mt-seg{display:flex;gap:6px}
+.mt-seg button{flex:1;border:2px solid var(--mid-gray);background:white;border-radius:10px;padding:11px 6px;font-size:14px;font-weight:700;color:var(--dark-gray);cursor:pointer}
+.mt-seg button.on{background:var(--navy);border-color:var(--navy);color:white}
+.mt-sel{width:100%;border:2px solid var(--mid-gray);border-radius:10px;padding:11px 10px;font-size:15px;background:white;-webkit-appearance:none}
+.mt-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--dark-gray);margin-bottom:6px;display:block}
+.mt-list-row{display:flex;align-items:center;gap:10px;padding:11px 2px;border-bottom:1px solid var(--mid-gray);cursor:pointer}
+.mt-list-row:last-child{border-bottom:none}
+.mt-list-name{font-weight:700;color:var(--navy);font-size:14px}
+.mt-list-meta{font-size:12px;color:var(--dark-gray);margin-top:2px}
+.mt-chip{display:inline-block;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800;white-space:nowrap}
+.mt-chip.not_started{background:var(--mid-gray);color:var(--dark-gray)}
+.mt-chip.in_progress{background:#FFF3E0;color:var(--orange)}
+.mt-chip.submitted{background:#E3F5E9;color:#1E7B45}
+.mt-chip.fu{background:#FDECEA;color:var(--red)}
+.mt-head{background:var(--light-blue);border-radius:12px;padding:12px 14px;color:var(--navy)}
+.mt-head-name{font-size:16px;font-weight:800}
+.mt-head-meta{font-size:12px;color:var(--dark-gray);margin-top:3px;line-height:1.5}
+.mt-banner{border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.45}
+.mt-banner.sub{background:#E3F5E9;color:#1E5631;border-left:4px solid #1E7B45}
+.mt-banner.warn{background:#FFF3E0;color:#8a4b00;border-left:4px solid var(--orange)}
+.mt-prog{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700;color:var(--navy)}
+.mt-prog .bar{flex:1;height:8px;background:var(--mid-gray);border-radius:6px;overflow:hidden}
+.mt-prog .fill{height:100%;background:var(--green);transition:width .2s}
+.mt-task{background:white;border-radius:12px;box-shadow:var(--shadow);padding:12px 14px;border-left:5px solid var(--mid-gray)}
+.mt-task.complete{border-left-color:var(--green)}
+.mt-task.follow_up{border-left-color:var(--red)}
+.mt-task.na{border-left-color:var(--dark-gray)}
+.mt-task-top{display:flex;gap:10px;align-items:flex-start}
+.mt-num{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--navy);color:white;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.mt-text{font-size:14px;color:var(--text);line-height:1.45;flex:1}
+.mt-state{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-top:4px;color:var(--dark-gray)}
+.mt-task.complete .mt-state{color:var(--green)}.mt-task.follow_up .mt-state{color:var(--red)}
+.mt-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px}
+.mt-btns button{border:2px solid var(--mid-gray);background:white;border-radius:9px;padding:10px 4px;font-size:12.5px;font-weight:800;color:var(--dark-gray);cursor:pointer;line-height:1.15}
+.mt-btns button.on.complete{background:var(--green);border-color:var(--green);color:white}
+.mt-btns button.on.follow_up{background:var(--red);border-color:var(--red);color:white}
+.mt-btns button.on.na{background:var(--dark-gray);border-color:var(--dark-gray);color:white}
+.mt-btns button:disabled{opacity:.55;cursor:default}
+.mt-reading{margin-top:10px;background:#F5F9FD;border:1.5px solid var(--light-blue);border-radius:10px;padding:10px 12px}
+.mt-reading-row{display:flex;gap:8px;align-items:center}
+.mt-reading input,.mt-reading select{border:2px solid var(--mid-gray);border-radius:8px;padding:9px 10px;font-size:16px;background:white;min-width:0}
+.mt-reading input{width:110px}
+.mt-target{font-size:12px;color:var(--navy);margin-top:6px}
+.mt-target.out{color:var(--red);font-weight:700}
+.mt-extras-toggle{background:none;border:none;color:var(--blue);font-size:12.5px;font-weight:700;padding:8px 0 0;cursor:pointer}
+.mt-note-req{font-size:12px;color:var(--red);font-weight:700;margin-top:6px}
+.mt-task textarea.note-input.req{border-color:var(--red)}
+.mt-meta{font-size:11px;color:var(--dark-gray);margin-top:6px}
+.mt-actions{display:grid;grid-template-columns:1fr 1.4fr;gap:10px;position:fixed;left:0;right:0;bottom:0;max-width:480px;margin:0 auto;background:white;padding:10px 16px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -2px 12px rgba(6,52,97,.12);z-index:90}
+#screenMaint .mt-wrap{padding-bottom:40px}
+.mt-actions .btn-primary{margin-top:0;padding:14px}
+.mt-save-status{font-size:12px;color:var(--dark-gray);text-align:center}
+.mt-save-status.err{color:var(--red);font-weight:700}
 </style>
 </head>
 <body>
@@ -325,6 +383,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
   <div class="form-grid">
     <div class="form-card spring" onclick="startForm('spring')"><span class="icon">&#127800;</span><div class="label">Spring Inspection</div><div class="count">Season opening</div></div>
     <div class="form-card fall" onclick="startForm('fall')"><span class="icon">&#127810;</span><div class="label">Fall Inspection</div><div class="count">Season prep</div></div>
+    <div class="form-card maint" style="grid-column:span 2" onclick="openMaintenancePicker()"><span class="icon">&#129520;</span><div class="label">Seasonal Maintenance</div><div class="count">Spring &amp; Fall maintenance checklist</div></div>
     <div class="form-card checkin-summer" onclick="startForm('checkin_summer')"><span class="icon">&#9728;</span><div class="label">Check In &mdash; Summer</div><div class="count">Pre check-in</div></div>
     <div class="form-card checkin-winter" onclick="startForm('checkin_winter')"><span class="icon">&#10052;</span><div class="label">Check In &mdash; Winter</div><div class="count">Pre check-in</div></div>
     <div class="form-card checkout-summer" onclick="startForm('checkout_summer')"><span class="icon">&#9728;</span><div class="label">Check Out &mdash; Summer</div><div class="count">Departure inspection</div></div>
@@ -476,6 +535,56 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
   </div>
   <div class="checklist-wrap" id="checklistWrap"></div>
   <div style="padding:16px"><button class="btn-primary" onclick="showSummary()">View Summary &amp; Complete &#8594;</button></div>
+</div>
+
+<!-- SEASONAL MAINTENANCE — pick a home + season + year (added 2026-11-24).
+     One shared checklist per home per season per year, stored in Firestore
+     maintenance_checklists/{homeKey}_{season}_{year}. See the SEASONAL MAINTENANCE
+     block in the script. It has its own status and never touches drafts or
+     inspections, so walkthrough / kitchen / linen completion is unaffected. -->
+<div class="screen" id="screenMaintPick">
+  <div class="mt-wrap">
+    <div class="mt-card">
+      <span class="mt-lbl">Season</span>
+      <div class="mt-seg" id="mtSeasonSeg">
+        <button type="button" data-season="spring" onclick="mtSetSeason('spring')">&#127800; Spring</button>
+        <button type="button" data-season="fall" onclick="mtSetSeason('fall')">&#127810; Fall</button>
+      </div>
+      <div style="height:12px"></div>
+      <span class="mt-lbl">Year</span>
+      <select class="mt-sel" id="mtYear" onchange="mtPickChanged()"></select>
+    </div>
+    <div class="mt-card">
+      <span class="mt-lbl">Home</span>
+      <div class="prop-search-wrap">
+        <input type="text" class="prop-search-input" id="mtPropSearch" placeholder="Search by name or address..." autocomplete="off" oninput="mtFilterHomes()" onfocus="mtFilterHomes()" onblur="setTimeout(function(){document.getElementById('mtPropDropdown').classList.remove('open')},200)">
+        <div class="prop-dropdown" id="mtPropDropdown"></div>
+      </div>
+      <div id="mtPickedHome" style="display:none;margin-top:10px"></div>
+    </div>
+    <button class="btn-primary" id="mtOpenBtn" onclick="openMaintChecklist()">Open Checklist &#8594;</button>
+    <div class="mt-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <span class="mt-lbl" style="margin:0" id="mtSeasonListTitle">Started this season</span>
+      </div>
+      <div id="mtSeasonList" style="margin-top:6px"><div class="mt-list-meta">Loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- SEASONAL MAINTENANCE — the checklist itself -->
+<div class="screen" id="screenMaint">
+  <div class="mt-wrap" id="mtWrap">
+    <div class="mt-head"><div class="mt-head-name" id="mtHeadName"></div><div class="mt-head-meta" id="mtHeadMeta"></div></div>
+    <div id="mtBanner"></div>
+    <div class="mt-prog"><div class="bar"><div class="fill" id="mtProgFill" style="width:0%"></div></div><span id="mtProgText"></span></div>
+    <div id="mtTasks" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div class="mt-save-status" id="mtSaveStatus"></div>
+    <div class="mt-actions" id="mtActions">
+      <button class="btn-primary" style="background:white;color:var(--navy);border:2px solid var(--navy)" onclick="mtSaveAndExit()">&#128190; Save Draft</button>
+      <button class="btn-primary" id="mtSubmitBtn" onclick="mtSubmit()">Submit Checklist &#8594;</button>
+    </div>
+  </div>
 </div>
 
 <!-- SUMMARY -->
@@ -3446,6 +3555,10 @@ function goBack() {
     if (confirm('Discard this Supply Inventory report?')) resetToHome();
   } else if (document.getElementById('screenSetup').classList.contains('active')) {
     resetToHome();
+  } else if (document.getElementById('screenMaint').classList.contains('active')) {
+    mtLeave();
+  } else if (document.getElementById('screenMaintPick').classList.contains('active')) {
+    mState = null; resetToHome();
   }
 }
 function resetToHome() {
@@ -6850,6 +6963,797 @@ function toggleHideCompleted() {
   var on = document.getElementById('hideDoneToggle').checked;
   document.getElementById('checklistWrap').classList.toggle('hide-completed', on);
 }
+// ══ SEASONAL MAINTENANCE (added 2026-11-24) ══════════════════════════════════
+// Spring / Fall maintenance checklist for the maintenance crew.
+//  • One shared record per home + season + year:
+//      maintenance_checklists/{homeKey}_{season}_{year}
+//    homeKey = trackNameKey(home name) — the same key the Track sync and the
+//    Mothership use, so a home is the same record in both apps. Anyone on the crew
+//    can open and continue it; the Mothership reads it as soon as it's saved.
+//  • Status lives on this record only ('in_progress' / 'submitted'; no record =
+//    Not Started). It never writes to drafts or inspections, so how walkthroughs,
+//    kitchen inventories and linen inventories count as complete is unchanged.
+//  • Each save writes only the tasks that changed (merge), so two people working
+//    on the same home don't overwrite each other's tasks.
+//  • Photos upload as soon as they're taken (Storage inspections/maint_<record id>/),
+//    like the walkthrough draft photos; the record keeps only the links.
+//  • Submitting stores a frozen copy (checklist wording + answers + readings) in
+//    `submissions`, so later checklist edits never change what was submitted.
+//    Managers resolve follow-ups on the Mothership (followUpResolutions.<taskId>),
+//    which never changes the submitted answers.
+
+var MAINT_COLLECTION = 'maintenance_checklists';
+var MAINT_CHECKLIST_VERSION = 1;
+// ── THE CHECKLIST ───────────────────────────────────────────────────────────
+// To add an item later: add a new entry with a NEW id (lowercase, unique) where it
+// should appear, and bump MAINT_CHECKLIST_VERSION. Never reuse or rename an id —
+// answers are stored by id. Checklists that are still open pick up new items the
+// next time they're opened; submitted ones keep the list they were submitted with.
+// `spring`/`fall` give season-specific wording; `text` is used for both seasons.
+// `reading: 'psi'` / `'pier'` adds the reading field to that task.
+var MAINT_TASKS = [
+  { id: 'patio_furniture', spring: 'Set up the patio furniture.', fall: 'Put away the patio furniture.' },
+  { id: 'fridge_coils', text: 'Vacuum the refrigerator coils.' },
+  { id: 'smoke_co_detectors', text: 'Use a label maker to label each smoke and carbon monoxide detector with its expiration date. Check each unit’s expiration date and the manufacturer’s replacement guidance, including guidance for any replaceable sensors. Identify replacements needed for ordering. Replace batteries in units that are still within service life and have replaceable batteries.' },
+  { id: 'heater_filters', text: 'Change the heater filters and test the heat.' },
+  { id: 'vacuum', text: 'Clean out and test the vacuum, including clearing the hose.' },
+  { id: 'knives', text: 'Sharpen knives.' },
+  { id: 'water_shutoff', text: 'Cycle the water shut-off valve. If it is stuck, stop and flag it for follow-up.' },
+  { id: 'water_pressure', text: 'Test and record the water pressure.', reading: 'psi' },
+  { id: 'drains', text: 'Snake all sink and shower drains.' },
+  { id: 'leaks', text: 'Check under sinks and around toilets for leaks.' },
+  { id: 'faucets_toilets', text: 'Check for dripping faucets and running toilets.' },
+  { id: 'dryer_vent', text: 'Check the exterior dryer vent for lint buildup.' },
+  { id: 'weatherstripping', text: 'Check weatherstripping on exterior doors.' },
+  { id: 'exterior_lights', text: 'Check exterior lights and replace bulbs as needed.' },
+  { id: 'gutters', text: 'Look for clogged gutters and downspouts and flag them for cleaning.' },
+  { id: 'broken_items', text: 'Note anything broken or needing follow-up.' },
+  { id: 'pier_depth', text: 'Measure and record pier depth where applicable.', reading: 'pier' }
+];
+var MAINT_PSI_TARGET = { min: 50, max: 60 };   // TLUXP's target water pressure
+var MAINT_PIER_UNITS = ['ft', 'in'];
+var MAINT_STATUS_LABEL = { complete: 'Complete', follow_up: 'Needs Follow-Up', na: 'Not Applicable', pending: 'Pending' };
+var MAINT_PENDING_KEY = 'tlp_maint_pending';  // this device's unsynced edits, per record
+
+// Season windows match the Mothership's Seasonal Dashboard: Spring = Mar–Aug,
+// Fall = Sep–Feb (Jan/Feb belong to the previous year's Fall). Used only to
+// pre-select the season; staff can always pick another season or year.
+function maintCurrentSeason(d) {
+  d = d || new Date();
+  var m = d.getMonth() + 1, y = d.getFullYear();
+  if (m >= 3 && m <= 8) return { season: 'spring', year: y };
+  if (m >= 9) return { season: 'fall', year: y };
+  return { season: 'fall', year: y - 1 };
+}
+function maintSeasonLabel(season, year) { return (season === 'spring' ? 'Spring' : 'Fall') + ' ' + year; }
+function maintDocId(home, season, year) { return trackNameKey(home) + '_' + season + '_' + year; }
+function maintTasksFor(season) {
+  return MAINT_TASKS.map(function(t) { return { id: t.id, text: t.text || t[season] || t.spring, reading: t.reading || '' }; });
+}
+function maintNowIso() { return new Date().toISOString(); }
+function maintWho() { return currentUser ? (currentUser.name || currentUser.username || '') : ''; }
+function maintFmt(iso) {
+  if (!iso) return '';
+  var d = new Date(iso); if (isNaN(d)) return '';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+function maintCounts(tasks, responses) {
+  var c = { total: tasks.length, done: 0, complete: 0, follow_up: 0, na: 0 };
+  tasks.forEach(function(t) {
+    var st = (responses[t.id] || {}).status;
+    if (st === 'complete' || st === 'follow_up' || st === 'na') { c.done++; c[st]++; }
+  });
+  return c;
+}
+
+// ── Picker screen ───────────────────────────────────────────────────────────
+var mtPick = { season: '', year: 0, home: null };
+var mState = null;
+var _mtSeasonDocs = [];
+
+function openMaintenancePicker() {
+  if (!currentUser) return;
+  var cur = maintCurrentSeason();
+  if (!mtPick.season) { mtPick.season = cur.season; mtPick.year = cur.year; }
+  var calY = new Date().getFullYear();
+  var ysel = document.getElementById('mtYear');
+  ysel.innerHTML = '';
+  var years = [];
+  for (var y = Math.min(cur.year, calY) - 1; y <= calY + 1; y++) years.push(y);
+  if (years.indexOf(mtPick.year) === -1) years.push(mtPick.year);
+  years.sort().forEach(function(y) { var o = document.createElement('option'); o.value = String(y); o.textContent = String(y); ysel.appendChild(o); });
+  ysel.value = String(mtPick.year);
+  mtPaintSeason();
+  mtRenderPicked();
+  mState = null;
+  setHeader('Seasonal Maintenance', 'Choose a home, season and year', true);
+  document.getElementById('bottomNav').style.display = 'none';
+  document.getElementById('globalProg').style.display = 'none';
+  showScreen('screenMaintPick');
+  mtLoadSeasonList();
+}
+function mtSetSeason(s) { mtPick.season = s; mtPaintSeason(); mtPickChanged(); }
+function mtPaintSeason() {
+  document.querySelectorAll('#mtSeasonSeg button').forEach(function(b) { b.classList.toggle('on', b.getAttribute('data-season') === mtPick.season); });
+}
+function mtPickChanged() {
+  mtPick.year = parseInt(document.getElementById('mtYear').value, 10) || mtPick.year;
+  mtRenderPicked();
+  mtLoadSeasonList();
+}
+function mtFilterHomes() {
+  var q = (document.getElementById('mtPropSearch').value || '').toLowerCase();
+  var list = activeProps().filter(function(p) {
+    return !q || p.name.toLowerCase().indexOf(q) >= 0 || String(p.address || '').toLowerCase().indexOf(q) >= 0;
+  }).slice(0, 20);
+  var dd = document.getElementById('mtPropDropdown');
+  dd.innerHTML = '';
+  list.forEach(function(p) {
+    var el = document.createElement('div');
+    el.className = 'prop-option';
+    el.innerHTML = '<div class="prop-option-name">' + esc(p.name) + '</div><div class="prop-option-addr">' + esc(p.address || '') + '</div>';
+    el.onmousedown = function() { mtSelectHome(p); };
+    dd.appendChild(el);
+  });
+  dd.classList.toggle('open', list.length > 0);
+}
+function mtSelectHome(p) {
+  mtPick.home = p;
+  document.getElementById('mtPropSearch').value = p.name;
+  document.getElementById('mtPropDropdown').classList.remove('open');
+  mtRenderPicked();
+}
+function mtRenderPicked() {
+  var box = document.getElementById('mtPickedHome');
+  var p = mtPick.home;
+  if (!p) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  var d = _mtSeasonDocs.filter(function(x) { return x.homeKey === trackNameKey(p.name); })[0];
+  var st = d ? d.status : 'not_started';
+  var c = d ? maintCounts(d.tasks || [], d.responses || {}) : null;
+  box.innerHTML = '<div class="prop-card show" style="display:block"><div class="prop-card-name">' + esc(p.name) + '</div>' +
+    '<div class="prop-card-addr" style="margin-bottom:6px">' + esc(p.address || '') + '</div>' +
+    (p.contact ? '<span class="prop-tag contact">&#128100; ' + esc(p.contact) + '</span> ' : '') +
+    '<div style="margin-top:8px;font-size:12.5px;color:var(--dark-gray)">' + esc(maintSeasonLabel(mtPick.season, mtPick.year)) + ': ' + mtStatusChip(st) +
+    (c ? ' &nbsp;' + c.done + ' of ' + c.total + ' tasks' : '') + '</div></div>';
+  box.style.display = 'block';
+  document.getElementById('mtOpenBtn').innerHTML = (st === 'submitted' ? 'View Submitted Checklist' : st === 'in_progress' ? 'Continue Checklist' : 'Start Checklist') + ' &#8594;';
+}
+function mtStatusChip(st) {
+  var lbl = st === 'submitted' ? 'Submitted' : st === 'in_progress' ? 'In Progress' : 'Not Started';
+  return '<span class="mt-chip ' + esc(st) + '">' + lbl + '</span>';
+}
+// A follow-up is open until a manager resolves it on the Mothership; flagging the
+// task again after that (a newer answer) opens it again. Same rule as the Mothership.
+function mtFollowUpOpen(d, id) {
+  var r = (d.responses || {})[id] || {};
+  if (r.status !== 'follow_up') return false;
+  var res = (d.followUpResolutions || {})[id];
+  return !(res && res.resolved && String(res.resolvedAt || '') >= String(r.updatedAt || ''));
+}
+function mtOpenFollowUps(d) {
+  return (d.tasks || []).filter(function(t) { return mtFollowUpOpen(d, t.id); }).length;
+}
+function mtRulesMessage(e) {
+  return e && e.code === 'permission-denied'
+    ? 'Seasonal Maintenance isn’t switched on in the database yet. Ask an admin to publish the updated database rules.'
+    : 'Couldn’t reach the database — check your connection.';
+}
+function mtLoadSeasonList() {
+  var box = document.getElementById('mtSeasonList');
+  document.getElementById('mtSeasonListTitle').textContent = 'Started ' + maintSeasonLabel(mtPick.season, mtPick.year);
+  box.innerHTML = '<div class="mt-list-meta">Loading…</div>';
+  if (!db) { box.innerHTML = '<div class="mt-list-meta">Not connected.</div>'; return; }
+  var want = mtPick.season + '_' + mtPick.year;
+  db.collection(MAINT_COLLECTION).where('season', '==', mtPick.season).where('year', '==', mtPick.year).get().then(function(snap) {
+    if (mtPick.season + '_' + mtPick.year !== want) return;
+    _mtSeasonDocs = snap.docs.map(function(d) { return Object.assign({ _id: d.id }, d.data()); })
+      .sort(function(a, b) { return String(b.lastUpdatedAt || '').localeCompare(String(a.lastUpdatedAt || '')); });
+    mtRenderPicked();
+    if (!_mtSeasonDocs.length) { box.innerHTML = '<div class="mt-list-meta">No homes started yet for ' + esc(maintSeasonLabel(mtPick.season, mtPick.year)) + '.</div>'; return; }
+    box.innerHTML = '';
+    _mtSeasonDocs.forEach(function(d) {
+      var c = maintCounts(d.tasks || [], d.responses || {});
+      var fu = mtOpenFollowUps(d);
+      var row = document.createElement('div');
+      row.className = 'mt-list-row';
+      row.innerHTML = '<div style="flex:1;min-width:0"><div class="mt-list-name">' + esc(d.home || '') + '</div>' +
+        '<div class="mt-list-meta">' + c.done + ' of ' + c.total + ' tasks' + (d.lastUpdatedBy ? ' · ' + esc(d.lastUpdatedBy) + ' ' + esc(maintFmt(d.lastUpdatedAt)) : '') + '</div></div>' +
+        (fu ? '<span class="mt-chip fu">' + fu + ' follow-up' + (fu === 1 ? '' : 's') + '</span>' : '') + mtStatusChip(d.status || 'in_progress');
+      row.onclick = function() {
+        var p = PROPERTIES.filter(function(x) { return trackNameKey(x.name) === d.homeKey; })[0] ||
+          { name: d.home, address: d.address || '', contact: d.operationsContact || '' };
+        mtSelectHome(p);
+        openMaintChecklist();
+      };
+      box.appendChild(row);
+    });
+  }).catch(function(e) {
+    console.warn('[MAINT] season list failed', e);
+    box.innerHTML = '<div class="mt-list-meta" style="color:var(--red)">' + esc(mtRulesMessage(e)) + '</div>';
+  });
+}
+
+// ── This device's unsynced edits ────────────────────────────────────────────
+// Every edit is copied here first (photos still uploading included) and removed
+// once the cloud has it, so a dropped signal or a closed tab never loses work.
+function mtReadPendingAll() { try { return JSON.parse(localStorage.getItem(MAINT_PENDING_KEY) || '{}') || {}; } catch (e) { return {}; } }
+function mtWritePending(rec) {
+  var s = rec || mState;
+  if (!s) return;
+  var all = mtReadPendingAll();
+  var ids = Object.keys(s.dirty);
+  if (!ids.length && !s.dirtyReadings) delete all[s.docId];
+  else {
+    var rs = {};
+    ids.forEach(function(id) { rs[id] = s.responses[id]; });
+    all[s.docId] = { savedAt: maintNowIso(), home: s.home, season: s.season, year: s.year, responses: rs, readings: s.dirtyReadings ? s.readings : null };
+  }
+  try { localStorage.setItem(MAINT_PENDING_KEY, JSON.stringify(all)); }
+  catch (e) {
+    // Device storage full: keep the answers, drop the not-yet-uploaded photos from
+    // this copy (they're still in memory and keep uploading while the app is open).
+    try {
+      var lite = JSON.parse(JSON.stringify(all));
+      Object.keys(lite).forEach(function(k) { Object.keys(lite[k].responses || {}).forEach(function(t) {
+        var r = lite[k].responses[t]; if (r && r.photos) r.photos = r.photos.filter(function(s) { return !isEmbeddedPhoto(s); });
+      }); });
+      localStorage.setItem(MAINT_PENDING_KEY, JSON.stringify(lite));
+    } catch (e2) { console.warn('[MAINT] could not keep a device copy', e2); }
+  }
+}
+
+// ── Open a checklist ────────────────────────────────────────────────────────
+function openMaintChecklist() {
+  var h = mtPick.home;
+  if (!h) { showToast('Please select a home'); return; }
+  if (!mtPick.season || !mtPick.year) { showToast('Choose a season and year'); return; }
+  var base = { docId: maintDocId(h.name, mtPick.season, mtPick.year), home: h.name, homeKey: trackNameKey(h.name),
+    address: h.address || '', operationsContact: h.contact || '', season: mtPick.season, year: mtPick.year };
+  var btn = document.getElementById('mtOpenBtn');
+  btn.disabled = true; btn.textContent = 'Opening…';
+  function done() { btn.disabled = false; mtRenderPicked(); }
+  if (!db) { done(); showToast('Not connected'); return; }
+  db.collection(MAINT_COLLECTION).doc(base.docId).get().then(function(snap) {
+    done(); mtStart(base, snap.exists ? snap.data() : null, true);
+  }).catch(function(e) {
+    done();
+    console.warn('[MAINT] open failed', e);
+    if (e && e.code === 'permission-denied') { showToast(mtRulesMessage(e), 6000); return; }
+    // No signal: work from this device. Saves only ever merge the tasks that
+    // were touched, so nothing already in the cloud is overwritten later.
+    showToast('No connection — working on this device. It will sync when you’re back online.', 5000);
+    mtStart(base, null, false);
+  });
+}
+function mtStart(base, d, fromCloud) {
+  d = d || {};
+  mState = {
+    docId: base.docId, home: d.home || base.home, homeKey: base.homeKey, address: d.address || base.address,
+    operationsContact: base.operationsContact || d.operationsContact || '',
+    season: base.season, year: base.year,
+    exists: !!d.status, cloudKnown: fromCloud,
+    status: d.status || 'not_started',
+    tasks: (d.tasks && d.tasks.length) ? d.tasks.map(function(t) { return { id: t.id, text: t.text, reading: t.reading || '' }; }) : maintTasksFor(base.season),
+    responses: JSON.parse(JSON.stringify(d.responses || {})),
+    readings: Object.assign({ waterPressurePsi: null, pierDepth: null, pierUnit: 'ft' }, d.readings || {}),
+    followUpResolutions: d.followUpResolutions || {},
+    createdAt: d.createdAt || '', createdBy: d.createdBy || '',
+    lastUpdatedAt: d.lastUpdatedAt || '', lastUpdatedBy: d.lastUpdatedBy || '',
+    submittedAt: d.submittedAt || '', submittedBy: d.submittedBy || '',
+    dirty: {}, dirtyReadings: false, dirtyTasks: false, readingsVer: 0, open: {}
+  };
+  if (mState.status !== 'submitted') {
+    // Pick up checklist items Ops added after this checklist was started.
+    maintTasksFor(mState.season).forEach(function(t) {
+      if (!mState.tasks.some(function(x) { return x.id === t.id; })) { mState.tasks.push(t); mState.dirtyTasks = true; }
+    });
+    // Re-apply this device's edits that never reached the cloud (newer wins).
+    var pend = mtReadPendingAll()[mState.docId];
+    if (pend) {
+      Object.keys(pend.responses || {}).forEach(function(id) {
+        var mine = pend.responses[id], theirs = mState.responses[id];
+        if (!mine) return;
+        if (!theirs || String(mine.updatedAt || '') > String(theirs.updatedAt || '')) { mState.responses[id] = mine; mState.dirty[id] = true; }
+      });
+      if (pend.readings && String(pend.readings.updatedAt || '') > String(mState.readings.updatedAt || '')) {
+        mState.readings = Object.assign({}, mState.readings, pend.readings); mState.dirtyReadings = true;
+      }
+    }
+  }
+  mtSetSaveStatus('');
+  mtRender();
+  setHeader('Seasonal Maintenance', mState.home + ' · ' + maintSeasonLabel(mState.season, mState.year), true);
+  showScreen('screenMaint');
+  if (mState.status !== 'submitted' && (Object.keys(mState.dirty).length || mState.dirtyReadings || (mState.exists && mState.dirtyTasks))) mtSaveDraft(false);
+  mtUploadPendingPhotos();
+}
+
+// ── Rendering ───────────────────────────────────────────────────────────────
+function mtReadOnly() { return !mState || mState.status === 'submitted'; }
+function mtResp(id) { if (!mState.responses[id]) mState.responses[id] = { status: 'pending', note: '', photos: [] }; return mState.responses[id]; }
+function mtRender() {
+  var s = mState;
+  document.getElementById('mtHeadName').textContent = s.home;
+  document.getElementById('mtHeadMeta').innerHTML = esc(maintSeasonLabel(s.season, s.year)) + ' &nbsp;' + mtStatusChip(s.status) +
+    (s.address ? '<br>' + esc(s.address) : '') +
+    (s.lastUpdatedBy ? '<br>Last updated by ' + esc(s.lastUpdatedBy) + ' · ' + esc(maintFmt(s.lastUpdatedAt)) : '');
+  var ban = document.getElementById('mtBanner');
+  if (s.status === 'submitted') {
+    var fu = mtOpenFollowUps(s);
+    ban.innerHTML = '<div class="mt-banner sub"><b>Submitted</b> by ' + esc(s.submittedBy || '') + ' · ' + esc(maintFmt(s.submittedAt)) +
+      '. This checklist is read-only.' + (fu ? ' <b>' + fu + ' follow-up' + (fu === 1 ? '' : 's') + ' still open</b> — tracked on the Mothership’s Maintenance Dashboard.' : '') + '</div>';
+  } else ban.innerHTML = '';
+  document.getElementById('mtActions').style.display = s.status === 'submitted' ? 'none' : 'grid';
+  var wrap = document.getElementById('mtTasks');
+  wrap.innerHTML = '';
+  s.tasks.forEach(function(t, i) { wrap.appendChild(mtTaskEl(t, i)); });
+  mtUpdateProgress();
+}
+function mtUpdateProgress() {
+  var c = maintCounts(mState.tasks, mState.responses);
+  document.getElementById('mtProgFill').style.width = (c.total ? Math.round(c.done * 100 / c.total) : 0) + '%';
+  document.getElementById('mtProgText').textContent = c.done + ' / ' + c.total + (c.follow_up ? ' · ' + c.follow_up + ' follow-up' + (c.follow_up === 1 ? '' : 's') : '');
+}
+function mtTaskEl(t, i) {
+  var r = mState.responses[t.id] || { status: 'pending', note: '', photos: [] };
+  var st = r.status || 'pending';
+  var ro = mtReadOnly();
+  var el = document.createElement('div');
+  el.className = 'mt-task ' + st;
+  el.id = 'mt-task-' + t.id;
+  var top = '<div class="mt-task-top"><div class="mt-num">' + (i + 1) + '</div><div style="flex:1;min-width:0"><div class="mt-text">' + esc(t.text) + '</div>' +
+    '<div class="mt-state" id="mt-state-' + t.id + '">' + esc(MAINT_STATUS_LABEL[st]) + '</div></div></div>';
+  el.innerHTML = top;
+  var btns = document.createElement('div');
+  btns.className = 'mt-btns';
+  [['complete', '✓ Complete'], ['follow_up', '⚑ Needs Follow-Up'], ['na', 'Not Applicable']].forEach(function(b) {
+    var x = document.createElement('button');
+    x.type = 'button'; x.className = b[0] + (st === b[0] ? ' on' : ''); x.textContent = b[1];
+    x.setAttribute('data-status', b[0]);
+    x.disabled = ro;
+    x.onclick = function() { mtSetStatus(t.id, b[0]); };
+    btns.appendChild(x);
+  });
+  el.appendChild(btns);
+  if (t.reading === 'psi') el.appendChild(mtPsiEl(st, ro));
+  if (t.reading === 'pier') el.appendChild(mtPierEl(st, ro));
+  // Notes + photos
+  var hasExtras = !!(r.note || (r.photos && r.photos.length));
+  var open = ro ? hasExtras : (mState.open[t.id] !== undefined ? mState.open[t.id] : (hasExtras || st === 'follow_up'));
+  if (!ro) {
+    var tg = document.createElement('button');
+    tg.type = 'button'; tg.className = 'mt-extras-toggle'; tg.id = 'mt-tg-' + t.id;
+    tg.textContent = open ? 'Hide note & photos' : '+ Add note or photo';
+    tg.onclick = function() { mState.open[t.id] = !open; mtRefreshTask(t.id); };
+    el.appendChild(tg);
+  }
+  var ex = document.createElement('div');
+  ex.id = 'mt-ex-' + t.id;
+  ex.style.display = open ? 'block' : 'none';
+  if (ro) {
+    if (r.note) ex.innerHTML = '<div style="font-size:13px;margin-top:8px;white-space:pre-wrap;background:var(--gray);border-radius:8px;padding:8px 10px">' + esc(r.note) + '</div>';
+  } else {
+    var ta = document.createElement('textarea');
+    ta.className = 'note-input' + (st === 'follow_up' && !String(r.note || '').trim() ? ' req' : '');
+    ta.id = 'mt-note-' + t.id;
+    ta.placeholder = st === 'follow_up' ? 'Required: what needs follow-up?' : 'Add a note (optional)';
+    ta.value = r.note || '';
+    ta.oninput = function() { mtSetNote(t.id, ta.value); };
+    ex.appendChild(ta);
+    var req = document.createElement('div');
+    req.className = 'mt-note-req'; req.id = 'mt-req-' + t.id;
+    req.textContent = 'A short note is required for follow-up items.';
+    req.style.display = (st === 'follow_up' && !String(r.note || '').trim()) ? 'block' : 'none';
+    ex.appendChild(req);
+  }
+  var pr = document.createElement('div');
+  pr.className = 'photo-row'; pr.id = 'mt-photos-' + t.id;
+  if (!ro) {
+    pr.innerHTML = '<div class="photo-add" onclick="document.getElementById(\'mt-pt-' + t.id + '\').click()"><span class="photo-add-ic">&#128247;</span><span class="photo-add-lbl">Take Photo</span></div>' +
+      '<input type="file" accept="image/*" capture="environment" class="photo-file" id="mt-pt-' + t.id + '">' +
+      '<div class="photo-upload" onclick="document.getElementById(\'mt-pu-' + t.id + '\').click()"><span class="photo-add-ic">&#128444;&#65039;</span><span class="photo-add-lbl">Upload Photo</span></div>' +
+      '<input type="file" accept="image/*" class="photo-file" id="mt-pu-' + t.id + '">';
+    pr.querySelector('#mt-pt-' + t.id).onchange = function(e) { mtAddPhoto(e, t.id); };
+    pr.querySelector('#mt-pu-' + t.id).onchange = function(e) { mtAddPhoto(e, t.id); };
+  }
+  (r.photos || []).forEach(function(src, pi) {
+    var w = document.createElement('span'); w.className = 'photo-thumb-wrap';
+    var img = document.createElement('img'); img.src = src; img.className = 'photo-thumb';
+    img.onclick = function() { openModal('Photo', img.src); };
+    w.appendChild(img); w.appendChild(makePhotoBadge(src));
+    if (!ro) {
+      var rm = document.createElement('button');
+      rm.type = 'button'; rm.textContent = '×'; rm.title = 'Remove photo';
+      rm.style.cssText = 'position:absolute;top:-6px;left:-6px;width:20px;height:20px;border-radius:50%;border:none;background:#333;color:white;font-size:13px;line-height:20px;padding:0;cursor:pointer';
+      rm.onclick = function(e) { e.stopPropagation(); if (confirm('Remove this photo?')) mtRemovePhoto(t.id, pi); };
+      w.appendChild(rm);
+    }
+    pr.appendChild(w);
+  });
+  if (!ro || (r.photos && r.photos.length)) ex.appendChild(pr);
+  el.appendChild(ex);
+  var res = mState.followUpResolutions[t.id];
+  if (st === 'follow_up' && res && res.resolved && !mtFollowUpOpen(mState, t.id)) {
+    var rv = document.createElement('div'); rv.className = 'mt-meta'; rv.style.color = '#1E7B45';
+    rv.textContent = 'Follow-up resolved by ' + (res.resolvedBy || '') + ' · ' + maintFmt(res.resolvedAt) + (res.note ? ' — ' + res.note : '');
+    el.appendChild(rv);
+  }
+  if (r.updatedBy) {
+    var mt = document.createElement('div'); mt.className = 'mt-meta';
+    mt.textContent = 'Updated by ' + r.updatedBy + ' · ' + maintFmt(r.updatedAt);
+    el.appendChild(mt);
+  }
+  return el;
+}
+function mtPsiEl(st, ro) {
+  var v = mState.readings.waterPressurePsi;
+  var box = document.createElement('div'); box.className = 'mt-reading';
+  box.innerHTML = '<span class="mt-lbl">Water pressure reading</span><div class="mt-reading-row">' +
+    '<input type="number" inputmode="decimal" min="0" max="250" step="1" id="mtPsi" placeholder="e.g. 55"' + (ro ? ' disabled' : '') + ' value="' + (v === null || v === undefined ? '' : esc(String(v))) + '"><b style="color:var(--navy)">psi</b></div>' +
+    '<div class="mt-target" id="mtPsiTarget"></div>';
+  var inp = box.querySelector('input');
+  inp.oninput = function() { mtSetReading('waterPressurePsi', inp.value === '' ? null : Number(inp.value)); mtPaintPsiTarget(); };
+  setTimeout(mtPaintPsiTarget, 0);
+  return box;
+}
+function mtPaintPsiTarget() {
+  var el = document.getElementById('mtPsiTarget'); if (!el || !mState) return;
+  var v = mState.readings.waterPressurePsi;
+  var out = (v !== null && v !== undefined && v !== '' && !isNaN(v)) && (v < MAINT_PSI_TARGET.min || v > MAINT_PSI_TARGET.max);
+  el.className = 'mt-target' + (out ? ' out' : '');
+  el.textContent = 'TLUXP target range: ' + MAINT_PSI_TARGET.min + '–' + MAINT_PSI_TARGET.max + ' psi' +
+    (out ? ' — this reading is ' + (v < MAINT_PSI_TARGET.min ? 'below' : 'above') + ' target. Consider flagging it for follow-up.' : '');
+}
+function mtPierEl(st, ro) {
+  var box = document.createElement('div'); box.className = 'mt-reading'; box.id = 'mtPierBox';
+  if (st === 'na') {
+    box.innerHTML = '<span class="mt-lbl" style="margin:0">Pier depth: Not applicable (no pier)</span>';
+    return box;
+  }
+  var v = mState.readings.pierDepth, u = mState.readings.pierUnit || 'ft';
+  box.innerHTML = '<span class="mt-lbl">Pier depth</span><div class="mt-reading-row">' +
+    '<input type="number" inputmode="decimal" min="0" step="0.1" id="mtPier" placeholder="Depth"' + (ro ? ' disabled' : '') + ' value="' + (v === null || v === undefined ? '' : esc(String(v))) + '">' +
+    '<select id="mtPierUnit"' + (ro ? ' disabled' : '') + '>' + MAINT_PIER_UNITS.map(function(x) { return '<option value="' + x + '"' + (x === u ? ' selected' : '') + '>' + (x === 'ft' ? 'feet' : 'inches') + '</option>'; }).join('') + '</select></div>' +
+    '<div class="mt-target">No pier at this home? Tap Not Applicable.</div>';
+  var inp = box.querySelector('input'), sel = box.querySelector('select');
+  inp.oninput = function() { mtSetReading('pierDepth', inp.value === '' ? null : Number(inp.value)); };
+  sel.onchange = function() { mtSetReading('pierUnit', sel.value); };
+  return box;
+}
+function mtRefreshTask(id) {
+  var idx = -1; mState.tasks.forEach(function(t, i) { if (t.id === id) idx = i; });
+  var old = document.getElementById('mt-task-' + id);
+  if (idx < 0 || !old) return;
+  old.parentNode.replaceChild(mtTaskEl(mState.tasks[idx], idx), old);
+  mtUpdateProgress();
+}
+
+// ── Editing ─────────────────────────────────────────────────────────────────
+function mtTouch(id) {
+  var r = mtResp(id);
+  r.updatedAt = maintNowIso(); r.updatedBy = maintWho(); r.updatedById = currentUser ? currentUser.id : '';
+  mState.dirty[id] = true;
+  mtWritePending();
+  mtScheduleSave();
+}
+function mtSetStatus(id, st) {
+  if (mtReadOnly()) return;
+  var r = mtResp(id);
+  r.status = (r.status === st) ? 'pending' : st;
+  if (r.status === 'follow_up') mState.open[id] = true;
+  mtTouch(id);
+  mtRefreshTask(id);
+  if (r.status === 'follow_up' && !String(r.note || '').trim()) {
+    var ta = document.getElementById('mt-note-' + id); if (ta) ta.focus();
+  }
+}
+function mtSetNote(id, v) {
+  if (mtReadOnly()) return;
+  var r = mtResp(id);
+  r.note = v;
+  var need = r.status === 'follow_up' && !String(v || '').trim();
+  var ta = document.getElementById('mt-note-' + id); if (ta) ta.classList.toggle('req', need);
+  var rq = document.getElementById('mt-req-' + id); if (rq) rq.style.display = need ? 'block' : 'none';
+  mtTouch(id);
+}
+function mtSetReading(field, v) {
+  if (mtReadOnly()) return;
+  mState.readings[field] = v;
+  mState.readings.updatedAt = maintNowIso(); mState.readings.updatedBy = maintWho();
+  mState.dirtyReadings = true; mState.readingsVer++;
+  mtWritePending();
+  mtScheduleSave();
+}
+function mtAddPhoto(e, id) {
+  var file = e.target.files && e.target.files[0]; if (!file) return;
+  e.target.value = '';
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    compressPhotoDataUrl(ev.target.result, function(src) {
+      if (!mState) return;
+      var r = mtResp(id);
+      if (!r.photos) r.photos = [];
+      r.photos.push(src);
+      mState.open[id] = true;
+      mtTouch(id);
+      mtRefreshTask(id);
+      showToast('Photo added — uploading…');
+      mtUploadPhoto(mState.docId, id, src);
+    });
+  };
+  reader.onerror = function() { showToast('⚠️ Photo could not be processed — please try again.', 5000); };
+  reader.readAsDataURL(file);
+}
+function mtRemovePhoto(id, idx) {
+  var r = mtResp(id);
+  (r.photos || []).splice(idx, 1);
+  mtTouch(id);
+  mtRefreshTask(id);
+}
+// Uploads one photo to Storage (same rules as walkthrough photos: inspections/**).
+// Reuses the walkthrough photo badges (_photoUp / paintPhotoBadges).
+function mtUploadPhoto(docId, taskId, src) {
+  var token = photoToken(src);
+  if (_photoUp[token] === 'uploading' || _photoUp[token] === 'done') return;
+  if (!storage || !currentUser) { _photoUp[token] = 'failed'; paintPhotoBadges(token); return; }
+  _photoUp[token] = 'uploading'; paintPhotoBadges(token);
+  var path = 'inspections/maint_' + docId + '/' + taskId + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + (src.indexOf('image/png') >= 0 ? '.png' : '.jpg');
+  var ref = storage.ref(path);
+  ref.putString(src, 'data_url').then(function() { return ref.getDownloadURL(); }).then(function(url) {
+    _photoUp[token] = 'done';
+    if (mState && mState.docId === docId) {
+      var r = mtResp(taskId);
+      var i = (r.photos || []).indexOf(src);
+      if (i >= 0) { r.photos[i] = url; mtTouch(taskId); }
+      document.querySelectorAll('.photo-up-badge[data-token="' + token + '"]').forEach(function(b) {
+        var img = b.parentNode && b.parentNode.querySelector('img'); if (img) img.src = url;
+      });
+    } else {
+      // Left the checklist before the upload finished: add the link to the cloud
+      // record and fix this device's copy so the photo isn't lost.
+      var all = mtReadPendingAll(), p = all[docId];
+      if (p && p.responses && p.responses[taskId] && p.responses[taskId].photos) {
+        var k = p.responses[taskId].photos.indexOf(src);
+        if (k >= 0) p.responses[taskId].photos[k] = url;
+        try { localStorage.setItem(MAINT_PENDING_KEY, JSON.stringify(all)); } catch (e) {}
+      }
+      if (db) {
+        var patch = { responses: {} };
+        patch.responses[taskId] = { photos: firebase.firestore.FieldValue.arrayUnion(url) };
+        db.collection(MAINT_COLLECTION).doc(docId).set(patch, { merge: true }).catch(function(e) { console.warn('[MAINT] late photo link failed', e); });
+      }
+    }
+    paintPhotoBadges(token);
+  }).catch(function(e) {
+    console.warn('[MAINT] photo upload failed — will retry', e && (e.code || e.message));
+    _photoUp[token] = 'failed'; _photoUpRetryAt[token] = Date.now();
+    paintPhotoBadges(token);
+  });
+}
+function mtPendingPhotoCount() {
+  var n = { uploading: 0, failed: 0 };
+  if (!mState) return n;
+  Object.keys(mState.responses).forEach(function(id) {
+    ((mState.responses[id] || {}).photos || []).forEach(function(src) {
+      if (!isEmbeddedPhoto(src)) return;
+      if (_photoUp[photoToken(src)] === 'failed') n.failed++; else n.uploading++;
+    });
+  });
+  return n;
+}
+function mtUploadPendingPhotos(force) {
+  if (!mState) return;
+  Object.keys(mState.responses).forEach(function(id) {
+    ((mState.responses[id] || {}).photos || []).forEach(function(src) {
+      if (!isEmbeddedPhoto(src)) return;
+      var t = photoToken(src);
+      if (_photoUp[t] === 'failed' && !force && Date.now() - (_photoUpRetryAt[t] || 0) < 20000) return;
+      if (_photoUp[t] === 'failed') delete _photoUp[t];
+      mtUploadPhoto(mState.docId, id, src);
+    });
+  });
+}
+window.addEventListener('online', function() { mtUploadPendingPhotos(true); if (mState) mtSaveDraft(false); });
+
+// ── Saving ──────────────────────────────────────────────────────────────────
+var _mtSaveTimer = null, _mtSaving = null;
+function mtScheduleSave() {
+  clearTimeout(_mtSaveTimer);
+  _mtSaveTimer = setTimeout(function() { mtSaveDraft(false); }, 1200);
+}
+function mtCloudResp(r) {
+  // Firestore keeps photo links only; photos still uploading stay on this device.
+  return { status: r.status || 'pending', note: r.note || '', photos: (r.photos || []).filter(function(s) { return !isEmbeddedPhoto(s); }),
+    updatedAt: r.updatedAt || '', updatedBy: r.updatedBy || '', updatedById: r.updatedById || '' };
+}
+function mtBaseFields() {
+  return { home: mState.home, homeKey: mState.homeKey, address: mState.address, operationsContact: mState.operationsContact,
+    season: mState.season, year: mState.year };
+}
+function mtSetSaveStatus(msg, err) {
+  var el = document.getElementById('mtSaveStatus'); if (!el) return;
+  el.textContent = msg || ''; el.className = 'mt-save-status' + (err ? ' err' : '');
+}
+// Saves only what changed (merge). Returns a promise. manual = the Save Draft button.
+function mtSaveDraft(manual) {
+  clearTimeout(_mtSaveTimer);
+  if (!mState || mState.status === 'submitted') return Promise.resolve(false);
+  var s = mState;
+  var ids = Object.keys(s.dirty);
+  var hasWork = ids.length || s.dirtyReadings;
+  if (!hasWork && !(s.exists && s.dirtyTasks)) {
+    if (manual) showToast(s.exists ? 'Draft saved' : 'Nothing to save yet — mark a task first');
+    return Promise.resolve(true);
+  }
+  if (!db) { mtSetSaveStatus('Saved on this device — not connected', true); return Promise.resolve(false); }
+  var now = maintNowIso(), who = maintWho();
+  var patch = mtBaseFields();
+  patch.checklistVersion = MAINT_CHECKLIST_VERSION;
+  patch.lastUpdatedAt = now; patch.lastUpdatedBy = who; patch.lastUpdatedById = currentUser ? currentUser.id : '';
+  if (!s.exists) {
+    patch.status = 'in_progress';
+    patch.createdAt = now; patch.createdBy = who; patch.createdById = currentUser ? currentUser.id : '';
+    patch.tasks = s.tasks;
+  } else if (s.dirtyTasks) patch.tasks = s.tasks;
+  var sent = {};
+  if (ids.length) {
+    patch.responses = {};
+    ids.forEach(function(id) { patch.responses[id] = mtCloudResp(s.responses[id]); sent[id] = s.responses[id].updatedAt; });
+  }
+  var rVer = s.readingsVer;
+  if (s.dirtyReadings) patch.readings = Object.assign({}, s.readings);
+  mtSetSaveStatus('Saving…');
+  var ref = db.collection(MAINT_COLLECTION).doc(s.docId);
+  var write = ref.set(patch, { merge: true });
+  var timedOut = false;
+  var timer = new Promise(function(res) { setTimeout(function() { timedOut = true; res('timeout'); }, 10000); });
+  return Promise.race([write.then(function() { return 'ok'; }), timer]).then(function(r) {
+    if (mState !== s) return true;
+    if (r === 'timeout') {
+      mtSetSaveStatus('Saved on this device — will sync when the connection returns', true);
+      if (manual) showToast('No connection — kept on this device; it will sync when you’re back online.', 4500);
+      write.then(function() { mtAfterSaved(s, sent, rVer, now, who, false); }).catch(function() {});
+      return false;
+    }
+    mtAfterSaved(s, sent, rVer, now, who, manual);
+    return true;
+  }).catch(function(e) {
+    console.warn('[MAINT] save failed', e);
+    mtSetSaveStatus(e && e.code === 'permission-denied' ? mtRulesMessage(e) : 'Not saved to the cloud yet — kept on this device', true);
+    if (manual) showToast(e && e.code === 'permission-denied' ? mtRulesMessage(e) : 'Couldn’t save to the cloud — kept on this device.', 5000);
+    return false;
+  });
+}
+function mtAfterSaved(s, sent, rVer, now, who, manual) {
+  if (!s.exists) { s.exists = true; s.status = 'in_progress'; s.createdAt = now; s.createdBy = who; }
+  s.dirtyTasks = false;
+  Object.keys(sent).forEach(function(id) {
+    var r = s.responses[id];
+    var stillLocal = (r.photos || []).some(isEmbeddedPhoto);
+    if (r && r.updatedAt === sent[id] && !stillLocal) delete s.dirty[id];
+  });
+  if (s.readingsVer === rVer) s.dirtyReadings = false;
+  s.lastUpdatedAt = now; s.lastUpdatedBy = who;
+  mtWritePending(s);
+  if (mState === s) {
+    mtSetSaveStatus('Saved ' + new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + ' · visible to managers');
+    var meta = document.getElementById('mtHeadMeta');
+    if (meta) meta.innerHTML = esc(maintSeasonLabel(s.season, s.year)) + ' &nbsp;' + mtStatusChip(s.status) + (s.address ? '<br>' + esc(s.address) : '') +
+      '<br>Last updated by ' + esc(s.lastUpdatedBy) + ' · ' + esc(maintFmt(s.lastUpdatedAt));
+    if (manual) showToast('Draft saved — managers can see it now');
+  }
+}
+// "Save Draft" button: save, then go back to the home/season list.
+function mtSaveAndExit() {
+  mtSaveDraft(true).then(function() { openMaintenancePicker(); });
+}
+function mtLeave() {
+  if (mState && mState.status !== 'submitted') mtSaveDraft(false);
+  openMaintenancePicker();
+}
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'hidden' && mState && mState.status !== 'submitted') { mtWritePending(); mtSaveDraft(false); }
+});
+window.addEventListener('pagehide', function() { if (mState && mState.status !== 'submitted') { mtWritePending(); mtSaveDraft(false); } });
+
+// ── Submit ──────────────────────────────────────────────────────────────────
+// Every task needs a status (Pending isn't allowed). Follow-ups need a note;
+// Complete on the water-pressure / pier-depth tasks needs the reading.
+// Follow-ups can stay open after submitting — they stay on the Mothership until resolved.
+function mtProblems(tasks, responses, readings) {
+  var p = [];
+  tasks.forEach(function(t, i) {
+    var r = responses[t.id] || {};
+    var st = r.status || 'pending';
+    var n = '#' + (i + 1) + ' ' + (t.text.length > 48 ? t.text.slice(0, 46) + '…' : t.text);
+    if (st === 'pending') p.push({ id: t.id, msg: n + ' — no status yet' });
+    else if (st === 'follow_up' && !String(r.note || '').trim()) p.push({ id: t.id, msg: n + ' — add a note for the follow-up' });
+    else if (st === 'complete' && t.reading === 'psi' && (readings.waterPressurePsi === null || readings.waterPressurePsi === undefined || readings.waterPressurePsi === '' || isNaN(readings.waterPressurePsi))) p.push({ id: t.id, msg: n + ' — enter the psi reading' });
+    else if (st === 'complete' && t.reading === 'pier' && (readings.pierDepth === null || readings.pierDepth === undefined || readings.pierDepth === '' || isNaN(readings.pierDepth))) p.push({ id: t.id, msg: n + ' — enter the pier depth (or mark Not Applicable)' });
+  });
+  return p;
+}
+function mtShowProblems(list, title) {
+  var ban = document.getElementById('mtBanner');
+  ban.innerHTML = '<div class="mt-banner warn"><b>' + esc(title) + '</b><ul style="margin:6px 0 0 18px">' +
+    list.slice(0, 20).map(function(x) { return '<li><a href="#" onclick="mtJump(\'' + x.id + '\');return false" style="color:inherit">' + esc(x.msg) + '</a></li>'; }).join('') +
+    (list.length > 20 ? '<li>…and ' + (list.length - 20) + ' more</li>' : '') + '</ul></div>';
+  window.scrollTo(0, 0);
+}
+function mtJump(id) { var el = document.getElementById('mt-task-' + id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+function mtSubmit() {
+  if (mtReadOnly()) return;
+  var s = mState;
+  var probs = mtProblems(s.tasks, s.responses, s.readings);
+  if (probs.length) { mtShowProblems(probs, 'Before you can submit:'); showToast(probs.length + ' item' + (probs.length === 1 ? '' : 's') + ' still need attention', 3500); return; }
+  var ph = mtPendingPhotoCount();
+  if (ph.uploading || ph.failed) {
+    if (ph.failed) mtUploadPendingPhotos(true);
+    showToast((ph.uploading + ph.failed) + ' photo' + (ph.uploading + ph.failed === 1 ? '' : 's') + ' still uploading — wait a moment and try again.', 4500);
+    return;
+  }
+  var c = maintCounts(s.tasks, s.responses);
+  if (!confirm('Submit the ' + maintSeasonLabel(s.season, s.year) + ' maintenance checklist for ' + s.home + '?\n\n' +
+      c.complete + ' complete · ' + c.follow_up + ' follow-up · ' + c.na + ' not applicable\n\nAfter submitting it becomes read-only. Follow-ups stay open on the Mothership until resolved.')) return;
+  if (!db) { showToast('Not connected — your draft is saved on this device.'); return; }
+  var btn = document.getElementById('mtSubmitBtn');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+  var now = maintNowIso(), who = maintWho(), uid = currentUser ? currentUser.id : '';
+  var ref = db.collection(MAINT_COLLECTION).doc(s.docId);
+  var final = null;
+  db.runTransaction(function(tx) {
+    return tx.get(ref).then(function(snap) {
+      var cur = snap.exists ? snap.data() : null;
+      if (cur && cur.status === 'submitted') { var er = new Error('already submitted'); er.code = 'tlp/already-submitted'; er.by = cur.submittedBy; er.at = cur.submittedAt; throw er; }
+      // Combine with anything a teammate saved meanwhile — newest answer per task wins.
+      var merged = {}, cr = (cur && cur.responses) || {};
+      s.tasks.forEach(function(t) {
+        var mine = s.responses[t.id] ? mtCloudResp(s.responses[t.id]) : null, theirs = cr[t.id] || null;
+        var pick = (!theirs || (mine && String(mine.updatedAt || '') >= String(theirs.updatedAt || ''))) ? mine : theirs;
+        if (pick) merged[t.id] = pick;
+      });
+      var readings = Object.assign({}, s.readings);
+      if (cur && cur.readings && String(cur.readings.updatedAt || '') > String(readings.updatedAt || '')) readings = Object.assign({}, cur.readings);
+      var again = mtProblems(s.tasks, merged, readings);
+      if (again.length) { var e2 = new Error('changed'); e2.code = 'tlp/changed'; e2.merged = merged; e2.readings = readings; throw e2; }
+      var submission = { submittedAt: now, submittedBy: who, submittedById: uid, checklistVersion: MAINT_CHECKLIST_VERSION,
+        tasks: s.tasks, responses: merged, readings: readings };
+      var data = mtBaseFields();
+      Object.assign(data, { checklistVersion: MAINT_CHECKLIST_VERSION, tasks: s.tasks, responses: merged, readings: readings,
+        status: 'submitted', submittedAt: now, submittedBy: who, submittedById: uid,
+        lastUpdatedAt: now, lastUpdatedBy: who, lastUpdatedById: uid,
+        submissions: ((cur && cur.submissions) || []).concat([submission]) });
+      if (!cur) { data.createdAt = now; data.createdBy = who; data.createdById = uid; }
+      tx.set(ref, data, { merge: true });
+      final = Object.assign({}, cur || {}, data);
+    });
+  }).then(function() {
+    var all = mtReadPendingAll(); delete all[s.docId];
+    try { localStorage.setItem(MAINT_PENDING_KEY, JSON.stringify(all)); } catch (e) {}
+    btn.disabled = false; btn.innerHTML = 'Submit Checklist &#8594;';
+    showToast('Checklist submitted ✓', 3500);
+    mtStart(s, final, true);
+  }).catch(function(e) {
+    btn.disabled = false; btn.innerHTML = 'Submit Checklist &#8594;';
+    console.warn('[MAINT] submit failed', e);
+    if (e && e.code === 'tlp/already-submitted') {
+      alert('This checklist was already submitted by ' + (e.by || 'someone else') + ' (' + maintFmt(e.at) + '). Opening the submitted version.');
+      ref.get().then(function(sn) { mtStart(s, sn.data(), true); }).catch(function() {});
+    } else if (e && e.code === 'tlp/changed') {
+      // A teammate changed some tasks meanwhile — show the combined answers.
+      s.responses = JSON.parse(JSON.stringify(e.merged)); s.readings = e.readings; s.dirty = {}; s.dirtyReadings = false;
+      mtRender();
+      mtShowProblems(mtProblems(s.tasks, s.responses, s.readings), 'A teammate updated this checklist. Please review:');
+    } else if (e && e.code === 'permission-denied') {
+      showToast(mtRulesMessage(e), 6000);
+    } else {
+      mtSaveDraft(false);
+      showToast('Couldn’t submit — you need a connection. Your draft is saved; try again when you’re back online.', 6000);
+    }
+  });
+}
+// ══ end SEASONAL MAINTENANCE ═════════════════════════════════════════════════
+
 function formatDate(d) {
   if (!d) return '';
   var p=d.split('-'); if (p.length!==3) return d;

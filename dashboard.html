@@ -707,6 +707,36 @@ body{background:var(--content-bg)}
 .sm-homes{padding:8px 12px 10px;gap:5px}
 .sm-home{padding:4px 9px;font-size:12px}
 .sm-hint{margin-top:8px;font-size:11.5px;color:#5A6678}
+/* ── Maintenance Dashboard (2026-11-24) ── */
+.stat-card.green{border-left-color:#1E7B45}
+.mn-card-on{outline:2px solid var(--blue);outline-offset:-2px}
+.mn-filters{grid-template-columns:130px 110px minmax(0,1.4fr) minmax(0,1fr) minmax(0,1.2fr)}
+.mn-filters input{height:48px;border:1px solid #C9D2DE;border-radius:10px;padding:0 14px;font-size:16px;background:white;color:#1F2B3D;outline:none}
+.mn-filters input:focus{border-color:var(--blue)}
+.mn-prog{display:flex;align-items:center;gap:8px;min-width:150px}
+.mn-bar{flex:1;height:7px;background:var(--mid-gray);border-radius:5px;overflow:hidden}
+.mn-bar>div{height:100%;background:#1E7B45}
+.mn-hint{font-size:11px;color:var(--dark-gray);line-height:1.4}
+.mn-k{display:inline-block;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--dark-gray);margin-right:6px}
+.mn-detail{padding:12px 6px 16px;background:#FAFBFD}
+.mn-meta,.mn-readings{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:12.5px;margin-bottom:10px}
+.mn-readings{background:#EEF4FB;border-radius:8px;padding:8px 12px}
+table.mn-tasks{background:white;border:1px solid var(--mid-gray);border-radius:8px}
+table.mn-tasks th{position:static}
+.mn-ttext{max-width:340px;white-space:normal;line-height:1.4}
+.mn-note{max-width:260px;white-space:pre-wrap;line-height:1.4}
+.mn-row-fu td{background:#FFF8F7}
+.mn-thumb{width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--mid-gray);margin:0 4px 4px 0;cursor:pointer;vertical-align:middle}
+.mn-res-input{width:100%;min-width:150px;border:1.5px solid var(--mid-gray);border-radius:7px;padding:5px 8px;font-size:12px;margin:4px 0}
+.mn-btn{background:var(--navy);color:white;border:none;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer}
+.mn-btn.ghost{background:white;color:var(--navy);border:1.5px solid var(--mid-gray)}
+.mn-fu-open{font-weight:800;color:var(--red);font-size:12px}
+.mn-fu-done{font-weight:800;color:#1E7B45;font-size:12px}
+.mn-subs{margin-top:12px;font-size:12.5px}
+.mn-sub-row{padding:6px 0;border-top:1px solid var(--mid-gray)}
+.mn-snap{margin:6px 0 10px;padding:8px;border:1px dashed var(--mid-gray);border-radius:8px}
+.mn-open td{background:#F3F7FC}
+@media (max-width:980px){.mn-filters{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
@@ -753,7 +783,7 @@ body{background:var(--content-bg)}
         <button type="button" class="tab-btn nav-item" data-tab="openissues" onclick="switchTab('openissues',this)"><span class="nav-ic" data-icon="alertTriangle"></span><span class="nav-lbl">Open Issues</span><span class="nav-badge" id="nav-oi-count" aria-label=""></span></button>
         <button type="button" class="tab-btn nav-item" data-tab="supplyinv" onclick="switchTab('supplyinv',this)"><span class="nav-ic" data-icon="box"></span><span class="nav-lbl">Supply Inventory</span></button>
       </div>
-      <div class="nav-group" role="group" aria-labelledby="navGroup1-lbl">
+      <div class="nav-group" role="group" aria-labelledby="navGroup1-lbl" id="navGroupSeasonal">
         <div class="nav-group-lbl" id="navGroup1-lbl">Seasonal Inspections</div>
         <button type="button" class="tab-btn nav-item" data-tab="seadash" onclick="switchTab('seadash',this)"><span class="nav-ic" data-icon="clipboard"></span><span class="nav-lbl">Seasonal Dashboard</span></button>
         <button type="button" class="tab-btn nav-item" data-tab="seasonal" onclick="switchTab('seasonal',this)"><span class="nav-ic" data-icon="clipboardCheck"></span><span class="nav-lbl">Seasonal Inspections</span></button>
@@ -891,6 +921,33 @@ body{background:var(--content-bg)}
           <div id="productivityContactCards" class="staff-card-row"><div class="loading">Loading…</div></div>
         </div>
         <div class="tbl-wrap"><div id="productivityTable"><div class="loading">Loading…</div></div></div>
+      </div>
+    </div>
+
+    <!-- MAINTENANCE DASHBOARD (added 2026-11-24) — Spring/Fall maintenance checklists
+         from the Inspections App. Manager/admin only (nav entry added by
+         initMaintenanceTab(); switchTab() also blocks it). See renderMaintenance(). -->
+    <div class="tab-panel" id="tab-maintenance">
+      <div class="sv-filters mn-filters" role="group" aria-label="Maintenance Dashboard filters">
+        <label class="sv-field"><span>Season</span><select id="mn-season" onchange="renderMaintenance()"></select></label>
+        <label class="sv-field"><span>Year</span><select id="mn-year" onchange="renderMaintenance()"></select></label>
+        <label class="sv-field"><span>Search home</span><input id="mn-search" oninput="renderMaintenance()" placeholder="Home name…"></label>
+        <label class="sv-field"><span>Status</span><select id="mn-status" onchange="renderMaintenance()"><option value="">All statuses</option><option value="not_started">Not Started</option><option value="in_progress">In Progress</option><option value="submitted">Submitted</option><option value="followups">Has open follow-ups</option></select></label>
+        <label class="sv-field"><span>Operations Contact</span><select id="mn-mgr" onchange="renderMaintenance()"><option value="">All Operations Contacts</option></select></label>
+      </div>
+      <div class="sv-period" id="mn-period" aria-live="polite"></div>
+      <div class="stats-row stats-row-compact stats-row-5" id="mn-cards"></div>
+      <div class="card">
+        <div class="card-hdr"><div><div class="card-title" id="mn-fu-title">⚑ Open follow-ups</div><div class="card-sub">Every task flagged Needs Follow-Up — from drafts and submitted checklists — until a manager marks it resolved.</div></div></div>
+        <div class="tbl-wrap" style="max-height:420px"><div id="mn-fu-body"><div class="loading">Loading…</div></div></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr">
+          <div><div class="card-title">🧰 Seasonal Maintenance — one row per home</div><div class="card-sub">Drafts appear as soon as the crew saves them. Open a row to see every task, note, photo and reading.</div></div>
+          <div class="spacer"></div>
+          <div class="filters"><select id="mn-sort" onchange="renderMaintenance()"><option value="home">Sort: Home A–Z</option><option value="status">Sort: Status</option><option value="updated">Sort: Last updated</option><option value="followups">Sort: Most follow-ups</option><option value="manager">Sort: Operations Contact</option></select></div>
+        </div>
+        <div class="tbl-wrap"><div id="mn-table"><div class="loading">Loading…</div></div></div>
       </div>
     </div>
 
@@ -1340,7 +1397,7 @@ function applyTrackData(doc){
 }
 // Rebuild the Operations Contact roster from the (now Track-updated) homes and
 // refresh every contact dropdown, keeping whatever each one had selected.
-var CONTACT_SELECT_IDS=['sd-mgr','qd-mgr','ql-mgr','cp-mgr','il-mgr','si-mgr','sup-mgr','pr-mgr','un-mgr'];
+var CONTACT_SELECT_IDS=['sd-mgr','qd-mgr','ql-mgr','cp-mgr','il-mgr','si-mgr','sup-mgr','pr-mgr','un-mgr','mn-mgr'];
 function refreshContactLists(){
   MANAGERS=Array.from(new Set(PROPERTIES.map(function(p){return p.manager;}).filter(Boolean))).sort().filter(function(m){return RETIRED_CONTACTS.indexOf(m)===-1;});
   CONTACT_SELECT_IDS.forEach(function(id){
@@ -1486,6 +1543,7 @@ function showApp(){
   populateContactSelect('un-mgr');
   initMyHousesTab();
   initProductivityTab();
+  initMaintenanceTab();
   loadData().then(function(){
     updateLastSyncedDisplays();
   }).catch(function(e){
@@ -1561,12 +1619,12 @@ function loadBackgroundExtras(){
 }
 // 2026-11-11 (speed): the page on screen is drawn first; the hidden pages are
 // drawn right after, one per task, so the first view appears ~1 s sooner.
-var RENDER_BY_TAB={insplog:'renderInspLog',seasonal:'renderSeasonal',seadash:'renderSeaDash',qcdash:'renderQCDash',qclog:'renderQCLog',openissues:'renderOpenIssues',supplyinv:'renderSupplyReqs',myhouses:'renderMyHouses',productivity:'renderProductivity',unfinished:'renderUnfinished'};
+var RENDER_BY_TAB={insplog:'renderInspLog',seasonal:'renderSeasonal',seadash:'renderSeaDash',qcdash:'renderQCDash',qclog:'renderQCLog',openissues:'renderOpenIssues',supplyinv:'renderSupplyReqs',myhouses:'renderMyHouses',productivity:'renderProductivity',unfinished:'renderUnfinished',maintenance:'renderMaintenance'};
 var _renderQueue=[];
 function renderAll(){
   setTimeout(updateNavBadges,0);
   var act=(document.querySelector('.tab-panel.active')||{id:''}).id.slice(4);
-  var order=['renderInspLog','renderSeasonal','renderSeaDash','renderQCDash','renderQCLog','renderOpenIssues','renderSupplyReqs','renderMyHouses','renderProductivity','renderUnfinished'];
+  var order=['renderInspLog','renderSeasonal','renderSeaDash','renderQCDash','renderQCLog','renderOpenIssues','renderSupplyReqs','renderMyHouses','renderProductivity','renderUnfinished','renderMaintenance'];
   var first=RENDER_BY_TAB[act];
   if(first){ try{ window[first](); }catch(e){ console.error('[RENDER] '+first,e); } }
   var rest=order.filter(function(f){return f!==first;});
@@ -1681,6 +1739,7 @@ function refreshDashboardData(){
   var btn=document.getElementById('refreshBtn');
   if(btn){btn.disabled=true; btn.setAttribute('aria-busy','true'); var bl=btn.querySelector('.refresh-lbl'); if(bl) bl.textContent='Refreshing…'; else btn.textContent='Refreshing…';}
   renderSyncAgo();
+  try{ reloadMaintenance(); }catch(e){}
   _dashRefreshPromise=Promise.all([loadData(),loadComplaints()]).then(function(){
     updateLastSyncedDisplays();
     showToast('Dashboard refreshed ✓');
@@ -1695,6 +1754,269 @@ function refreshDashboardData(){
   });
   return _dashRefreshPromise;
 }
+
+// ══ MAINTENANCE DASHBOARD (added 2026-11-24) ══════════════════════════════════
+// Spring / Fall maintenance checklists filled in by the crew in the Inspections
+// App (see index.html's SEASONAL MAINTENANCE block). One record per home + season
+// + year in maintenance_checklists/{homeKey}_{season}_{year}; no record = Not
+// Started. Manager / admin accounts only (the nav entry is only added for them,
+// and switchTab() blocks the page for everyone else).
+// Live: a Firestore listener keeps this page current, so a crew member's saved
+// draft shows up here within seconds without pressing Refresh.
+// Follow-ups stay listed until a manager resolves them here. Resolving writes
+// followUpResolutions.<taskId> only — the crew's answers and every submitted copy
+// (submissions[]) are never changed.
+var MAINT_COLLECTION='maintenance_checklists';
+var MAINT_PSI_TARGET={min:50,max:60};
+var MAINT_STATUS_LABEL={complete:'Complete',follow_up:'Needs Follow-Up',na:'Not Applicable',pending:'Pending'};
+var _maint=null, _maintError=null, _maintUnsub=null, _mnOpen={}, _mnPhotos={}, _mnHist={};
+function maintCanView(){return !!(currentUser&&(currentUser.role==='manager'||currentUser.role==='admin'));}
+function maintCurrentSeason(d){d=d||new Date();var m=d.getMonth()+1,y=d.getFullYear();if(m>=3&&m<=8)return{season:'spring',year:y};if(m>=9)return{season:'fall',year:y};return{season:'fall',year:y-1};}
+function maintSeasonLabel(s,y){return (s==='spring'?'Spring':'Fall')+' '+y;}
+function maintFmt(iso){if(!iso)return '';var d=new Date(iso);if(isNaN(d))return '';return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});}
+function maintCounts(tasks,responses){
+  var c={total:(tasks||[]).length,done:0,complete:0,follow_up:0,na:0};
+  (tasks||[]).forEach(function(t){var st=((responses||{})[t.id]||{}).status;if(st==='complete'||st==='follow_up'||st==='na'){c.done++;c[st]++;}});
+  return c;
+}
+// A follow-up is open until a manager resolves it. If the crew flags the same task
+// again after it was resolved (a newer answer), it counts as open again.
+function maintFollowUpOpen(d,taskId){
+  var r=((d.responses||{})[taskId])||{};
+  if(r.status!=='follow_up')return false;
+  var res=(d.followUpResolutions||{})[taskId];
+  return !(res&&res.resolved&&String(res.resolvedAt||'')>=String(r.updatedAt||''));
+}
+function maintOpenFollowUps(d){return (d.tasks||[]).filter(function(t){return maintFollowUpOpen(d,t.id);});}
+
+function initMaintenanceTab(){
+  var nav=document.getElementById('navGroupSeasonal')||document.getElementById('tabNav');
+  var existing=document.getElementById('maintTabBtn'); if(existing) existing.remove();
+  if(maintCanView()&&nav){
+    var btn=document.createElement('button');
+    btn.type='button'; btn.className='tab-btn nav-item'; btn.id='maintTabBtn'; btn.setAttribute('data-tab','maintenance');
+    btn.innerHTML='<span class="nav-ic" data-icon="wrench"></span><span class="nav-lbl">Maintenance Dashboard</span><span class="nav-badge" id="nav-mn-count" aria-label=""></span>';
+    btn.onclick=function(){switchTab('maintenance',btn);};
+    nav.appendChild(btn); paintNavIcons(btn);
+  }
+}
+// Starts (once) a live listener on the whole collection — about 130 homes × 2
+// seasons a year, so it stays small. Re-renders whenever anything changes.
+function startMaintenanceListener(){
+  if(!maintCanView()||!db||_maintUnsub)return;
+  _maintUnsub=db.collection(MAINT_COLLECTION).onSnapshot(function(snap){
+    _maint=snap.docs.map(function(d){return Object.assign({_id:d.id},d.data());});
+    _maintError=null;
+    try{renderMaintenance();}catch(e){console.error('[MAINT] render',e);}
+  },function(e){
+    console.warn('[MAINT] listener failed',e);
+    _maintError=e; _maintUnsub=null;
+    try{renderMaintenance();}catch(e2){}
+  });
+}
+function reloadMaintenance(){
+  if(!maintCanView()||!db)return Promise.resolve();
+  if(!_maintUnsub){ _maintError=null; startMaintenanceListener(); return Promise.resolve(); }
+  return db.collection(MAINT_COLLECTION).get().then(function(snap){
+    _maint=snap.docs.map(function(d){return Object.assign({_id:d.id},d.data());}); _maintError=null; renderMaintenance();
+  }).catch(function(e){console.warn('[MAINT] reload failed',e);});
+}
+function mnPopulateFilters(){
+  var cur=maintCurrentSeason();
+  var ss=document.getElementById('mn-season'), ys=document.getElementById('mn-year');
+  if(ss&&!ss.options.length){ss.innerHTML='<option value="spring">Spring</option><option value="fall">Fall</option>';ss.value=cur.season;}
+  if(ys){
+    var keep=ys.value||String(cur.year), calY=new Date().getFullYear(), years={};
+    for(var y=Math.min(cur.year,calY)-1;y<=calY+1;y++) years[y]=1;
+    (_maint||[]).forEach(function(d){if(d.year) years[d.year]=1;});
+    var list=Object.keys(years).map(Number).sort();
+    if(ys.options.length!==list.length||[].some.call(ys.options,function(o,i){return Number(o.value)!==list[i];})){
+      ys.innerHTML=list.map(function(y){return '<option value="'+y+'">'+y+'</option>';}).join('');
+    }
+    ys.value=keep;
+    if(!ys.value) ys.value=String(cur.year);
+  }
+  populateContactSelect('mn-mgr');
+}
+function mnStatusBadge(st){
+  if(st==='submitted')return '<span class="badge b-ready">Submitted</span>';
+  if(st==='in_progress')return '<span class="badge b-pending">In Progress</span>';
+  return '<span class="badge b-never">Not Started</span>';
+}
+function mnTaskBadge(st){
+  if(st==='complete')return '<span class="badge b-ok">✓ Complete</span>';
+  if(st==='follow_up')return '<span class="badge b-issue">⚑ Needs Follow-Up</span>';
+  if(st==='na')return '<span class="badge b-void">Not Applicable</span>';
+  return '<span class="badge b-never">Pending</span>';
+}
+function mnSetStatus(v){var el=document.getElementById('mn-status');if(el){el.value=(el.value===v?'':v);}renderMaintenance();}
+function mnToggle(key){_mnOpen[key]=!_mnOpen[key];renderMaintenance();}
+function mnPhoto(k,i){var p=_mnPhotos[k];if(p)invdPvOpen(p.urls,i,p.title);}
+function mnPhotosHtml(urls,title){
+  urls=normalizePhotoUrls(urls,'maint');
+  if(!urls.length)return '—';
+  var k='p'+Object.keys(_mnPhotos).length; _mnPhotos[k]={urls:urls,title:title};
+  return urls.map(function(u,i){return '<img src="'+esc(u)+'" alt="Photo '+(i+1)+'" class="mn-thumb" loading="lazy" onclick="mnPhoto(\''+k+'\','+i+')">';}).join('');
+}
+function mnReadingsHtml(d){
+  var r=d.readings||{}, resp=d.responses||{};
+  var psi=r.waterPressurePsi, psiTxt;
+  if(((resp.water_pressure||{}).status)==='na') psiTxt='Not applicable';
+  else if(psi===null||psi===undefined||psi==='') psiTxt='<span style="color:var(--dark-gray)">Not recorded</span>';
+  else { var out=psi<MAINT_PSI_TARGET.min||psi>MAINT_PSI_TARGET.max; psiTxt='<b'+(out?' style="color:var(--red)"':'')+'>'+esc(String(psi))+' psi</b>'+(out?' <span class="badge b-issue">outside 50–60 target</span>':' <span class="badge b-ok">in target</span>'); }
+  var pier;
+  if(((resp.pier_depth||{}).status)==='na') pier='Not applicable (no pier)';
+  else if(r.pierDepth===null||r.pierDepth===undefined||r.pierDepth==='') pier='<span style="color:var(--dark-gray)">Not recorded</span>';
+  else pier='<b>'+esc(String(r.pierDepth))+' '+esc(r.pierUnit==='in'?'in':'ft')+'</b>';
+  return '<div class="mn-readings"><div><span class="mn-k">Water pressure</span> '+psiTxt+' <span class="mn-hint">(target '+MAINT_PSI_TARGET.min+'–'+MAINT_PSI_TARGET.max+' psi)</span></div><div><span class="mn-k">Pier depth</span> '+pier+'</div></div>';
+}
+function mnTaskTableHtml(d,tasks,responses,live){
+  var html='<table class="mn-tasks"><thead><tr><th>#</th><th>Task</th><th>Status</th><th>Note</th><th>Photos</th><th>Updated</th>'+(live?'<th>Follow-up</th>':'')+'</tr></thead><tbody>';
+  (tasks||[]).forEach(function(t,i){
+    var r=(responses||{})[t.id]||{}, st=r.status||'pending';
+    var fuCell='';
+    if(live){
+      if(st==='follow_up'){
+        var res=(d.followUpResolutions||{})[t.id], open=maintFollowUpOpen(d,t.id);
+        var nid='mn-rn-'+d._id+'-'+t.id;
+        fuCell=open
+          ? '<div class="mn-fu-open">Open</div><input id="'+nid+'" class="mn-res-input" placeholder="Resolution note (optional)"><button type="button" class="mn-btn" onclick="mnResolve(\''+d._id+'\',\''+t.id+'\',true)">Mark resolved</button>'
+          : '<div class="mn-fu-done">Resolved</div><div class="mn-hint">'+esc(res.resolvedBy||'')+' · '+esc(maintFmt(res.resolvedAt))+(res.note?'<br>'+esc(res.note):'')+'</div><button type="button" class="mn-btn ghost" onclick="mnResolve(\''+d._id+'\',\''+t.id+'\',false)">Reopen</button>';
+      } else fuCell='—';
+    }
+    html+='<tr class="'+(st==='follow_up'?'mn-row-fu':'')+'"><td>'+(i+1)+'</td><td class="mn-ttext">'+esc(t.text||'')+'</td><td>'+mnTaskBadge(st)+'</td>'+
+      '<td class="mn-note">'+(r.note?esc(r.note):'—')+'</td><td>'+mnPhotosHtml(r.photos,'#'+(i+1)+' '+(t.text||''))+'</td>'+
+      '<td class="mn-hint">'+(r.updatedBy?esc(r.updatedBy)+'<br>'+esc(maintFmt(r.updatedAt)):'—')+'</td>'+(live?'<td>'+fuCell+'</td>':'')+'</tr>';
+  });
+  return html+'</tbody></table>';
+}
+function mnDetailHtml(row){
+  var d=row.doc;
+  if(!d) return '<div class="mn-detail"><div class="mn-hint">No work started yet for '+esc(maintSeasonLabel(row.season,row.year))+'. The checklist appears here as soon as someone on the crew saves it in the Inspections App.</div></div>';
+  var subs=d.submissions||[];
+  var html='<div class="mn-detail"><div class="mn-meta">'+
+    '<div><span class="mn-k">Started</span> '+esc(d.createdBy||'—')+(d.createdAt?' · '+esc(maintFmt(d.createdAt)):'')+'</div>'+
+    '<div><span class="mn-k">Last updated</span> '+esc(d.lastUpdatedBy||'—')+(d.lastUpdatedAt?' · '+esc(maintFmt(d.lastUpdatedAt)):'')+'</div>'+
+    '<div><span class="mn-k">Submitted</span> '+(d.status==='submitted'?esc(d.submittedBy||'')+' · '+esc(maintFmt(d.submittedAt)):'<span style="color:var(--dark-gray)">Not yet — this is a draft</span>')+'</div>'+
+    '</div>'+mnReadingsHtml(d)+mnTaskTableHtml(d,d.tasks,d.responses,true);
+  if(subs.length){
+    html+='<div class="mn-subs"><div class="mn-k" style="margin-bottom:4px">Submission history</div>';
+    subs.forEach(function(s,i){
+      var hk=d._id+'#'+i, c=maintCounts(s.tasks,s.responses);
+      html+='<div class="mn-sub-row">Submission '+(i+1)+' — '+esc(s.submittedBy||'')+' · '+esc(maintFmt(s.submittedAt))+' · '+c.complete+' complete, '+c.follow_up+' follow-up, '+c.na+' N/A · checklist v'+esc(String(s.checklistVersion||1))+
+        ' <button type="button" class="mn-btn ghost" onclick="_mnHist[\''+hk+'\']=!_mnHist[\''+hk+'\'];renderMaintenance()">'+(_mnHist[hk]?'Hide':'View as submitted')+'</button></div>';
+      if(_mnHist[hk]) html+='<div class="mn-snap">'+mnReadingsHtml({readings:s.readings,responses:s.responses})+mnTaskTableHtml(d,s.tasks,s.responses,false)+'</div>';
+    });
+    html+='</div>';
+  }
+  return html+'</div>';
+}
+function mnResolve(docId,taskId,resolved){
+  if(!maintCanView()){showToast('Only managers can resolve follow-ups');return;}
+  var inp=document.getElementById('mn-rn-'+docId+'-'+taskId)||document.getElementById('mn-frn-'+docId+'-'+taskId);
+  var note=inp?String(inp.value||'').trim():'';
+  if(!resolved&&!confirm('Reopen this follow-up?'))return;
+  var now=new Date().toISOString(), who=(currentUser&&(currentUser.name||currentUser.username))||'';
+  var entry={resolved:resolved,resolvedAt:now,resolvedBy:who,note:resolved?note:'',
+    history:firebase.firestore.FieldValue.arrayUnion({action:resolved?'resolved':'reopened',by:who,at:now,note:note})};
+  var patch={followUpResolutions:{}}; patch.followUpResolutions[taskId]=entry;
+  db.collection(MAINT_COLLECTION).doc(docId).set(patch,{merge:true}).then(function(){
+    showToast(resolved?'Follow-up resolved ✓':'Follow-up reopened');
+  }).catch(function(e){console.error('[MAINT] resolve failed',e);showToast('Could not save — check your connection');});
+}
+function mnRows(season,year){
+  var byKey={};
+  (_maint||[]).forEach(function(d){if(d.season===season&&Number(d.year)===year) byKey[d.homeKey||String(d._id).replace(/_(spring|fall)_\d+$/,'')]=d;});
+  var rows=[], seen={};
+  PROPERTIES.forEach(function(p){
+    var k=trackNameKey(p.name); if(seen[k])return;
+    var d=byKey[k]; if(p.inactive&&!d)return;
+    seen[k]=1; rows.push({key:k,home:p.name,manager:p.manager||'',inactive:!!p.inactive,doc:d||null,season:season,year:year});
+  });
+  Object.keys(byKey).forEach(function(k){ if(!seen[k]){var d=byKey[k]; rows.push({key:k,home:d.home||k,manager:d.operationsContact||'',inactive:true,doc:d,season:season,year:year});} });
+  rows.forEach(function(r){
+    var d=r.doc;
+    r.status=d?(d.status||'in_progress'):'not_started';
+    r.counts=d?maintCounts(d.tasks,d.responses):null;
+    r.openFU=d?maintOpenFollowUps(d):[];
+  });
+  return rows;
+}
+function renderMaintenance(){
+  var panel=document.getElementById('tab-maintenance'); if(!panel)return;
+  if(!maintCanView()){panel.innerHTML='<div class="card"><div class="loading">The Maintenance Dashboard is available to Ops managers only.</div></div>';return;}
+  if(!_maint&&!_maintError){ startMaintenanceListener(); }
+  mnPopulateFilters();
+  var season=document.getElementById('mn-season').value, year=Number(document.getElementById('mn-year').value);
+  var q=(document.getElementById('mn-search').value||'').trim().toLowerCase();
+  var stF=document.getElementById('mn-status').value, mgr=document.getElementById('mn-mgr').value, sort=document.getElementById('mn-sort').value;
+  var start=season==='spring'?'Mar 1, '+year:'Sep 1, '+year, end=season==='spring'?'Aug 31, '+year:'end of Feb '+(year+1);
+  document.getElementById('mn-period').innerHTML='<span class="sv-period-lbl">Viewing</span> <b>'+esc(maintSeasonLabel(season,year))+'</b> <span>Maintenance checklist · '+esc(start)+' – '+esc(end)+' · Spring and Fall are tracked separately for each year</span>';
+  var tbl=document.getElementById('mn-table'), cards=document.getElementById('mn-cards'), fuBox=document.getElementById('mn-fu-body');
+  if(_maintError){
+    var msg=_maintError.code==='permission-denied'?'The database rules don\'t allow reading maintenance checklists yet. An admin needs to publish the updated Firestore rules (maintenance_checklists).':'Couldn\'t load maintenance checklists — check your connection and press Refresh.';
+    tbl.innerHTML='<div class="loading" style="color:var(--red)">'+esc(msg)+'</div>'; cards.innerHTML=''; fuBox.innerHTML=''; return;
+  }
+  if(!_maint){tbl.innerHTML='<div class="loading">Loading…</div>';return;}
+  var all=mnRows(season,year).filter(function(r){
+    if(q&&r.home.toLowerCase().indexOf(q)===-1)return false;
+    if(mgr&&!contactMatches(r.manager,mgr))return false;
+    return true;
+  });
+  var n={total:all.length,not_started:0,in_progress:0,submitted:0,fuHomes:0,fu:0};
+  all.forEach(function(r){n[r.status]=(n[r.status]||0)+1; if(r.openFU.length){n.fuHomes++;n.fu+=r.openFU.length;}});
+  function card(cls,num,lbl,f){return '<div class="stat-card '+cls+(f&&stF===f?' mn-card-on':'')+'"'+(f?' role="button" tabindex="0" style="cursor:pointer" onclick="mnSetStatus(\''+f+'\')" onkeydown="if(event.key===\'Enter\')mnSetStatus(\''+f+'\')"':'')+'><div class="stat-num">'+num+'</div><div class="stat-lbl">'+lbl+'</div></div>';}
+  cards.innerHTML=card('navy',n.total,'Homes','')+card('',n.not_started,'Not Started','not_started')+card('orange',n.in_progress,'In Progress','in_progress')+card('green',n.submitted,'Submitted','submitted')+card('red',n.fu,'Open Follow-Ups ('+n.fuHomes+' home'+(n.fuHomes===1?'':'s')+')','followups');
+  var keepVals0={}; document.querySelectorAll('#tab-maintenance .mn-res-input').forEach(function(i){if(i.value)keepVals0[i.id]=i.value;});
+  var focus0=document.activeElement&&document.activeElement.classList&&document.activeElement.classList.contains('mn-res-input')?document.activeElement.id:'';
+  // Open follow-ups list (drafts and submitted) — stays until resolved.
+  var fuItems=[];
+  all.forEach(function(r){r.openFU.forEach(function(t){var x=(r.doc.responses||{})[t.id]||{}; fuItems.push({row:r,task:t,idx:(r.doc.tasks||[]).indexOf(t),resp:x});});});
+  fuItems.sort(function(a,b){return String(a.resp.updatedAt||'').localeCompare(String(b.resp.updatedAt||''));});
+  document.getElementById('mn-fu-title').textContent='⚑ Open follow-ups — '+maintSeasonLabel(season,year)+' ('+fuItems.length+')';
+  fuBox.innerHTML=fuItems.length?'<table><thead><tr><th>Home</th><th>Task</th><th>Note</th><th>Photos</th><th>Flagged</th><th>Checklist</th><th>Resolve</th></tr></thead><tbody>'+fuItems.map(function(f){
+    var d=f.row.doc, nid='mn-frn-'+d._id+'-'+f.task.id;
+    return '<tr><td><a href="#" onclick="_mnOpen[\''+f.row.key+'\']=true;renderMaintenance();var e=document.getElementById(\'mn-row-'+f.row.key+'\');if(e)e.scrollIntoView({block:\'center\'});return false"><b>'+esc(f.row.home)+'</b></a></td>'+
+      '<td class="mn-ttext">#'+(f.idx+1)+' '+esc(f.task.text||'')+'</td><td class="mn-note">'+esc(f.resp.note||'')+'</td><td>'+mnPhotosHtml(f.resp.photos,f.row.home+' — '+(f.task.text||''))+'</td>'+
+      '<td class="mn-hint">'+esc(f.resp.updatedBy||'')+'<br>'+esc(maintFmt(f.resp.updatedAt))+'</td><td>'+mnStatusBadge(f.row.status)+'</td>'+
+      '<td><input id="'+nid+'" class="mn-res-input" placeholder="Resolution note (optional)"><button type="button" class="mn-btn" onclick="mnResolve(\''+d._id+'\',\''+f.task.id+'\',true)">Mark resolved</button></td></tr>';
+  }).join('')+'</tbody></table>':'<div class="mn-hint" style="padding:14px 18px">No open follow-ups for this season. 🎉</div>';
+  // Main table
+  var rows=all.filter(function(r){
+    if(!stF)return true;
+    if(stF==='followups')return r.openFU.length>0;
+    return r.status===stF;
+  });
+  var rank={not_started:0,in_progress:1,submitted:2};
+  rows.sort(function(a,b){
+    if(sort==='status')return (rank[a.status]-rank[b.status])||a.home.localeCompare(b.home);
+    if(sort==='updated')return String((b.doc||{}).lastUpdatedAt||'').localeCompare(String((a.doc||{}).lastUpdatedAt||''))||a.home.localeCompare(b.home);
+    if(sort==='followups')return (b.openFU.length-a.openFU.length)||a.home.localeCompare(b.home);
+    if(sort==='manager')return (a.manager||'').localeCompare(b.manager||'')||a.home.localeCompare(b.home);
+    return a.home.localeCompare(b.home);
+  });
+  _mnPhotos={};
+  if(!rows.length){tbl.innerHTML='<div class="loading">No homes match these filters.</div>';Object.keys(keepVals0).forEach(function(id){var i=document.getElementById(id);if(i)i.value=keepVals0[id];});return;}
+  // Keep anything a manager is typing in a resolution note when the live list re-draws.
+  var keepVals=keepVals0, focusId=focus0;
+  var html='<table class="mn-main"><thead><tr><th>Home</th><th>Operations Contact</th><th>Status</th><th>Task Progress</th><th>Last Updated By</th><th>Open Follow-Ups</th><th></th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    var c=r.counts, d=r.doc, open=!!_mnOpen[r.key];
+    var pct=c&&c.total?Math.round(c.done*100/c.total):0;
+    var prog=c?'<div class="mn-prog"><div class="mn-bar"><div style="width:'+pct+'%"></div></div><span><b>'+c.done+'</b> / '+c.total+'</span></div><div class="mn-hint">'+c.complete+' complete · '+c.follow_up+' follow-up · '+c.na+' N/A</div>':'<span class="mn-hint">—</span>';
+    html+='<tr id="mn-row-'+r.key+'" class="'+(open?'mn-open':'')+'"><td><b>'+esc(r.home)+'</b>'+(r.inactive?' <span class="mn-hint">(inactive)</span>':'')+'</td><td>'+esc(r.manager||'—')+'</td><td>'+mnStatusBadge(r.status)+(d&&d.status==='submitted'?'<div class="mn-hint">'+esc(maintFmt(d.submittedAt))+'</div>':'')+'</td><td>'+prog+'</td>'+
+      '<td>'+(d&&d.lastUpdatedBy?esc(d.lastUpdatedBy)+'<div class="mn-hint">'+esc(maintFmt(d.lastUpdatedAt))+'</div>':'<span class="mn-hint">—</span>')+'</td>'+
+      '<td>'+(r.openFU.length?'<span class="badge b-issue">⚑ '+r.openFU.length+' open</span>':'<span class="mn-hint">None</span>')+'</td>'+
+      '<td><button type="button" class="details-btn'+(r.openFU.length?'':' no-issues')+(open?' open':'')+'" onclick="mnToggle(\''+r.key+'\')"><span class="chev">▸</span> '+(d?'View':'Details')+'</button></td></tr>';
+    if(open) html+='<tr class="mn-detail-row"><td colspan="7">'+mnDetailHtml(r)+'</td></tr>';
+  });
+  tbl.innerHTML=html+'</tbody></table>';
+  Object.keys(keepVals).forEach(function(id){var i=document.getElementById(id);if(i)i.value=keepVals[id];});
+  if(focusId){var fi=document.getElementById(focusId);if(fi){fi.focus();try{fi.setSelectionRange(fi.value.length,fi.value.length);}catch(e){}}}
+  var badge=document.getElementById('nav-mn-count');
+  if(badge){var cur=maintCurrentSeason(), tot=0; (_maint||[]).forEach(function(d){if(d.season===cur.season&&Number(d.year)===cur.year) tot+=maintOpenFollowUps(d).length;}); badge.textContent=tot?String(tot):''; badge.setAttribute('aria-label',tot?tot+' open maintenance follow-ups this season':'');}
+}
+// ══ end MAINTENANCE DASHBOARD ═════════════════════════════════════════════════
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -1993,6 +2315,7 @@ function switchTab(name,btn){
   // into the DOM for a manager or admin in the first place — see showApp() —
   // but this blocks a forged direct call to switchTab('productivity', ...) too).
   if(name==='productivity' && !(currentUser&&(currentUser.role==='manager'||currentUser.role==='admin'))) return;
+  if(name==='maintenance' && !maintCanView()) return;
   var panel=document.getElementById('tab-'+name); if(!panel) return;
   document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active');});
   document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');b.removeAttribute('aria-current');});
@@ -2009,7 +2332,7 @@ function switchTab(name,btn){
 // ── SIDEBAR / PAGE HEADER helpers (2026-11-10 redesign) ──────────────────────
 var PAGE_TITLES={myhouses:'My Houses',insplog:'Check-Ins / Check-Outs',openissues:'Open Issues',supplyinv:'Supply Inventory',
   seadash:'Seasonal Dashboard',seasonal:'Seasonal Inspections',unfinished:'Drafts & Progress',qcdash:'QC Dashboard',qclog:'QC Log',
-  training:'Trainings',complaints:'Complaints',productivity:'Productivity'};
+  training:'Trainings',complaints:'Complaints',productivity:'Productivity',maintenance:'Maintenance Dashboard'};
 function setPageTitle(name){
   var t=PAGE_TITLES[name]||name; var el=document.getElementById('pageTitle'); if(el) el.textContent=t;
   document.title=t+' · Mothership';
