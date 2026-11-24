@@ -35,12 +35,13 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
    label/description fully legible — including longer two-line titles like
    "Back-to-Back — Summer", which still wrap and grow the card's height naturally
    rather than clipping, since no fixed card height or overflow:hidden is set. */
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:16px 16px 12px}
-.form-card{background:white;border-radius:var(--radius);padding:13px 10px;box-shadow:var(--shadow);cursor:pointer;text-align:center;transition:transform .15s,box-shadow .15s;border:2px solid transparent}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:12px 12px 10px}
+/* Compact tiles (2026-11-24): icon left, text right, so the whole menu fits on a phone */
+.form-card{background:white;border-radius:10px;padding:7px 9px;box-shadow:var(--shadow);cursor:pointer;text-align:left;transition:transform .15s,box-shadow .15s;border:2px solid transparent;display:grid;grid-template-columns:24px 1fr;column-gap:8px;align-content:center;align-items:center;min-height:46px}
 .form-card:active{transform:scale(.97);box-shadow:none}
-.form-card .icon{font-size:25px;margin-bottom:5px;display:block}
-.form-card .label{font-size:12.5px;font-weight:700;color:var(--navy);line-height:1.25}
-.form-card .count{font-size:10px;color:var(--dark-gray);margin-top:3px}
+.form-card .icon{font-size:20px;line-height:1;text-align:center;grid-row:span 2}
+.form-card .label{font-size:12.5px;font-weight:700;color:var(--navy);line-height:1.2}
+.form-card .count{font-size:10px;color:var(--dark-gray);margin-top:1px;line-height:1.2}
 .form-card.spring{border-color:#0D7EA6}.form-card.fall{border-color:#CC6600}.form-card.checkin-summer{border-color:var(--blue)}.form-card.checkin-winter{border-color:#5B9FD4}.form-card.checkout-summer{border-color:var(--red)}.form-card.checkout-winter{border-color:#063461}.form-card.kitchen-inv{border-color:#D4870A}.form-card.linen-inv{border-color:#8B5CF6}.form-card.qc{border-color:#7B2D8B}.form-card.supply-inv{border-color:#1A7A3F}
 .section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--dark-gray);padding:0 16px 8px;margin-top:4px}
 .drafts-list{padding:0 16px;display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
@@ -284,7 +285,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .unf-meta{font-size:12px;color:var(--dark-gray);margin-top:2px}
 .unf-open{flex-shrink:0;background:var(--orange);color:white;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer}
 /* ── Seasonal Maintenance (2026-11-24) ── */
-.form-card.maint{border-top:4px solid #5D4037}
+.form-card.maint{border-color:#5D4037}
 .mt-wrap{padding:16px;display:flex;flex-direction:column;gap:14px}
 .mt-card{background:white;border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px}
 .mt-row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
