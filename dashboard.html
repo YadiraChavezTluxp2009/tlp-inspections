@@ -2204,7 +2204,25 @@ function ensureSeasonIssues(recs){
     snap.docs.forEach(function(d){ var r=Object.assign({id:d.id},d.data()); _seasonIssueCache[r.sourceInspectionId+'|'+r.sourceIssueKey]=r; });
     c.forEach(function(id){_seasonIssueLoaded[id]=true;});
   }); })).then(function(){ _seasonIssueError=null; }).catch(function(e){ console.warn('[SEASON-ISSUES] load failed',e); _seasonIssueError=e||{}; ids.forEach(function(id){_seasonIssueLoaded[id]=true;}); })
-  .then(function(){ _seasonIssueLoading=false; if(document.getElementById('tab-seadash')&&document.getElementById('tab-seadash').classList.contains('active')) renderSeaDash(); });
+  .then(function(){ _seasonIssueLoading=false; rerenderSeasonIssueViews(); });
+}
+// 2026-11-27: the issue records loaded above are also what the Seasonal Inspections
+// tab and My Houses' Seasonal section need for older Kitchen/Linen/Spring/Fall
+// reports, so redraw whichever of those screens is open once they arrive.
+function seaTabActive(id){ var el=document.getElementById(id); return !!(el&&el.classList.contains('active')); }
+function rerenderSeasonIssueViews(){
+  if(seaTabActive('tab-seadash')) renderSeaDash();
+  if(seaTabActive('tab-seasonal')) renderSeasonal();
+  if(seaTabActive('tab-myhouses')) renderMyHouses();
+}
+// 2026-11-27: find an issue record by id in either list. Issues older than the
+// newest 1000 live only in _seasonIssueCache; without this, a status change on
+// one saved fine but the screen never updated and the report never cleared.
+function propIssueById(docId){
+  var hit=_propIssues.find(function(x){return x.id===docId;});
+  if(hit) return hit;
+  for(var k in _seasonIssueCache){ if(_seasonIssueCache[k]&&_seasonIssueCache[k].id===docId) return _seasonIssueCache[k]; }
+  return null;
 }
 // Open/closed counts of the maintenance issues reported on a set of seasonal
 // inspections (supply items excluded). Closed = resolved or dismissed.
@@ -2871,7 +2889,7 @@ function addMyHousesIssueUpdate(docId,safeId){
   var now=new Date();
   var entry={text:text,by:currentUser.name,date:now.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
   db.collection('property_issues').doc(docId).update({updates:firebase.firestore.FieldValue.arrayUnion(entry)}).then(function(){
-    var iss=_propIssues.find(function(x){return x.id===docId;});
+    var iss=propIssueById(docId);
     if(iss){ if(!iss.updates)iss.updates=[]; iss.updates.push(entry); }
     input.value='';
     showToast('Update added');
@@ -3085,6 +3103,7 @@ function addMyHousesQCInspUpdate(docId,safeId){
 // isOpenIssuesEligible()). ──
 function myHousesSeasonalSectionHtml(list){
   if(!list.length) return '<div class="mh-empty">No seasonal inspections match these filters.</div>';
+  ensureSeasonIssues(list.filter(function(i){return (i.issues||[]).length>0;}));
   var sorted=list.slice().sort(function(a,b){return (b.submittedAt||'').localeCompare(a.submittedAt||'');});
   var inner='<div class="tbl-wrap"><table class="mh-table"><thead><tr><th>House</th><th>Type</th><th>Date</th><th>Inspector</th><th>Status</th><th></th></tr></thead><tbody>';
   sorted.forEach(function(i){
@@ -3227,7 +3246,7 @@ function addMyHousesSeasonalIssueUpdate(docId,issSafeId){
   var now=new Date();
   var entry={text:text,by:currentUser.name,date:now.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
   db.collection('property_issues').doc(docId).update({updates:firebase.firestore.FieldValue.arrayUnion(entry)}).then(function(){
-    var iss=_propIssues.find(function(x){return x.id===docId;});
+    var iss=propIssueById(docId);
     if(iss){ if(!iss.updates)iss.updates=[]; iss.updates.push(entry); }
     showToast('Update added');
     renderMyHouses();
@@ -3669,6 +3688,7 @@ function renderSeasonal(){
     return true;
   });
   if(!list.length){document.getElementById('seasonalTable').innerHTML='<div class="empty">No seasonal inspections found</div>';return;}
+  ensureSeasonIssues(list.filter(function(i){return (i.issues||[]).length>0;}));
   var html='<table><thead><tr><th>Date</th><th>Property</th><th>Operations Contact</th><th>Inspector</th><th>Season / Type</th><th>Items OK</th><th>Issues Found</th><th>N/A</th><th>Overall Status</th><th>Details</th><th>Photos</th><th>Notes</th></tr></thead><tbody>';
   list.forEach(function(i){
     var mgr=PROPERTIES.find(function(p){return p.name===i.property;});
@@ -5895,7 +5915,7 @@ function confirmIssueStatusChange(docId,safeId){
 // Spot Check issue, mirrors the status back onto its own inspections doc
 // (syncSpotCheckMirror) so the two records never visibly disagree. ──
 function setPropertyIssueStatus(docId,newStatus,note){
-  var iss=_propIssues.find(function(x){return x.id===docId;});
+  var iss=propIssueById(docId);
   var prevStatus=iss?(iss.status||'open'):'open';
   var nowIso=new Date().toISOString();
   var byName=currentUser?currentUser.name:'';
@@ -5932,6 +5952,7 @@ function setPropertyIssueStatus(docId,newStatus,note){
     // property_issues records with inline status controls (see renderSeasonal()) —
     // re-render so a change made from either tab is reflected in both immediately.
     renderSeasonal();
+    if(seaTabActive('tab-seadash')) renderSeaDash();
   }).catch(function(){showToast('Error updating issue');});
 }
 function addPropertyIssueUpdate(docId,safeId){
@@ -5941,7 +5962,7 @@ function addPropertyIssueUpdate(docId,safeId){
   var now=new Date();
   var entry={text:text,by:currentUser.name,date:now.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
   db.collection('property_issues').doc(docId).update({updates:firebase.firestore.FieldValue.arrayUnion(entry)}).then(function(){
-    var iss=_propIssues.find(function(x){return x.id===docId;});
+    var iss=propIssueById(docId);
     if(iss){ if(!iss.updates)iss.updates=[]; iss.updates.push(entry); }
     input.value='';
     showToast('Update added');
@@ -6143,7 +6164,7 @@ function addSeasonalIssueUpdate(docId,issSafeId){
   var now=new Date();
   var entry={text:text,by:currentUser.name,date:now.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})};
   db.collection('property_issues').doc(docId).update({updates:firebase.firestore.FieldValue.arrayUnion(entry)}).then(function(){
-    var iss=_propIssues.find(function(x){return x.id===docId;});
+    var iss=propIssueById(docId);
     if(iss){ if(!iss.updates)iss.updates=[]; iss.updates.push(entry); }
     input.value='';
     showToast('Update added');
@@ -6189,9 +6210,25 @@ function syncSpotCheckMirror(iss){
 // follow-up field.
 function syncInspectionResolution(iss){
   if(!iss||!iss.sourceInspectionId)return;
-  var insp=_insp.find(function(x){return x.id===iss.sourceInspectionId;});
+  var inspId=iss.sourceInspectionId;
+  // 2026-11-27: the report may be older than the newest 500 inspections (seasonal
+  // reports also live in _seasonalAll), and its issues older than the newest 1000
+  // issue records — so read every issue tied to it from Firestore instead of
+  // trusting the partial local lists. Falls back to the local lists if offline.
+  var insp=_insp.find(function(x){return x.id===inspId;})
+    || (_seasonalAll||[]).find(function(x){return x.id===inspId;});
   if(!insp)return;
-  var tied=_propIssues.filter(function(p){return p.sourceInspectionId===insp.id;});
+  db.collection('property_issues').where('sourceInspectionId','==',inspId).get().then(function(snap){
+    return snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+  }).catch(function(){
+    var seen={}, out=[];
+    _propIssues.concat(Object.keys(_seasonIssueCache).map(function(k){return _seasonIssueCache[k];})).forEach(function(p){
+      if(p&&p.sourceInspectionId===inspId&&!seen[p.id]){seen[p.id]=1;out.push(p);}
+    });
+    return out;
+  }).then(function(tied){ applyInspectionResolution(insp,tied); });
+}
+function applyInspectionResolution(insp,tied){
   if(!tied.length)return;
   var allClosed=tied.every(function(p){return p.status==='resolved'||p.status==='dismissed';});
   if(!!insp.resolved===allClosed)return;
@@ -6201,8 +6238,10 @@ function syncInspectionResolution(iss){
   var flip=readyFlipFields(insp,allClosed);
   db.collection('inspections').doc(insp.id).update(Object.assign({resolved:allClosed},flip)).then(function(){
     insp.resolved=allClosed; Object.assign(insp,flip);
+    [_insp,_seasonalAll||[]].forEach(function(arr){ var twin=arr.find(function(x){return x.id===insp.id;}); if(twin&&twin!==insp){ twin.resolved=allClosed; Object.assign(twin,flip); } });
     renderQCLog();
     renderInspLog();
+    renderSeasonal();
     if(allClosed) sendReadyEmailIfNeeded(insp.id);
   }).catch(function(){});
 }
